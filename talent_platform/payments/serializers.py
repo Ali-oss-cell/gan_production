@@ -1,10 +1,38 @@
 from rest_framework import serializers
 from .models import SubscriptionPlan, Subscription, PaymentTransaction
+from .pricing_config import SUBSCRIPTION_PLANS
 
 class SubscriptionPlanSerializer(serializers.ModelSerializer):
+    features = serializers.SerializerMethodField()
+    monthly_equivalent = serializers.SerializerMethodField()
+    stripe_price_id = serializers.SerializerMethodField()
+
     class Meta:
         model = SubscriptionPlan
-        fields = ['id', 'name', 'description', 'price', 'features', 'is_active']
+        fields = [
+            'id',
+            'name',
+            'price',
+            'features',
+            'duration_months',
+            'stripe_price_id',
+            'monthly_equivalent',
+            'is_active'
+        ]
+
+    def get_features(self, obj):
+        # Get features from pricing config
+        plan_config = SUBSCRIPTION_PLANS.get(obj.name.upper())
+        return plan_config['features'] if plan_config else []
+
+    def get_monthly_equivalent(self, obj):
+        # Calculate monthly price
+        return str(float(obj.price) / obj.duration_months)
+
+    def get_stripe_price_id(self, obj):
+        # Get Stripe price ID from config
+        plan_config = SUBSCRIPTION_PLANS.get(obj.name.upper())
+        return plan_config['stripe_price_id'] if plan_config else None
 
 class SubscriptionSerializer(serializers.ModelSerializer):
     plan_name = serializers.CharField(source='plan.name', read_only=True)

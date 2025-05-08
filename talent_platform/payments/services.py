@@ -34,12 +34,17 @@ class StripePaymentService:
     ) -> dict:
         """Create a Stripe checkout session for subscription"""
         try:
+            print(f"Creating checkout session for user {user.id} with plan {plan.name}")
+            
             # Get or create Stripe customer
             if not hasattr(user, 'stripe_customer_id'):
+                print("Creating new Stripe customer")
                 customer_id = StripePaymentService.create_customer(user)
                 user.stripe_customer_id = customer_id
                 user.save()
+                print(f"Created customer with ID: {customer_id}")
 
+            print(f"Creating Stripe checkout session with plan ID: {plan.stripe_price_id}")
             session = stripe.checkout.Session.create(
                 customer=user.stripe_customer_id,
                 payment_method_types=['card'],
@@ -51,51 +56,123 @@ class StripePaymentService:
                 success_url=success_url,
                 cancel_url=cancel_url,
                 metadata={
-                    'plan_id': plan.id,
-                    'user_id': user.id
+                    'plan_id': str(plan.id),  # Ensure plan_id is a string
+                    'user_id': str(user.id)   # Ensure user_id is a string
                 }
             )
+            print(f"Created session with ID: {session.id}")
             return session
         except stripe.error.StripeError as e:
+            print(f"Stripe error: {str(e)}")
             raise Exception(f"Failed to create checkout session: {str(e)}")
 
     @staticmethod
     def handle_webhook_event(payload: dict, sig_header: str) -> bool:
         """Handle Stripe webhook events"""
         try:
+            print("\n=== Webhook Event Received ===")
+            print(f"Payload: {payload}")
+            print(f"Signature header: {sig_header}")
+            
             event = stripe.Webhook.construct_event(
                 payload, sig_header, settings.STRIPE_WEBHOOK_SECRET
             )
             
+            print(f"\nEvent type: {event.type}")
+            
             if event.type == 'checkout.session.completed':
                 session = event.data.object
+                print(f"\nSession data: {session}")
                 user_id = session.metadata.get('user_id')
-                plan_id = session.metadata.get('plan_id')
+                plan_name = session.metadata.get('plan_id')  # This is actually the plan name, e.g., 'SILVER'
                 
-                user = BaseUser.objects.get(id=user_id)
-                plan = SubscriptionPlan.objects.get(id=plan_id)
+                print(f"\nExtracted metadata:")
+                print(f"User ID: {user_id}")
+                print(f"Plan ID: {plan_name}")
                 
-                # Create subscription record
-                subscription = Subscription.objects.create(
-                    user=user,
-                    plan=plan,
-                    stripe_customer_id=session.customer,
-                    stripe_subscription_id=session.subscription,
-                    status='active',
-                    start_date=timezone.now()
-                )
-                
-                # Update user profile based on plan
-                if user.is_talent:
-                    profile = TalentUserProfile.objects.get(user=user)
-                    profile.account_type = plan.name
-                    profile.save()
-                elif user.is_background:
-                    profile = BackGroundJobsProfile.objects.get(user=user)
-                    profile.account_type = plan.name
-                    profile.save()
-                
-                return True
+                try:
+                    user = BaseUser.objects.get(id=user_id)
+                    plan = SubscriptionPlan.objects.get(name__iexact=plan_name.lower())
+                    print(f"\nFound user: {user.email}")
+                    print(f"User type - is_talent: {user.is_talent}, is_background: {user.is_background}")
+                    print(f"Found plan: {plan.name}")
+                    
+                    # Create subscription record
+                    subscription = Subscription.objects.create(
+                        user=user,
+                        plan=plan,
+                        stripe_customer_id=session.customer,
+                        stripe_subscription_id=session.subscription,
+                        status='active',
+                        start_date=timezone.now()
+                    )
+                    print(f"\nCreated subscription: {subscription.id}")
+                    
+                    # Update user profile based on plan
+                    if user.is_talent:
+                        print("\nUser is a talent user")
+                        try:
+                            profile = TalentUserProfile.objects.get(user=user)
+                            print(f"Current account type: {profile.account_type}")
+                            
+                            # Map plan name to account type
+                            account_type = plan.name.lower()
+                            print(f"Updating account type to: {account_type}")
+                            
+                            # Validate account type
+                            valid_types = [choice[0] for choice in TalentUserProfile.ACCOUNT_TYPES]
+                            if account_type not in valid_types:
+                                print(f"Error: Invalid account type {account_type}. Valid types are: {valid_types}")
+                                raise ValueError(f"Invalid account type: {account_type}")
+                            
+                            profile.account_type = account_type
+                            profile.save()
+                            
+                            # Verify the update
+                            updated_profile = TalentUserProfile.objects.get(user=user)
+                            print(f"Updated account type: {updated_profile.account_type}")
+                            
+                        except TalentUserProfile.DoesNotExist:
+                            print(f"Error: Talent profile not found for user {user.id}")
+                            raise
+                            
+                    elif user.is_background:
+                        print("\nUser is a background user")
+                        try:
+                            profile = BackGroundJobsProfile.objects.get(user=user)
+                            print(f"Current account type: {profile.account_type}")
+                            
+                            account_type = 'back_ground_jobs' if plan.name == 'back_ground_jobs' else 'free'
+                            print(f"Updating account type to: {account_type}")
+                            
+                            # Validate account type
+                            valid_types = [choice[0] for choice in BackGroundJobsProfile.ACCOUNT_TYPES]
+                            if account_type not in valid_types:
+                                print(f"Error: Invalid account type {account_type}. Valid types are: {valid_types}")
+                                raise ValueError(f"Invalid account type: {account_type}")
+                            
+                            profile.account_type = account_type
+                            profile.save()
+                            
+                            # Verify the update
+                            updated_profile = BackGroundJobsProfile.objects.get(user=user)
+                            print(f"Updated account type: {updated_profile.account_type}")
+                            
+                        except BackGroundJobsProfile.DoesNotExist:
+                            print(f"Error: Background profile not found for user {user.id}")
+                            raise
+                    
+                    return True
+                    
+                except BaseUser.DoesNotExist:
+                    print(f"Error: User with ID {user_id} not found")
+                    raise
+                except SubscriptionPlan.DoesNotExist:
+                    print(f"Error: Plan with ID {plan_name} not found")
+                    raise
+                except Exception as e:
+                    print(f"Error updating profile: {str(e)}")
+                    raise
                 
             elif event.type == 'customer.subscription.updated':
                 subscription = event.data.object
@@ -125,8 +202,10 @@ class StripePaymentService:
             return False
             
         except stripe.error.SignatureVerificationError:
+            print("Error: Invalid webhook signature")
             raise Exception('Invalid webhook signature')
         except Exception as e:
+            print(f"Error in webhook handler: {str(e)}")
             raise Exception(f"Webhook error: {str(e)}")
 
     @staticmethod
