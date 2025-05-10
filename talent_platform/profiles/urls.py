@@ -4,7 +4,7 @@ from .background_views import GreatItems, BackGroundJobsUserProfileDetailView
 from .talent_profile_views import TalentUserProfileView, TalentMediaCreateView, TalentMediaDeleteView
 from .band_views import BandListView, BandDetailView, BandCreateView, BandUpdateView, BandDeleteView, JoinBandView, LeaveBandView
 from .band_views import GenerateBandInvitationView, BandInvitationsListView, UseBandInvitationView
-from .talent_specialization_views import TalentSpecializationView
+from .talent_specialization_views import TalentSpecializationView, ReferenceDataView
 from .band_media_views import BandMediaView, BandMediaDeleteView
 
 urlpatterns = [
@@ -51,4 +51,7 @@ urlpatterns = [
     # Band media endpoints
     path('bands/<int:band_id>/media/', BandMediaView.as_view(), name='band-media'),
     path('bands/<int:band_id>/media/<int:media_id>/delete/', BandMediaDeleteView.as_view(), name='band-media-delete'),
+    
+    # Reference data endpoints
+    path('reference-data/', ReferenceDataView.as_view(), name='reference_data'),
 ]

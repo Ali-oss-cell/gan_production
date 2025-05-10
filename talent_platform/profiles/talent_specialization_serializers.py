@@ -1,33 +1,92 @@
 from rest_framework import serializers
-from .models import VisualWorker, ExpressiveWorker, HybridWorker
+from collections import OrderedDict
+from .models import (
+    VisualWorker, ExpressiveWorker, HybridWorker,
+    Language, PerformanceSkill, PhysicalSkill, PerformanceGenre,
+    StuntSpecialty, VisualStyle, CreativeTool, Sport, DanceStyle
+)
 
 class VisualWorkerSerializer(serializers.ModelSerializer):
+    # Add nested serializers for related models
+    tools = serializers.PrimaryKeyRelatedField(
+        queryset=CreativeTool.objects.all(),
+        many=True, required=False
+    )
+    styles = serializers.PrimaryKeyRelatedField(
+        queryset=VisualStyle.objects.all(),
+        many=True, required=False
+    )
+    
     class Meta:
         model = VisualWorker
         fields = [
-            'viganras', 'modeling_experience', 'preferred_styles', 'portfolio_link',
-            'measurements', 'shoe_size', 'piercing_locations', 'availability',
-            'preferred_work', 'certifications', 'influencer_niche', 'engagement_rate'
+            'primary_category', 'years_experience', 'experience_level',
+            'portfolio_link', 'tools', 'styles', 'industry_sectors',
+            'has_awards', 'has_professional_training', 'available_for_travel',
+            'available_for_remote_work', 'availability', 'rate_range',
+            'city', 'country', 'willing_to_relocate', 'languages'
         ]
-        
+
+class LanguageRelatedField(serializers.PrimaryKeyRelatedField):
+    """Custom field for handling language proficiency"""
+    def get_choices(self, cutoff=None):
+        queryset = self.get_queryset()
+        if queryset is None:
+            return {}
+        return OrderedDict([(item.id, str(item)) for item in queryset])
+
 class ExpressiveWorkerSerializer(serializers.ModelSerializer):
+    # Add nested serializers for related models
+    performance_skills = serializers.PrimaryKeyRelatedField(
+        queryset=PerformanceSkill.objects.all(),
+        many=True, required=False
+    )
+    genres = serializers.PrimaryKeyRelatedField(
+        queryset=PerformanceGenre.objects.all(),
+        many=True, required=False
+    )
+    
     class Meta:
         model = ExpressiveWorker
         fields = [
-            'exganras', 'performance_skill', 'acting_experience', 'vocal_range',
-            'awards', 'training', 'languages_spoken', 'accents'
+            'performer_type', 'years_experience', 'height', 'weight',
+            'age_min', 'age_max', 'hair_color', 'eye_color', 'body_type',
+            'performance_skills', 'genres', 'accents', 'languages',
+            'union_status', 'showreel_link', 'available_for_auditions',
+            'willing_to_travel', 'has_passport', 'has_driving_license',
+            'comfortable_with_stunts', 'city', 'country', 'availability'
         ]
 
 class HybridWorkerSerializer(serializers.ModelSerializer):
+    # Add nested serializers for related models
+    physical_skills = serializers.PrimaryKeyRelatedField(
+        queryset=PhysicalSkill.objects.all(),
+        many=True, required=False
+    )
+    stunt_specialties = serializers.PrimaryKeyRelatedField(
+        queryset=StuntSpecialty.objects.all(),
+        many=True, required=False
+    )
+    dance_styles = serializers.PrimaryKeyRelatedField(
+        queryset=DanceStyle.objects.all(),
+        many=True, required=False
+    )
+    sports = serializers.PrimaryKeyRelatedField(
+        queryset=Sport.objects.all(),
+        many=True, required=False
+    )
+    
     class Meta:
         model = HybridWorker
         fields = [
-            'hyganras', 'performance_skill', 'fitness_level', 'running_speed',
-            'jump_height', 'flexibility_level', 'body_type', 'chest_size',
-            'waist_size', 'hip_size', 'dance_style', 'martial_arts_skills',
-            'acrobatic_skills', 'stunt_experience', 'performance_videos',
-            'social_media_links', 'availability', 'preferred_roles',
-            'certifications', 'training', 'special_skills', 'awards'
+            'hybrid_type', 'years_experience', 'height', 'weight',
+            'chest', 'waist', 'hips', 'hair_color', 'eye_color',
+            'skin_tone', 'body_type', 'physical_skills', 'stunt_specialties',
+            'dance_styles', 'sports', 'fitness_level', 'has_stunt_insurance',
+            'has_tattoos', 'has_piercings', 'has_unique_features',
+            'risk_comfort', 'has_formal_training', 'certified_skills',
+            'languages', 'city', 'country', 'willing_to_relocate',
+            'portfolio_link'
         ]
 
 class TalentSpecializationSerializer(serializers.Serializer):
@@ -58,16 +117,53 @@ class TalentSpecializationSerializer(serializers.Serializer):
         # Check if specialization already exists
         try:
             specialization = getattr(profile, specialization_type)
+            
+            # Handle many-to-many relationships separately
+            m2m_fields = self._get_m2m_fields(specialization_type)
+            m2m_data = {}
+            
+            for field in m2m_fields:
+                if field in data:
+                    m2m_data[field] = data.pop(field)
+            
             # Update existing specialization
             for key, value in data.items():
                 setattr(specialization, key, value)
             specialization.save()
+            
+            # Update many-to-many relationships
+            for field, value in m2m_data.items():
+                getattr(specialization, field).set(value)
+                
         except AttributeError:
-            # Create new specialization
+            # Create new specialization with basic fields
+            m2m_fields = self._get_m2m_fields(specialization_type)
+            m2m_data = {}
+            
+            for field in m2m_fields:
+                if field in data:
+                    m2m_data[field] = data.pop(field)
+            
+            # Add profile to data
             data['profile'] = profile
             specialization = model_class.objects.create(**data)
+            
+            # Set many-to-many relationships
+            for field, value in m2m_data.items():
+                getattr(specialization, field).set(value)
         
         return specialization
+    
+    def _get_m2m_fields(self, specialization_type):
+        """Helper method to identify many-to-many fields"""
+        if specialization_type == 'visual_worker':
+            return ['tools', 'styles', 'industry_sectors', 'languages']
+        elif specialization_type == 'expressive_worker':
+            return ['performance_skills', 'genres', 'accents', 'languages']
+        elif specialization_type == 'hybrid_worker':
+            return ['physical_skills', 'stunt_specialties', 'dance_styles', 
+                   'sports', 'certified_skills', 'languages']
+        return []
     
     def update(self, instance, validated_data):
         """Update the talent profile with specializations"""

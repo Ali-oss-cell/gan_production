@@ -76,15 +76,19 @@ CORS_ALLOW_CREDENTIALS = True
 
 CORS_ALLOWED_ORIGINS = [
     "http://192.168.0.119:3000",  # React frontend IP:port
-    "http://192.168.0.105:3000",  # Your IP address
+    "http://192.168.0.107:3000",  # Your IP address
 ]
 
 CSRF_TRUSTED_ORIGINS = [
     "http://192.168.0.119:3000",
-    "http://192.168.0.105:3000",
+    "http://192.168.0.107:3000",
 ]
 
-ALLOWED_HOSTS = ['192.168.0.105', 'localhost','127.0.0.1','42c4-217-142-21-206.ngrok-free.app',  # <-- add your ngrok domain here
+ALLOWED_HOSTS = [
+    'localhost',
+    '127.0.0.1',
+    '192.168.0.107',  # <-- your backend IP
+    'adbd-217-142-22-245.ngrok-free.app',  # <-- add your ngrok domain here
 ]
 # settings.py
 SECURE_CROSS_ORIGIN_OPENER_POLICY = 'unsafe-none'

@@ -652,62 +652,72 @@ class BandInvitation(models.Model):
         return f"Invitation to {self.band.name} - {self.invitation_code}"
 
 
-# Talent Specialization Models
-class Talent(models.Model):
-    profile = models.OneToOneField(
-        TalentUserProfile,
-        on_delete=models.CASCADE,
-        related_name='talent_details'
-    )
-    face_pic = models.ImageField(upload_to='talent/user/facepic', blank=True, null=True)
-    full_pic = models.ImageField(upload_to='talent/user/fullpic', blank=True, null=True)
-    height = models.FloatField(blank=True, null=True)
-    weight = models.FloatField(blank=True, null=True)
-    tattoos = models.BooleanField(default=False)
-    scars = models.BooleanField(default=False)
-    
-    SKIN_TONE_CHOICES = [('FA', 'Fair'), ('ME', 'Medium'), ('DA', 'Dark')]
-    skin_tone = models.CharField(max_length=2, choices=SKIN_TONE_CHOICES, blank=True, null=True)
-    
-    EYE_COLOR_CHOICES = [('BR', 'Brown'), ('BL', 'Blue'), ('GR', 'Green'), ('BK', 'Black')]
-    eye_color = models.CharField(max_length=2, choices=EYE_COLOR_CHOICES, blank=True, null=True)
-    
-    HAIR_COLOR_CHOICES = [('BR', 'Brown'), ('BL', 'Black'), ('BD', 'Blonde'), ('RD', 'Red')]
-    hair_color = models.CharField(max_length=2, choices=HAIR_COLOR_CHOICES, blank=True, null=True)
-    
-    distinctive_features = models.TextField(blank=True, null=True)
+
 
 class VisualWorker(models.Model):
-    profile = models.OneToOneField(
-        TalentUserProfile,
-        on_delete=models.CASCADE,
-        related_name='visual_worker'
-    )
-    viganras = models.CharField(max_length=10)
-    modeling_experience = models.TextField(blank=True, null=True)
-    preferred_styles = models.CharField(max_length=255, blank=True, null=True)
-    portfolio_link = models.URLField(blank=True, null=True)
-    measurements = models.CharField(max_length=20, blank=True, null=True)
-    shoe_size = models.FloatField(blank=True, null=True)
-    piercing_locations = models.TextField(blank=True, null=True)
-    availability = models.CharField(max_length=50, blank=True, null=True)
-    preferred_work = models.TextField(blank=True, null=True)
-    certifications = models.TextField(blank=True, null=True)
-    influencer_niche = models.CharField(max_length=100, blank=True, null=True)
-    engagement_rate = models.FloatField(blank=True, null=True)
+    profile = models.OneToOneField(TalentUserProfile, on_delete=models.CASCADE, related_name='visual_worker')
     
-    def save(self, *args, **kwargs):
-        super().save(*args, **kwargs)
-        # Update profile completion status after saving
-        self.profile.update_profile_completion()
-        
-    def delete(self, *args, **kwargs):
-        profile = self.profile
-        super().delete(*args, **kwargs)
-        # Update profile completion status after deletion
-        profile.update_profile_completion()
-
-
+    # Core Classification - All Structured Fields
+    PRIMARY_CATEGORIES = [
+        ('photographer', 'Photographer'), ('cinematographer', 'Cinematographer'),
+        ('director', 'Director'), ('editor', 'Video/Film Editor'),
+        ('animator', 'Animator'), ('graphic_designer', 'Graphic Designer'),
+        ('makeup_artist', 'Makeup Artist'), ('costume_designer', 'Costume Designer'),
+        ('set_designer', 'Set Designer'), ('lighting_designer', 'Lighting Designer'),
+        ('visual_artist', 'Visual Artist'), ('composer', 'Music Composer'),
+        ('sound_designer', 'Sound Designer'), ('other', 'Other Visual Creator')
+    ]
+    primary_category = models.CharField(max_length=50, choices=PRIMARY_CATEGORIES)
+    
+    # Experience - Structured Numeric Fields
+    years_experience = models.PositiveIntegerField()
+    
+    # Professional Level
+    EXPERIENCE_LEVEL = [
+        ('beginner', 'Beginner'), ('intermediate', 'Intermediate'),
+        ('professional', 'Professional'), ('expert', 'Expert')
+    ]
+    experience_level = models.CharField(max_length=20, choices=EXPERIENCE_LEVEL)
+    
+    # Portfolio - Simple URL, not text
+    portfolio_link = models.URLField()
+    
+    # Many-to-Many Relationships for Searchable Categories
+    tools = models.ManyToManyField('CreativeTool')  # Software, equipment, etc.
+    styles = models.ManyToManyField('VisualStyle')  # Art/design styles
+    industry_sectors = models.ManyToManyField('IndustrySector')  # Film, TV, etc.
+    
+    # Boolean Flags for Quick Filtering
+    has_awards = models.BooleanField(default=False)
+    has_professional_training = models.BooleanField(default=False)
+    available_for_travel = models.BooleanField(default=False)
+    available_for_remote_work = models.BooleanField(default=True)
+    
+    # Working Preferences - Structured Fields
+    AVAILABILITY_CHOICES = [
+        ('full_time', 'Full Time'), ('part_time', 'Part Time'),
+        ('weekends', 'Weekends Only'), ('flexible', 'Flexible')
+    ]
+    availability = models.CharField(max_length=20, choices=AVAILABILITY_CHOICES)
+    
+    # Price Range - Structured Field for Filtering
+    RATE_RANGES = [
+        ('low', 'Budget Friendly'), ('mid', 'Mid-Range'),
+        ('high', 'Premium'), ('negotiable', 'Negotiable')
+    ]
+    rate_range = models.CharField(max_length=20, choices=RATE_RANGES)
+    
+    # Location Information
+    city = models.CharField(max_length=100)
+    country = models.CharField(max_length=100)
+    willing_to_relocate = models.BooleanField(default=False)
+    
+    # Languages - Structured Field
+    languages = models.ManyToManyField('Language', through='VisualWorkerLanguage')
+    
+    # Structured Fields for Specialized Information
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
 class ExpressiveWorker(models.Model):
     profile = models.OneToOneField(
@@ -715,22 +725,78 @@ class ExpressiveWorker(models.Model):
         on_delete=models.CASCADE,
         related_name='expressive_worker'
     )
-    exganras = models.CharField(max_length=10)
-    performance_skill = models.CharField(max_length=100)
-    acting_experience = models.TextField(blank=True, null=True)
-    vocal_range = models.CharField(max_length=20, blank=True, null=True)
-    awards = models.TextField(blank=True, null=True)
-    training = models.TextField(blank=True, null=True)
-    languages_spoken = models.TextField(blank=True, null=True)
-    accents = models.TextField(blank=True, null=True)
-    performance_style = models.CharField(max_length=50, blank=True, null=True)
-    stage_presence = models.CharField(max_length=50, blank=True, null=True)
-    special_skills = models.TextField(blank=True, null=True)
-    performance_videos = models.URLField(blank=True, null=True)
-    availability = models.CharField(max_length=50, blank=True, null=True)
-    preferred_roles = models.TextField(blank=True, null=True)
-    union_membership = models.CharField(max_length=50, blank=True, null=True)
     
+    # Core Classification
+    PERFORMER_TYPES = [
+        ('actor', 'Actor'), ('voice_actor', 'Voice Actor'),
+        ('singer', 'Singer'), ('dancer', 'Dancer'),
+        ('musician', 'Musician'), ('comedian', 'Comedian'),
+        ('host', 'TV/Event Host'), ('narrator', 'Narrator'),
+        ('puppeteer', 'Puppeteer'), ('other', 'Other Performer')
+    ]
+    performer_type = models.CharField(max_length=50, choices=PERFORMER_TYPES)
+    
+    # Experience - Structured Fields
+    years_experience = models.PositiveIntegerField()
+    
+    # Physical Attributes - All Numeric/Structured Fields
+    height = models.FloatField(help_text="Height in cm")
+    weight = models.FloatField(help_text="Weight in kg")
+    
+    # Age Range - Searchable Range
+    age_min = models.PositiveIntegerField(help_text="Minimum age you can play")
+    age_max = models.PositiveIntegerField(help_text="Maximum age you can play")
+    
+    # Appearance - Structured Choices
+    HAIR_COLORS = [('blonde', 'Blonde'), ('brown', 'Brown'), ('black', 'Black'), 
+                   ('red', 'Red'), ('gray', 'Gray/Silver'), ('other', 'Other')]
+    hair_color = models.CharField(max_length=20, choices=HAIR_COLORS)
+    
+    EYE_COLORS = [('blue', 'Blue'), ('green', 'Green'), ('brown', 'Brown'), 
+                  ('hazel', 'Hazel'), ('black', 'Black'), ('other', 'Other')]
+    eye_color = models.CharField(max_length=20, choices=EYE_COLORS)
+    
+    BODY_TYPES = [('athletic', 'Athletic'), ('slim', 'Slim'), ('muscular', 'Muscular'), 
+                  ('average', 'Average'), ('plus_size', 'Plus Size'), ('other', 'Other')]
+    body_type = models.CharField(max_length=20, choices=BODY_TYPES)
+    
+    # Many-to-Many Relationships for Filtering
+    performance_skills = models.ManyToManyField('PerformanceSkill')
+    genres = models.ManyToManyField('PerformanceGenre')
+    accents = models.ManyToManyField('Accent')
+    languages = models.ManyToManyField('Language', through='PerformerLanguage')
+    
+    # Union Membership - Searchable Fields
+    UNION_STATUS = [
+        ('union', 'Union Member'), ('non_union', 'Non-Union'),
+        ('eligible', 'Union Eligible'), ('fi_core', 'Fi-Core')
+    ]
+    union_status = models.CharField(max_length=20, choices=UNION_STATUS, blank=True, null=True)
+    
+    # Media Links - URLs, not text
+    showreel_link = models.URLField(blank=True, null=True)
+    
+    # Boolean Filters
+    available_for_auditions = models.BooleanField(default=True)
+    willing_to_travel = models.BooleanField(default=True)
+    has_passport = models.BooleanField(default=False)
+    has_driving_license = models.BooleanField(default=False)
+    comfortable_with_stunts = models.BooleanField(default=False)
+    
+    # Geographic Information
+    city = models.CharField(max_length=100)
+    country = models.CharField(max_length=100)
+    
+    # Availability
+    AVAILABILITY_CHOICES = [
+        ('full_time', 'Full Time'), ('part_time', 'Part Time'),
+        ('evenings', 'Evenings Only'), ('weekends', 'Weekends Only')
+    ]
+    availability = models.CharField(max_length=20, choices=AVAILABILITY_CHOICES)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
         # Update profile completion status after saving
@@ -743,44 +809,83 @@ class ExpressiveWorker(models.Model):
         profile.update_profile_completion()
 
 class HybridWorker(models.Model):
-    profile = models.OneToOneField(
-        TalentUserProfile,
-        on_delete=models.CASCADE,
-        related_name='hybrid_worker'
-    )
-    hyganras = models.CharField(max_length=10)
-    performance_skill = models.CharField(max_length=100)
-    fitness_level = models.CharField(max_length=2, choices=[
-        ('BG', 'Beginner'), ('IN', 'Intermediate'), ('AD', 'Advanced')], blank=True, null=True)
-    running_speed = models.FloatField(blank=True, null=True)
-    jump_height = models.FloatField(blank=True, null=True)
-    flexibility_level = models.CharField(max_length=2, choices=[
-        ('BG', 'Beginner'), ('IN', 'Intermediate'), ('AD', 'Advanced')], blank=True, null=True)
-    body_type = models.CharField(max_length=2, choices=[
-        ('SL', 'Slim'), ('AV', 'Average'), ('AT', 'Athletic'), ('OV', 'Overweight')], blank=True, null=True)
-    chest_size = models.FloatField(blank=True, null=True)
-    waist_size = models.FloatField(blank=True, null=True)
-    hip_size = models.FloatField(blank=True, null=True)
-    dance_style = models.CharField(max_length=50, blank=True, null=True)
-    martial_arts_skills = models.TextField(blank=True, null=True)
-    acrobatic_skills = models.TextField(blank=True, null=True)
-    stunt_experience = models.TextField(blank=True, null=True)
-    performance_videos = models.URLField(blank=True, null=True)
-    social_media_links = models.TextField(blank=True, null=True)
-    availability = models.CharField(max_length=50, blank=True, null=True)
-    preferred_roles = models.TextField(blank=True, null=True)
-    certifications = models.TextField(blank=True, null=True)
-    training = models.TextField(blank=True, null=True)
-    special_skills = models.TextField(blank=True, null=True)
-    awards = models.TextField(blank=True, null=True)
+    profile = models.OneToOneField(TalentUserProfile, on_delete=models.CASCADE, related_name='hybrid_worker')
     
-    def save(self, *args, **kwargs):
-        super().save(*args, **kwargs)
-        # Update profile completion status after saving
-        self.profile.update_profile_completion()
-        
-    def delete(self, *args, **kwargs):
-        profile = self.profile
-        super().delete(*args, **kwargs)
-        # Update profile completion status after deletion
-        profile.update_profile_completion()
+    # Core Classification
+    HYBRID_TYPES = [
+        ('model', 'Fashion/Commercial Model'), ('stunt_performer', 'Stunt Performer'),
+        ('body_double', 'Body Double'), ('motion_capture', 'Motion Capture Artist'),
+        ('background_actor', 'Background Actor'), ('specialty_performer', 'Specialty Performer'),
+        ('other', 'Other Physical Performer')
+    ]
+    hybrid_type = models.CharField(max_length=50, choices=HYBRID_TYPES)
+    
+    # Experience - Structured Fields
+    years_experience = models.PositiveIntegerField()
+    
+    # Physical Attributes - All Numeric/Structured Fields
+    height = models.FloatField(help_text="Height in cm")
+    weight = models.FloatField(help_text="Weight in kg")
+    
+    # Measurements - Structured Numeric Fields
+    chest = models.FloatField(blank=True, null=True)
+    waist = models.FloatField(blank=True, null=True)
+    hips = models.FloatField(blank=True, null=True)
+    
+    # Physical Attributes - Structured Choices
+    HAIR_COLORS = [('blonde', 'Blonde'), ('brown', 'Brown'), ('black', 'Black'), 
+                   ('red', 'Red'), ('gray', 'Gray/Silver'), ('other', 'Other')]
+    hair_color = models.CharField(max_length=20, choices=HAIR_COLORS)
+    
+    EYE_COLORS = [('blue', 'Blue'), ('green', 'Green'), ('brown', 'Brown'), 
+                  ('hazel', 'Hazel'), ('black', 'Black'), ('other', 'Other')]
+    eye_color = models.CharField(max_length=20, choices=EYE_COLORS)
+    
+    SKIN_TONES = [('fair', 'Fair'), ('light', 'Light'), ('medium', 'Medium'), 
+                  ('olive', 'Olive'), ('brown', 'Brown'), ('dark', 'Dark')]
+    skin_tone = models.CharField(max_length=20, choices=SKIN_TONES)
+    
+    BODY_TYPES = [('athletic', 'Athletic'), ('slim', 'Slim'), ('muscular', 'Muscular'), 
+                  ('average', 'Average'), ('plus_size', 'Plus Size'), ('other', 'Other')]
+    body_type = models.CharField(max_length=20, choices=BODY_TYPES)
+    
+    # Physical Abilities - Many-to-Many for Filtering
+    physical_skills = models.ManyToManyField('PhysicalSkill')
+    stunt_specialties = models.ManyToManyField('StuntSpecialty', blank=True)
+    dance_styles = models.ManyToManyField('DanceStyle', blank=True)
+    sports = models.ManyToManyField('Sport', blank=True)
+    
+    # Training & Certification - Structured Fields
+    FITNESS_LEVELS = [('beginner', 'Beginner'), ('intermediate', 'Intermediate'), 
+                      ('advanced', 'Advanced'), ('elite', 'Elite Athlete')]
+    fitness_level = models.CharField(max_length=20, choices=FITNESS_LEVELS)
+    
+    # Boolean Filters for Quick Searches
+    has_stunt_insurance = models.BooleanField(default=False)
+    has_tattoos = models.BooleanField(default=False)
+    has_piercings = models.BooleanField(default=False)
+    has_unique_features = models.BooleanField(default=False)
+    
+    # Safety & Risk
+    RISK_LEVELS = [('low', 'Low Risk Only'), ('moderate', 'Moderate Risk'),
+                   ('high', 'High Risk'), ('extreme', 'Extreme Stunts')]
+    risk_comfort = models.CharField(max_length=20, choices=RISK_LEVELS)
+    
+    # Training & Certifications
+    has_formal_training = models.BooleanField(default=False)
+    certified_skills = models.ManyToManyField('CertifiedSkill', blank=True)
+    
+    # Languages
+    languages = models.ManyToManyField('Language', through='HybridWorkerLanguage')
+    
+    # Geographic Information
+    city = models.CharField(max_length=100)
+    country = models.CharField(max_length=100)
+    willing_to_relocate = models.BooleanField(default=False)
+    
+    # Media - Simple URL Fields
+    portfolio_link = models.URLField(blank=True, null=True)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
