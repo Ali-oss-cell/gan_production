@@ -108,25 +108,22 @@ class BaseUserManager(DjangoBaseUserManager):
         gender = extra_fields.pop('gender', 'Prefer not to say')
         country = extra_fields.pop('country', 'country')
         date_of_birth = extra_fields.pop('date_of_birth', None)
-        
         try:
-            # Check if user exists
             user = self.get(email=email)
-            # Update existing user
             if not user.is_dashboard:
                 user.is_dashboard = True
+                user.is_dashboard_admin = False
                 user.gender = gender
-                user.save(update_fields=['is_dashboard', 'gender'])
+                user.save(update_fields=['is_dashboard', 'is_dashboard_admin', 'gender'])
         except self.model.DoesNotExist:
-            # Create new user with profile fields
             user = self.create_user(
                 email=email,
                 password=password,
                 is_dashboard=True,
+                is_dashboard_admin=False,
                 gender=gender,
                 **extra_fields
             )
-        
         return user
         
     @transaction.atomic
@@ -134,25 +131,20 @@ class BaseUserManager(DjangoBaseUserManager):
         gender = extra_fields.pop('gender', 'Prefer not to say')
         country = extra_fields.pop('country', 'country')
         date_of_birth = extra_fields.pop('date_of_birth', None)
-        
         try:
-            # Check if user exists
             user = self.get(email=email)
-            # Update existing user
-            if not user.is_dashboard or not user.is_staff:
+            if not user.is_dashboard or not user.is_dashboard_admin:
                 user.is_dashboard = True
-                user.is_staff = True
+                user.is_dashboard_admin = True
                 user.gender = gender
-                user.save(update_fields=['is_dashboard', 'is_staff', 'gender'])
+                user.save(update_fields=['is_dashboard', 'is_dashboard_admin', 'gender'])
         except self.model.DoesNotExist:
-            # Create new user with profile fields
             user = self.create_user(
                 email=email,
                 password=password,
                 is_dashboard=True,
-                is_staff=True,  # Admin dashboard users have staff privileges
+                is_dashboard_admin=True,
                 gender=gender,
                 **extra_fields
             )
-        
         return user

@@ -21,6 +21,7 @@ class BaseUser(AbstractBaseUser, PermissionsMixin):
     is_talent = models.BooleanField(default=False)
     is_background = models.BooleanField(default=False)
     is_dashboard = models.BooleanField(default=False)
+    is_dashboard_admin = models.BooleanField(default=False)
 
     # Stripe customer ID
     stripe_customer_id = models.CharField(max_length=100, blank=True, null=True)

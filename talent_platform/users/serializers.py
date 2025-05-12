@@ -166,6 +166,6 @@ class DashboardLoginSerializer(CustomTokenObtainPairSerializer):
 class AdminDashboardLoginSerializer(CustomTokenObtainPairSerializer):
     def validate(self, attrs):
         data = super().validate(attrs)
-        if not self.user.is_dashboard or not self.user.is_staff:
+        if not self.user.is_dashboard or not self.user.is_dashboard_admin:
             raise serializers.ValidationError("This account is not registered as Admin Dashboard user.")
         return data

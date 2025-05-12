@@ -59,7 +59,7 @@ class DashboardUsernameLoginSerializer(TokenObtainPairSerializer):
         # Add user role information
         data.update({
             'is_dashboard': self.user.is_dashboard,
-            'is_staff': self.user.is_staff,
+            'is_dashboard_admin': self.user.is_dashboard_admin,
             'username': self.user.email.split('@')[0]  # Extract username from email
         })
         
@@ -70,7 +70,7 @@ class AdminDashboardUsernameLoginSerializer(DashboardUsernameLoginSerializer):
         data = super().validate(attrs)
         
         # Check if user is an admin dashboard user
-        if not self.user.is_staff:
+        if not self.user.is_dashboard_admin:
             raise serializers.ValidationError("This account is not registered as an Admin Dashboard user.")
         
         return data

@@ -15,4 +15,4 @@ class IsDashboardUser(BasePermission):
 
 class IsAdminDashboardUser(BasePermission):
     def has_permission(self, request, view):
-        return request.user.is_dashboard and request.user.is_staff  # Only allow Admin Dashboard users
+        return request.user.is_dashboard_admin  # Only allow Dashboard Admin users

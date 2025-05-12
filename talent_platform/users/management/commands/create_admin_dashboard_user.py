@@ -19,7 +19,7 @@ class Command(BaseCommand):
     @transaction.atomic
     def handle(self, *args, **options):
         # Check if admin dashboard user already exists
-        admin_exists = User.objects.filter(is_dashboard=True, is_staff=True).exists()
+        admin_exists = User.objects.filter(is_dashboard=True, is_dashboard_admin=True).exists()
         if admin_exists:
             self.stdout.write(self.style.WARNING('An admin dashboard user already exists!'))
             proceed = 'y'
