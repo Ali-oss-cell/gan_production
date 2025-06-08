@@ -20,6 +20,38 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
+# DigitalOcean Spaces Configuration (S3-compatible)
+USE_SPACES = os.getenv('USE_SPACES', 'False').lower() == 'true'
+
+# Video processing settings
+MAX_VIDEO_PROCESSING_TASKS = 2  # Maximum concurrent video processing tasks
+VIDEO_PROCESSING_TIMEOUT = 400  # Maximum time in seconds for processing a video (reduced for 100MB limit)
+
+# Media file size limits
+MAX_VIDEO_SIZE = 100 * 1024 * 1024  # 100 MB maximum video size
+MAX_IMAGE_SIZE = 10 * 1024 * 1024   # 10 MB maximum image size
+
+if USE_SPACES:
+    # S3/Spaces settings
+    AWS_ACCESS_KEY_ID = os.getenv('SPACES_ACCESS_KEY', '')
+    AWS_SECRET_ACCESS_KEY = os.getenv('SPACES_SECRET_KEY', '')
+    AWS_STORAGE_BUCKET_NAME = os.getenv('SPACES_BUCKET_NAME', '')
+    AWS_S3_ENDPOINT_URL = os.getenv('SPACES_ENDPOINT_URL', 'https://nyc3.digitaloceanspaces.com')
+    AWS_S3_OBJECT_PARAMETERS = {
+        'CacheControl': 'max-age=86400',
+    }
+    AWS_DEFAULT_ACL = 'public-read'
+    AWS_LOCATION = 'media'
+    
+    # Use custom storage backend for media files
+    DEFAULT_FILE_STORAGE = 'talent_platform.storage_backends.MediaStorage'
+    
+    # Public media URL
+    MEDIA_URL = f'https://{AWS_STORAGE_BUCKET_NAME}.{AWS_S3_ENDPOINT_URL.split("://")[1]}/{AWS_LOCATION}/'
+
+
+# Quick-start development settings - unsuitable for production
+
 
 
 # Quick-start development settings - unsuitable for production
@@ -69,31 +101,37 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-
+    'payments.middleware.UserTypeThrottlingMiddleware',
 ]
 
 CORS_ORIGIN_ALLOW_ALL = True
 CORS_ALLOW_CREDENTIALS = True
 
 CORS_ALLOWED_ORIGINS = [
-    "http://192.168.213.80:3000",  # React frontend IP:port
-    "http://192.168.213.85:3000",  # Your IP address
+    "http://192.168.0.119:3000",  # React frontend IP:port
+    "http://192.168.0.102:3000",  # Your IP address
+    "http://192.168.0.111:3000",
+    "http://192.168.0.104:3000",
 ]
 
 CSRF_TRUSTED_ORIGINS = [
-    "http://192.168.213.80:3000",
-    "http://192.168.213.85:3000",
+    "http://192.168.0.119:3000",
+    "http://192.168.0.102:3000",
+    "http://192.168.0.111:3000",
+    "http://192.168.0.102:3000",
 ]
 
 ALLOWED_HOSTS = [
     'localhost',
-    '127.0.0.1',
+    '192.168.0.102',
+    '192.168.0.111',
     '192.168.213.85',  # <-- your backend IP
-    'adbd-217-142-22-245.ngrok-free.app',  # <-- add your ngrok domain here
+    '39c3-149-34-246-34.ngrok-free.app' # <-- add your ngrok domain here,
+
 ]
 # settings.py
 SECURE_CROSS_ORIGIN_OPENER_POLICY = 'unsafe-none'
-
+        
 ROOT_URLCONF = 'talent_platform.urls'
 
 TEMPLATES = [
@@ -188,8 +226,21 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.SessionAuthentication',
         'rest_framework_simplejwt.authentication.JWTAuthentication',
-
-    ]
+    ],
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle',
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '30/hour',
+        'user': '100/hour',
+        'talent_user': '100/hour',
+        'background_user': '100/hour',
+        'dashboard_user': '200/hour',
+        'admin_dashboard_user': '300/hour',
+        'payment_endpoints': '30/hour',
+        'restricted_country': '50/hour',
+    }
 }
 
 # JWT settings

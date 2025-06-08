@@ -1,4 +1,3 @@
-
 from inspect import istraceback
 import os
 from django.shortcuts import render
@@ -12,7 +11,7 @@ from rest_framework.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404
 from django.core.exceptions import ValidationError
 
-from .band_serializers import BandCreateSerializer, BandDetailSerializer, BandInvitationSerializer, BandInvitationUseSerializer, BandListSerializer, BandMembershipSerializer, BandUpdateWithMembersSerializer
+from .band_serializers import BandCreateSerializer, BandDetailSerializer, BandInvitationSerializer, BandInvitationUseSerializer, BandListSerializer, BandMembershipSerializer, BandUpdateWithMembersSerializer, BandSerializer
 
 from .models import BandInvitation, TalentUserProfile,Band, BandMembership
 from rest_framework.permissions import IsAuthenticated, BasePermission
@@ -21,25 +20,118 @@ from users .permissions import IsTalentUser
 
 # List band for users
 class BandListView(ListAPIView):
-    serializer_class = BandListSerializer
+    serializer_class = BandSerializer
     permission_classes = [IsAuthenticated,IsTalentUser]
     
     def get_queryset(self):
         # Get the authenticated user's talent profile
         try:
             talent_profile = TalentUserProfile.objects.get(user=self.request.user)
-            # Filter bands where the user is a member
-            # Optimize queryset to avoid N+1 query problems
-            return Band.objects.filter(members=talent_profile).prefetch_related(
+            # Get bands where user is creator OR member
+            from django.db.models import Q
+            return Band.objects.filter(
+                Q(creator=talent_profile) | Q(members=talent_profile)
+            ).distinct().prefetch_related(
                 'bandmembership_set'
             ).select_related('creator', 'creator__user')
         except TalentUserProfile.DoesNotExist:
             # If no talent profile exists, return an empty queryset
             return Band.objects.none()
+    
+    def list(self, request, *args, **kwargs):
+        """Override list to include band scoring information"""
+        queryset = self.get_queryset()
+        
+        try:
+            talent_profile = TalentUserProfile.objects.get(user=request.user)
+            
+            if not queryset.exists():
+                # User has no bands - return 0 score with empty list
+                return Response({
+                    'bands': [],
+                    'band_score': {
+                        'overall_score': 0,
+                        'message': 'You have no band yet. Create or join a band to start earning band scores!',
+                        'how_to_improve': [
+                            'Subscribe to the Bands plan to get premium features and +40 bonus points',
+                            'Create a band or join an existing one (you can only be in one band at a time)',
+                            'Complete all band profile information for +20 bonus points',
+                            'Add media content to your band profile for up to +30 points'
+                        ]
+                    }
+                })
+            
+            # User has bands - get the first (and only) band
+            user_band = queryset.first()
+            serializer = self.get_serializer(queryset, many=True)
+            
+            # Check if user has bands subscription
+            from payments.models import Subscription
+            has_bands_subscription = Subscription.objects.filter(
+                user=request.user,
+                plan__name='bands',
+                is_active=True,
+                status='active'
+            ).exists()
+            
+            # Calculate band score based on new requirements
+            score_data = user_band.get_profile_score()
+            
+            # Base score from profile completion and media
+            base_score = score_data['profile_completion'] + score_data['media_content']
+            
+            # Subscription bonus - check if current user (not necessarily creator) has bands subscription
+            subscription_bonus = 0
+            if has_bands_subscription:
+                subscription_bonus = 40  # Bonus for having bands subscription
+            
+            # Profile completion bonus (if all band type info is filled)
+            profile_completion_bonus = 0
+            if score_data['profile_completion'] == 30:  # Full profile completion
+                profile_completion_bonus = 20
+            
+            # Calculate overall score
+            overall_score = min(base_score + subscription_bonus + profile_completion_bonus, 100)
+            
+            # Determine user role in band
+            user_role = 'creator' if user_band.creator == talent_profile else 'member'
+            
+            # Create improvement suggestions
+            improvement_suggestions = []
+            if not has_bands_subscription:
+                improvement_suggestions.append('Subscribe to the Bands plan for +40 bonus points and premium features')
+            if score_data['profile_completion'] < 30:
+                improvement_suggestions.append('Complete all band profile information for up to +20 bonus points')
+            if score_data['media_content'] < 30:
+                improvement_suggestions.append('Add more media content (photos/videos) for up to +30 points')
+            if score_data['member_count'] < 20:
+                improvement_suggestions.append('Invite more members to your band for better visibility')
+            
+            return Response({
+                'bands': serializer.data,
+                'band_score': {
+                    'overall_score': overall_score,
+                    'has_bands_subscription': has_bands_subscription,
+                    'user_role': user_role,
+                    'score_breakdown': {
+                        'base_score': base_score,
+                        'subscription_bonus': subscription_bonus,
+                        'profile_completion_bonus': profile_completion_bonus,
+                        'details': score_data['details']
+                    },
+                    'how_to_improve': improvement_suggestions if improvement_suggestions else ['Your band profile is excellent! Keep engaging with the community.'],
+                    'message': f'You are a {user_role} of "{user_band.name}" band'
+                }
+            })
+            
+        except TalentUserProfile.DoesNotExist:
+            return Response({
+                'error': 'Talent profile not found'
+            }, status=status.HTTP_404_NOT_FOUND)
 
 # Get detailed information about a specific band
 class BandDetailView(RetrieveAPIView):
-    serializer_class = BandDetailSerializer
+    serializer_class = BandSerializer
     permission_classes = [IsAuthenticated]
     lookup_field = 'id'
     
@@ -162,7 +254,14 @@ class JoinBandView(APIView):
         except TalentUserProfile.DoesNotExist:
             return Response({"error": "Talent profile not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        # Check if the user is already a member of the band
+        # Check if the user is already a member of any band (one band only rule)
+        existing_membership = BandMembership.objects.filter(talent_user=talent_profile).first()
+        if existing_membership:
+            return Response({
+                "error": f"You are already a member of '{existing_membership.band.name}'. Users can only be in one band at a time. Leave your current band first to join a new one."
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Check if the user is already a member of the band (redundant check but keeping for clarity)
         if BandMembership.objects.filter(band=band, talent_user=talent_profile).exists():
             return Response({"error": "You are already a member of this band."}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -337,7 +436,14 @@ class UseBandInvitationView(APIView):
                 "expired_at": invitation.expires_at
             }, status=status.HTTP_400_BAD_REQUEST)
         
-        # Check if the user is already a member of the band
+        # Check if the user is already a member of any band (one band only rule)
+        existing_membership = BandMembership.objects.filter(talent_user=talent_profile).first()
+        if existing_membership:
+            return Response({
+                "error": f"You are already a member of '{existing_membership.band.name}'. Users can only be in one band at a time. Leave your current band first to join a new one."
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Check if the user is already a member of the band (redundant check but keeping for clarity)
         if BandMembership.objects.filter(band=invitation.band, talent_user=talent_profile).exists():
             return Response({"error": "You are already a member of this band."}, status=status.HTTP_400_BAD_REQUEST)
         

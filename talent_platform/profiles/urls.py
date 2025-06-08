@@ -1,7 +1,7 @@
 from django.urls import path
 
 from .background_views import GreatItems, BackGroundJobsUserProfileDetailView
-from .talent_profile_views import TalentUserProfileView, TalentMediaCreateView, TalentMediaDeleteView
+from .talent_profile_views import TalentUserProfileView, TalentMediaCreateView, TalentMediaDeleteView, SocialMediaLinksUpdateView
 from .band_views import BandListView, BandDetailView, BandCreateView, BandUpdateView, BandDeleteView, JoinBandView, LeaveBandView
 from .band_views import GenerateBandInvitationView, BandInvitationsListView, UseBandInvitationView
 from .talent_specialization_views import TalentSpecializationView, ReferenceDataView
@@ -15,9 +15,13 @@ urlpatterns = [
     path('media/<int:media_id>/delete/', TalentMediaDeleteView.as_view(), name='delete-media'),
     
     # Endpoint to show and update user profile details (protected by JWT authentication)
+   
     path('profile/talent/', TalentUserProfileView.as_view(), name='profile-detail'),
     
-    # Endpoints for background user profile
+    # Social media links endpoint
+    path('profile/social-media/', SocialMediaLinksUpdateView.as_view(), name='social-media-links'),
+    
+    # Endpoints for background user profile (includes profile score)
     path('profile/background/', BackGroundJobsUserProfileDetailView.as_view(), name='background-profile-detail'),
     
     # Endpoint for managing talent specializations
@@ -26,12 +30,12 @@ urlpatterns = [
     # Background items endpoints
     path('profile/background/items/', GreatItems.as_view(), name='background-items-create'),
     
-    # Band endpoints
+    # Band endpoints (includes band scoring)
     # Combined band endpoint (returns both list and details in one request)
     
     # Original separate endpoints (kept for backward compatibility)
     
-    #get_the_band_for_the_users
+    #get_the_band_for_the_users (includes band score)
     path('bands/', BandListView.as_view(), name='band-list'),
 
     path('bands/<int:id>/', BandDetailView.as_view(), name='band-detail'),

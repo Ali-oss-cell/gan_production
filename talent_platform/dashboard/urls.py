@@ -1,12 +1,13 @@
 from django.urls import path, include
-from . import views
+from . import views, email_views
 from .search_views import UnifiedSearchView
+from .views_restricted_api import RestrictedUsersAPIView
+from django.views.generic import TemplateView
 
 app_name = 'dashboard'
 
 urlpatterns = [
     # Define dashboard URLs here
-    path('', views.dashboard_home, name='home'),
     path('users/create/', views.DashboardUserCreateView.as_view(), name='create-user'),
     
     # Dashboard User Management (Admin only)
@@ -28,4 +29,15 @@ urlpatterns = [
     path('profiles/expressive/<int:pk>/', views.ExpressiveWorkerDetailView.as_view(), name='expressive-worker-detail'),
     path('profiles/hybrid/<int:pk>/', views.HybridWorkerDetailView.as_view(), name='hybrid-worker-detail'),
     path('profiles/band/<int:pk>/', views.BandDetailView.as_view(), name='band-detail'),
+    
+    # Restricted country users management
+    path('restricted-users/', RestrictedUsersAPIView.as_view(), name='restricted-users-api'),
+    
+    # Email management URLs
+    path('email/send/', email_views.BulkEmailView.as_view(), name='send-bulk-email'),
+    path('email/send-draft/<int:bulk_email_id>/', email_views.SendDraftEmailView.as_view(), name='send-draft-email'),
+    path('email/list/', email_views.BulkEmailListView.as_view(), name='bulk-email-list'),
+    path('email/<int:pk>/', email_views.BulkEmailDetailView.as_view(), name='bulk-email-detail'),
+    path('email/<int:bulk_email_id>/recipients/', email_views.EmailRecipientsView.as_view(), name='email-recipients'),
+    path('email/<int:bulk_email_id>/statistics/', email_views.email_statistics, name='email-statistics'),
 ]

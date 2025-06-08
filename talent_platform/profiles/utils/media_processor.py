@@ -7,12 +7,18 @@ from imagekit.models import ProcessedImageField
 import magic
 import subprocess
 import tempfile
+import shutil
 
 class MediaProcessor:
     MAX_IMAGE_SIZE = (1920, 1080)  # Maximum dimensions for images
     MAX_IMAGE_QUALITY = 85  # JPEG quality (0-100)
-    MAX_VIDEO_BITRATE = '2000k'  # Maximum video bitrate
-    MAX_VIDEO_RESOLUTION = '1920x1080'  # Maximum video resolution
+    MAX_VIDEO_BITRATE = '1500k'  # Maximum video bitrate for 720p
+    MAX_VIDEO_RESOLUTION = '1280x720'  # Fixed 720p resolution for all videos
+    
+    @staticmethod
+    def _is_ffmpeg_available():
+        """Check if FFmpeg is available on the system"""
+        return shutil.which('ffmpeg') is not None
     
     @staticmethod
     def process_image(image_file):
@@ -46,23 +52,32 @@ class MediaProcessor:
     def process_video(video_file):
         """
         Process and compress a video file using FFmpeg.
-        Returns the processed file path.
+        All videos are standardized to 720p resolution for optimal storage and streaming.
+        Returns the processed file path, or None if FFmpeg is not available.
         """
+        # Check if FFmpeg is available
+        if not MediaProcessor._is_ffmpeg_available():
+            print("Warning: FFmpeg not found. Video processing disabled. Videos will be used as-is.")
+            return None
+        
         try:
             # Create a temporary file for the output
             output = tempfile.NamedTemporaryFile(suffix='.mp4', delete=False)
             
-            # FFmpeg command for video compression
+            # FFmpeg command for video compression to 720p
             cmd = [
                 'ffmpeg',
                 '-i', video_file,
-                '-vf', f'scale={MediaProcessor.MAX_VIDEO_RESOLUTION}',
+                '-vf', f'scale={MediaProcessor.MAX_VIDEO_RESOLUTION}:force_original_aspect_ratio=decrease,pad={MediaProcessor.MAX_VIDEO_RESOLUTION}:(ow-iw)/2:(oh-ih)/2',
                 '-b:v', MediaProcessor.MAX_VIDEO_BITRATE,
+                '-maxrate', '1800k',
+                '-bufsize', '3000k',
                 '-c:v', 'libx264',
                 '-preset', 'medium',
                 '-crf', '23',
                 '-c:a', 'aac',
                 '-b:a', '128k',
+                '-movflags', '+faststart',  # Optimize for web streaming
                 output.name
             ]
             
@@ -87,7 +102,7 @@ class MediaProcessor:
     def process_media(media_file):
         """
         Process media file based on its type.
-        Returns the processed file path.
+        Returns the processed file path, or None if processing is not available.
         """
         file_type = MediaProcessor.get_file_type(media_file)
         
@@ -96,4 +111,4 @@ class MediaProcessor:
         elif file_type.startswith('video/'):
             return MediaProcessor.process_video(media_file)
         else:
-            raise ValueError(f"Unsupported file type: {file_type}") 
+            raise ValueError(f"Unsupported file type: {file_type}")

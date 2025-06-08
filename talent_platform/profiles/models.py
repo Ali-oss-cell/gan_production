@@ -40,6 +40,88 @@ class TalentUserProfile(models.Model):
         """
         self.profile_complete = self.has_specialization()
         self.save(update_fields=['profile_complete'])
+        
+    def get_profile_score(self):
+        score_breakdown = {
+            'total': 0,
+            'account_tier': 0,
+            'verification': 0,
+            'profile_completion': 0,
+            'media_content': 0,
+            'specialization': 0,
+            'details': {}
+        }
+        # Account tier (unchanged)
+        if self.account_type == 'platinum':
+            score_breakdown['account_tier'] = 50
+            score_breakdown['details']['account_tier'] = 'Platinum account: +50 points'
+        elif self.account_type == 'gold':
+            score_breakdown['account_tier'] = 40
+            score_breakdown['details']['account_tier'] = 'Gold account: +40 points'
+        elif self.account_type == 'silver':
+            score_breakdown['account_tier'] = 30
+            score_breakdown['details']['account_tier'] = 'Silver account: +30 points'
+        else:
+            score_breakdown['account_tier'] = 10
+            score_breakdown['details']['account_tier'] = 'Free account: +10 points'
+        # Verification (unchanged)
+        if self.is_verified:
+            score_breakdown['verification'] = 20
+            score_breakdown['details']['verification'] = 'Verified profile: +20 points'
+        else:
+            score_breakdown['details']['verification'] = 'Not verified: +0 points (get verified for +20 points)'
+        # Profile completion (unchanged)
+        if self.profile_complete:
+            score_breakdown['profile_completion'] = 15
+            score_breakdown['details']['profile_completion'] = 'Profile complete: +15 points'
+        else:
+            score_breakdown['details']['profile_completion'] = 'Profile incomplete: +0 points (complete your profile for +15 points)'
+        # Media content (revised: counts non-test media, reduced points)
+        media_count = self.media.filter(is_test_video=False).count() # Count only general portfolio media
+        if media_count >= 5:
+            score_breakdown['media_content'] = 15
+            score_breakdown['details']['media_content'] = 'Strong portfolio (5+ general items): +15 points'
+        elif media_count >= 3:
+            score_breakdown['media_content'] = 10
+            score_breakdown['details']['media_content'] = 'Developing portfolio (3-4 general items): +10 points'
+        elif media_count >= 1:
+            score_breakdown['media_content'] = 5
+            score_breakdown['details']['media_content'] = 'Started portfolio (1-2 general items): +5 points'
+        else:
+            score_breakdown['media_content'] = 0 # Explicitly set to 0 if no media
+            score_breakdown['details']['media_content'] = 'No general media: +0 points (add portfolio items for up to +15 points)'
+        # Specialization (revised: increased points)
+        has_specialization = self.has_specialization()
+        if has_specialization:
+            score_breakdown['specialization'] = 20
+            score_breakdown['details']['specialization'] = 'Has at least 1 specialization: +20 points'
+        else:
+            score_breakdown['specialization'] = 0 # Explicitly set to 0 if no specialization
+            score_breakdown['details']['specialization'] = 'No specialization: +0 points (add a specialization for +20 points)'
+        # Calculate total
+        score_breakdown['total'] = (
+            score_breakdown['account_tier'] +
+            score_breakdown['verification'] +
+            score_breakdown['profile_completion'] +
+            score_breakdown['media_content'] +
+            score_breakdown['specialization']
+        )
+        score_breakdown['total'] = min(score_breakdown['total'], 100)
+        # Improvement tips
+        if score_breakdown['total'] < 80:
+            score_breakdown['improvement_tips'] = []
+            if self.account_type == 'free':
+                score_breakdown['improvement_tips'].append('Upgrade to Silver (+20), Gold (+30), or Platinum (+40) for more points')
+            if not self.is_verified:
+                score_breakdown['improvement_tips'].append('Verify your profile for +20 points')
+            if not self.profile_complete:
+                score_breakdown['improvement_tips'].append('Complete your profile for +15 points')
+            if media_count < 5: # media_count here still refers to general media due to earlier re-assignment
+                score_breakdown['improvement_tips'].append('Add more general portfolio items for up to +15 points')
+            if not has_specialization:
+                score_breakdown['improvement_tips'].append('Add a specialization for +20 points')
+        return score_breakdown
+    
     @property
     def get_media(self):
         """
@@ -81,7 +163,7 @@ class TalentUserProfile(models.Model):
         # Get the current count with a single query
         image_count = getattr(self, '_image_count', None)
         if image_count is None:
-            image_count = self.media.filter(media_type='image').count()
+            image_count = self.media.filter(media_type='image', is_test_video=False).count()
             self._image_count = image_count  # Cache the count
             
         return image_count < self.get_image_limit()
@@ -95,7 +177,7 @@ class TalentUserProfile(models.Model):
         # Get the current count with a single query
         video_count = getattr(self, '_video_count', None)
         if video_count is None:
-            video_count = self.media.filter(media_type='video').count()
+            video_count = self.media.filter(media_type='video', is_test_video=False).count()
             self._video_count = video_count  # Cache the count
             
         return video_count < self.get_video_limit()
@@ -152,6 +234,84 @@ class BackGroundJobsProfile(models.Model):
     ]
     account_type = models.CharField(max_length=20, choices=ACCOUNT_TYPES, default='free')
 
+    def get_profile_score(self):
+        score_breakdown = {
+            'total': 0,
+            'account_tier': 50,  # All accounts are paid, flat 50 points
+            'profile_completion': 0,
+            'item_diversity': 0,
+            'item_quantity': 0,
+            'details': {}
+        }
+        score_breakdown['details']['account_tier'] = 'All accounts paid: +50 points'
+        # Profile completion: 15 points for filling basic fields
+        profile_complete = bool(self.country and self.date_of_birth and self.gender)
+        if profile_complete:
+            score_breakdown['profile_completion'] = 15
+            score_breakdown['details']['profile_completion'] = 'Profile complete: +15 points'
+        else:
+            score_breakdown['details']['profile_completion'] = 'Profile incomplete: +0 points (complete your profile for +15 points)'
+        # Item diversity: 5 points per item type
+        item_types = [
+            Prop.objects.filter(BackGroundJobsProfile=self).exists(),
+            Costume.objects.filter(BackGroundJobsProfile=self).exists(),
+            Location.objects.filter(BackGroundJobsProfile=self).exists(),
+            Memorabilia.objects.filter(BackGroundJobsProfile=self).exists(),
+            Vehicle.objects.filter(BackGroundJobsProfile=self).exists(),
+            ArtisticMaterial.objects.filter(BackGroundJobsProfile=self).exists(),
+            MusicItem.objects.filter(BackGroundJobsProfile=self).exists(),
+            RareItem.objects.filter(BackGroundJobsProfile=self).exists()
+        ]
+        item_type_count = sum(1 for t in item_types if t)
+        score_breakdown['item_diversity'] = item_type_count * 5
+        if item_type_count > 0:
+            score_breakdown['details']['item_diversity'] = f'{item_type_count} item types: +{item_type_count * 5} points'
+        else:
+            score_breakdown['details']['item_diversity'] = 'No item types: +0 points (add different item types for +5 points each)'
+        # Item quantity: Up to 25 points based on total items
+        total_items = sum([
+            Prop.objects.filter(BackGroundJobsProfile=self).count(),
+            Costume.objects.filter(BackGroundJobsProfile=self).count(),
+            Location.objects.filter(BackGroundJobsProfile=self).count(),
+            Memorabilia.objects.filter(BackGroundJobsProfile=self).count(),
+            Vehicle.objects.filter(BackGroundJobsProfile=self).count(),
+            ArtisticMaterial.objects.filter(BackGroundJobsProfile=self).count(),
+            MusicItem.objects.filter(BackGroundJobsProfile=self).count(),
+            RareItem.objects.filter(BackGroundJobsProfile=self).count()
+        ])
+        if total_items > 20:
+            score_breakdown['item_quantity'] = 25
+            score_breakdown['details']['item_quantity'] = 'Large collection (20+ items): +25 points'
+        elif total_items > 10:
+            score_breakdown['item_quantity'] = 20
+            score_breakdown['details']['item_quantity'] = 'Medium collection (10-20 items): +20 points'
+        elif total_items > 5:
+            score_breakdown['item_quantity'] = 15
+            score_breakdown['details']['item_quantity'] = 'Small collection (5-10 items): +15 points'
+        elif total_items > 0:
+            score_breakdown['item_quantity'] = 10
+            score_breakdown['details']['item_quantity'] = 'Starter collection (1-5 items): +10 points'
+        else:
+            score_breakdown['details']['item_quantity'] = 'No items: +0 points (add items for up to +25 points)'
+        # Calculate total
+        score_breakdown['total'] = (
+            score_breakdown['account_tier'] +
+            score_breakdown['profile_completion'] +
+            score_breakdown['item_diversity'] +
+            score_breakdown['item_quantity']
+        )
+        score_breakdown['total'] = min(score_breakdown['total'], 100)
+        # Improvement tips
+        if score_breakdown['total'] < 80:
+            score_breakdown['improvement_tips'] = []
+            if not profile_complete:
+                score_breakdown['improvement_tips'].append('Complete your profile for +15 points')
+            if item_type_count < 8:
+                score_breakdown['improvement_tips'].append('Add more item types for +5 points each')
+            if total_items < 5:
+                score_breakdown['improvement_tips'].append('Add more items for up to +25 points')
+        return score_breakdown
+
     def __str__(self):
         return f"Background Profile - {self.user.email}"
 
@@ -200,36 +360,153 @@ class TalentMedia(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     date_of_birth = models.DateField(verbose_name="Date of Birth", blank=True, null=True, help_text="The user's date of birth.")
+    # New fields for test video logic
+    is_test_video = models.BooleanField(default=False, help_text="Is this a required test video for actor/comparse?")
+    test_video_number = models.PositiveSmallIntegerField(blank=True, null=True, help_text="Test video order (1-5)")
+    # New: Special flag for the 1-minute 'about yourself' video
+    is_about_yourself_video = models.BooleanField(default=False, help_text="Is this the 1-minute 'about yourself' video?")
+
+    def _get_video_duration(self, file_path):
+        """
+        Returns the duration of the video in seconds using ffprobe (from ffmpeg).
+        Returns None if ffprobe is not available or fails.
+        """
+        import subprocess
+        import json
+        import shutil
+        
+        # Check if ffprobe is available
+        if not shutil.which('ffprobe'):
+            print("Warning: ffprobe not found. Video duration validation disabled.")
+            return None
+            
+        try:
+            result = subprocess.run([
+                'ffprobe', '-v', 'error', '-show_entries', 'format=duration',
+                '-of', 'json', file_path
+            ], capture_output=True, text=True, check=True)
+            info = json.loads(result.stdout)
+            duration = float(info['format']['duration'])
+            return duration
+        except Exception as e:
+            print(f"Error getting video duration: {e}")
+            return None
+
+    def _is_ffmpeg_available(self):
+        """Check if FFmpeg is available on the system"""
+        import shutil
+        return shutil.which('ffprobe') is not None
 
     def save(self, *args, **kwargs):
+        # Validate file size limits using centralized validation
+        if self.media_file and not self.pk:  # Only check for new uploads
+            from .utils.file_validators import validate_video_file, validate_image_file
+            
+            try:
+                if self.media_type == 'video':
+                    validate_video_file(self.media_file)
+                elif self.media_type == 'image':
+                    validate_image_file(self.media_file)
+            except Exception as e:
+                raise ValidationError(str(e))
+        
+        # Enforce test video rules for actor/comparse/host and about_yourself_video for all
+        if self.is_test_video and self.media_type == 'video':
+            # Check if user has any specialization
+            has_visual = hasattr(self.talent, 'visual_worker')
+            has_expressive = hasattr(self.talent, 'expressive_worker')
+            has_hybrid = hasattr(self.talent, 'hybrid_worker')
+            
+            if not (has_visual or has_expressive or has_hybrid):
+                raise ValidationError("Test videos can only be uploaded by users with specializations.")
+            
+            # About yourself video (test_video_number=5) is allowed for all specializations
+            if self.is_about_yourself_video and self.test_video_number == 5:
+                # Count existing about_yourself videos
+                about_videos = TalentMedia.objects.filter(
+                    talent=self.talent, 
+                    is_test_video=True, 
+                    is_about_yourself_video=True
+                )
+                if self.pk is None and about_videos.count() >= 1:
+                    raise ValidationError("You can only upload 1 about yourself video.")
+            
+            # Regular test videos (1-4) only for specific ExpressiveWorker types
+            elif not self.is_about_yourself_video and 1 <= (self.test_video_number or 0) <= 4:
+                performer_type = None
+                try:
+                    performer_type = self.talent.expressive_worker.performer_type
+                except Exception:
+                    pass
+                
+                if performer_type not in ['actor', 'comparse', 'host']:
+                    raise ValidationError("Test videos (1-4) are only allowed for actors, comparse, or hosts.")
+                
+                # Count existing test videos for this user (excluding about_yourself)
+                test_videos = TalentMedia.objects.filter(
+                    talent=self.talent, 
+                    is_test_video=True, 
+                    is_about_yourself_video=False
+                )
+                if self.pk is None and test_videos.count() >= 4:
+                    raise ValidationError("You can only upload 4 test videos.")
+            
+            # Duration validation (only if FFmpeg is available)
+            if self.media_file and self._is_ffmpeg_available():
+                temp_path = None
+                try:
+                    # Save to temp file
+                    import tempfile
+                    with tempfile.NamedTemporaryFile(delete=False, suffix='.mp4') as tmp:
+                        for chunk in self.media_file.chunks():
+                            tmp.write(chunk)
+                        temp_path = tmp.name
+                    duration = self._get_video_duration(temp_path)
+                    if duration is not None:  # Only validate if we could get duration
+                        # Duration validation
+                        if self.is_about_yourself_video:
+                            # About yourself video must be ~60s
+                            if not (58 <= duration <= 62):
+                                raise ValidationError("About yourself video must be about 60 seconds.")
+                        else:
+                            # Regular test videos must be ~30s
+                            if not (28 <= duration <= 32):
+                                raise ValidationError("Test videos must be about 30 seconds.")
+                    # If duration is None (FFmpeg failed), we skip validation but log a warning
+                    elif duration is None:
+                        print(f"Warning: Could not validate duration for video {self.name}. FFmpeg may not be properly configured.")
+                finally:
+                    if temp_path and os.path.exists(temp_path):
+                        os.unlink(temp_path)
+            elif self.media_file and not self._is_ffmpeg_available():
+                print("Warning: FFmpeg not available. Video duration validation skipped.")
+        
         # Process media file before saving
         if self.media_file and not self.pk:  # Only process new uploads
             try:
-                # Process the media file
-                processed_path = MediaProcessor.process_media(self.media_file)
+                # For images, process immediately
+                if self.media_type == 'image':
+                    # Process the image file
+                    processed_path = MediaProcessor.process_media(self.media_file)
                 
-                if processed_path:
-                    # Save the processed file
-                    with open(processed_path, 'rb') as f:
-                        self.media_file.save(
-                            os.path.basename(self.media_file.name),
-                            ContentFile(f.read()),
-                            save=False
-                        )
-                    
-                    # Generate thumbnail for videos
-                    if self.media_type == 'video':
-                        thumbnail_path = self._generate_video_thumbnail(processed_path)
-                        if thumbnail_path:
-                            with open(thumbnail_path, 'rb') as f:
-                                self.thumbnail.save(
-                                    f"{os.path.splitext(self.media_file.name)[0]}_thumb.jpg",
-                                    ContentFile(f.read()),
-                                    save=False
-                                )
-                    
-                    # Clean up temporary files
-                    os.unlink(processed_path)
+                    if processed_path:
+                        # Save the processed file
+                        with open(processed_path, 'rb') as f:
+                            self.media_file.save(
+                                os.path.basename(self.media_file.name),
+                                ContentFile(f.read()),
+                                save=False
+                            )
+                        
+                        # Clean up temporary files
+                        os.unlink(processed_path)
+                
+                # For videos, use the queue system to prevent server overload
+                elif self.media_type == 'video':
+                    # Save the original file temporarily for processing
+                    # The actual processing will happen after the model is saved
+                    # via the post_save signal handler
+                    pass  # Video processing will be handled in post_save
                     
             except Exception as e:
                 print(f"Error processing media: {str(e)}")
@@ -239,7 +516,13 @@ class TalentMedia(models.Model):
     def _generate_video_thumbnail(self, video_path):
         """
         Generate a thumbnail from a video file.
+        Returns None if FFmpeg is not available.
         """
+        # Check if FFmpeg is available
+        if not self._is_ffmpeg_available():
+            print("Warning: FFmpeg not available. Skipping video thumbnail generation.")
+            return None
+        
         try:
             thumbnail_path = tempfile.NamedTemporaryFile(suffix='.jpg', delete=False).name
             
@@ -263,7 +546,62 @@ class TalentMedia(models.Model):
         return f"{self.talent.user.username}'s {self.media_type} - {self.media_file.name}"
    
 
+# Signal handler for video processing
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+from .utils.video_queue import enqueue_video_processing
 
+@receiver(post_save, sender=TalentMedia)
+def process_video_after_save(sender, instance, created, **kwargs):
+    """Process video files asynchronously after the model is saved"""
+    if created and instance.media_type == 'video':
+        # Check if FFmpeg is available before attempting video processing
+        if not instance._is_ffmpeg_available():
+            print(f"Warning: FFmpeg not available. Skipping video processing for {instance.name}. Video will be used as-is.")
+            return
+        
+        # Enqueue the video for processing
+        def video_processing_callback(task):
+            if task.status == 'completed':
+                try:
+                    # Get the processed video path from the task result
+                    processed_path = task.result
+                    if processed_path:
+                        # Update the media file with the processed version
+                        with open(processed_path, 'rb') as f:
+                            instance.media_file.save(
+                                os.path.basename(instance.media_file.name),
+                                ContentFile(f.read()),
+                                save=False
+                            )
+                        
+                        # Generate thumbnail
+                        thumbnail_path = instance._generate_video_thumbnail(processed_path)
+                        if thumbnail_path:
+                            with open(thumbnail_path, 'rb') as f:
+                                instance.thumbnail.save(
+                                    f"{os.path.splitext(instance.media_file.name)[0]}_thumb.jpg",
+                                    ContentFile(f.read()),
+                                    save=False
+                                )
+                        
+                        # Save the instance with the processed file and thumbnail
+                        instance.save(update_fields=['media_file', 'thumbnail'])
+                        
+                        # Clean up temporary files
+                        os.unlink(processed_path)
+                        if thumbnail_path and os.path.exists(thumbnail_path):
+                            os.unlink(thumbnail_path)
+                    else:
+                        # Processing returned None (likely due to missing FFmpeg)
+                        print(f"Video processing returned None for {instance.name}. Video will be used as-is.")
+                except Exception as e:
+                    print(f"Error updating video after processing: {str(e)}")
+            elif task.status == 'failed':
+                print(f"Video processing failed for {instance.name}: {task.error}")
+        
+        # Enqueue the video processing task
+        enqueue_video_processing(instance.id, callback=video_processing_callback)
 
 
     #socil media links
@@ -420,6 +758,107 @@ class Band(models.Model):
     # Band website and social media
     website = models.URLField(blank=True, null=True)
     
+    def has_bands_subscription(self):
+        """Check if the band creator has an active bands subscription"""
+        from payments.models import Subscription
+        return Subscription.objects.filter(
+            user=self.creator.user,
+            plan__name='bands',
+            is_active=True,
+            status='active'
+        ).exists()
+    
+    def get_profile_score(self):
+        score_breakdown = {
+            'total': 0,
+            'profile_completion': 0,
+            'media_content': 0,
+            'member_count': 0,
+            'band_details': 0,
+            'details': {}
+        }
+        # Profile completion: Up to 30 points based on % of fields completed
+        profile_fields = [
+            bool(self.name), bool(self.description), bool(self.band_type), 
+            bool(self.profile_picture), bool(self.contact_email or self.contact_phone), 
+            bool(self.location)
+        ]
+        completed_fields = sum(1 for f in profile_fields if f)
+        profile_percent = (completed_fields / len(profile_fields)) * 100
+        if profile_percent == 100:
+            score_breakdown['profile_completion'] = 30
+            score_breakdown['details']['profile_completion'] = 'Complete band profile: +30 points'
+        elif profile_percent >= 75:
+            score_breakdown['profile_completion'] = 20
+            score_breakdown['details']['profile_completion'] = 'Mostly complete band profile: +20 points'
+        elif profile_percent >= 50:
+            score_breakdown['profile_completion'] = 10
+            score_breakdown['details']['profile_completion'] = 'Partially complete band profile: +10 points'
+        else:
+            score_breakdown['details']['profile_completion'] = 'Minimal band profile: +0 points (complete your band profile for up to +30 points)'
+        # Media content: Up to 30 points based on quantity
+        media_count = self.media.count()
+        if media_count >= 6:
+            score_breakdown['media_content'] = 30
+            score_breakdown['details']['media_content'] = 'Maximum media (6 items): +30 points'
+        elif media_count >= 4:
+            score_breakdown['media_content'] = 20
+            score_breakdown['details']['media_content'] = 'Good media (4-5 items): +20 points'
+        elif media_count >= 2:
+            score_breakdown['media_content'] = 10
+            score_breakdown['details']['media_content'] = 'Basic media (2-3 items): +10 points'
+        elif media_count == 1:
+            score_breakdown['media_content'] = 5
+            score_breakdown['details']['media_content'] = 'Minimal media (1 item): +5 points'
+        else:
+            score_breakdown['details']['media_content'] = 'No media: +0 points (add media for up to +30 points)'
+        # Member count: Up to 30 points based on number of members
+        member_count = self.member_count
+        if member_count >= 10:
+            score_breakdown['member_count'] = 30
+            score_breakdown['details']['member_count'] = 'Large band (10+ members): +30 points'
+        elif member_count >= 5:
+            score_breakdown['member_count'] = 20
+            score_breakdown['details']['member_count'] = 'Medium band (5-9 members): +20 points'
+        elif member_count >= 3:
+            score_breakdown['member_count'] = 10
+            score_breakdown['details']['member_count'] = 'Small band (3-4 members): +10 points'
+        elif member_count > 0:
+            score_breakdown['member_count'] = 5
+            score_breakdown['details']['member_count'] = 'Minimal band (1-2 members): +5 points'
+        else:
+            score_breakdown['details']['member_count'] = 'No members: +0 points (add members for up to +30 points)'
+        # Band details: Up to 10 points for member positions
+        members_with_positions = BandMembership.objects.filter(band=self, position__isnull=False).exclude(position='').count()
+        if members_with_positions == member_count and member_count > 0:
+            score_breakdown['band_details'] = 10
+            score_breakdown['details']['band_details'] = 'All members have positions: +10 points'
+        elif members_with_positions > 0:
+            score_breakdown['band_details'] = 5
+            score_breakdown['details']['band_details'] = 'Some members have positions: +5 points'
+        else:
+            score_breakdown['details']['band_details'] = 'No member positions: +0 points (add positions for up to +10 points)'
+        # Calculate total
+        score_breakdown['total'] = (
+            score_breakdown['profile_completion'] +
+            score_breakdown['media_content'] +
+            score_breakdown['member_count'] +
+            score_breakdown['band_details']
+        )
+        score_breakdown['total'] = min(score_breakdown['total'], 100)
+        # Improvement tips
+        if score_breakdown['total'] < 80:
+            score_breakdown['improvement_tips'] = []
+            if profile_percent < 100:
+                score_breakdown['improvement_tips'].append('Complete your band profile for up to +30 points')
+            if media_count < 6:
+                score_breakdown['improvement_tips'].append('Add more media for up to +30 points')
+            if member_count < 5:
+                score_breakdown['improvement_tips'].append('Add more members for up to +30 points')
+            if members_with_positions < member_count:
+                score_breakdown['improvement_tips'].append('Add positions for all members for up to +10 points')
+        return score_breakdown
+    
     @property
     def member_count(self):
         """Get the total number of members in the band
@@ -573,16 +1012,16 @@ class BandMedia(models.Model):
                     image_count = self.band.media.filter(media_type='image').count()
                     self.band._band_image_count = image_count
                     
-                if image_count >= 3:
-                    raise ValidationError("A band can have a maximum of 3 images.")
+                if image_count >= 5:
+                    raise ValidationError("A band can have a maximum of 5 images.")
             
             elif self.media_type == 'video':
                 if video_count is None:
                     video_count = self.band.media.filter(media_type='video').count()
                     self.band._band_video_count = video_count
                     
-                if video_count >= 3:
-                    raise ValidationError("A band can have a maximum of 3 videos.")
+                if video_count >= 5:
+                    raise ValidationError("A band can have a maximum of 5 videos.")
     
     def save(self, *args, **kwargs):
         self.clean()  # Run validation before saving
@@ -683,15 +1122,16 @@ class VisualWorker(models.Model):
     ]
     rate_range = models.CharField(max_length=20, choices=RATE_RANGES, default='low')
     willing_to_relocate = models.BooleanField(default=False)
-    city = models.CharField(max_length=100, default='')
-    country = models.CharField(max_length=100, default='')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    face_picture = models.ImageField(upload_to='profile_pictures/face/', null=True, blank=True)
+    mid_range_picture = models.ImageField(upload_to='profile_pictures/mid/', null=True, blank=True)
+    full_body_picture = models.ImageField(upload_to='profile_pictures/full/', null=True, blank=True)
 
 class ExpressiveWorker(models.Model):
     profile = models.OneToOneField(TalentUserProfile, on_delete=models.CASCADE, related_name='expressive_worker')
     PERFORMER_TYPES = [
-        ('actor', 'Actor'), ('voice_actor', 'Voice Actor'),
+        ('actor', 'Actor'),('comparse','Comparse'),('voice_actor', 'Voice Actor'),
         ('singer', 'Singer'), ('dancer', 'Dancer'),
         ('musician', 'Musician'), ('comedian', 'Comedian'),
         ('host', 'TV/Event Host'), ('narrator', 'Narrator'),
@@ -704,9 +1144,77 @@ class ExpressiveWorker(models.Model):
     HAIR_COLORS = [('blonde', 'Blonde'), ('brown', 'Brown'), ('black', 'Black'), 
                    ('red', 'Red'), ('gray', 'Gray/Silver'), ('other', 'Other')]
     hair_color = models.CharField(max_length=20, choices=HAIR_COLORS, default='brown')
+    # New: Hair type
+    HAIR_TYPES = [
+        ('straight', 'Straight'), ('wavy', 'Wavy'), ('curly', 'Curly'), ('coily', 'Coily'), ('bald', 'Bald'), ('other', 'Other')
+    ]
+    hair_type = models.CharField(max_length=20, choices=HAIR_TYPES, default='straight')
+    # New: Skin tone (reuse HybridWorker's choices)
+    SKIN_TONES = [
+        ('fair', 'Fair'), ('light', 'Light'), ('medium', 'Medium'), 
+        ('olive', 'Olive'), ('brown', 'Brown'), ('dark', 'Dark')
+    ]
+    skin_tone = models.CharField(max_length=20, choices=SKIN_TONES, default='fair')
     EYE_COLORS = [('blue', 'Blue'), ('green', 'Green'), ('brown', 'Brown'), 
                   ('hazel', 'Hazel'), ('black', 'Black'), ('other', 'Other')]
     eye_color = models.CharField(max_length=20, choices=EYE_COLORS, default='brown')
+    # New: Eye size
+    EYE_SIZES = [
+        ('small', 'Small'), ('medium', 'Medium'), ('large', 'Large')
+    ]
+    eye_size = models.CharField(max_length=10, choices=EYE_SIZES, default='medium')
+    # New: Eye pattern
+    EYE_PATTERNS = [
+        ('normal', 'Normal'), ('protruding', 'Protruding'), ('sunken', 'Sunken'), ('almond', 'Almond'), ('round', 'Round'), ('other', 'Other')
+    ]
+    eye_pattern = models.CharField(max_length=20, choices=EYE_PATTERNS, default='normal')
+    # New: Face shape
+    FACE_SHAPES = [
+        ('oval', 'Oval'), ('round', 'Round'), ('square', 'Square'), ('heart', 'Heart'), ('diamond', 'Diamond'), ('long', 'Long'), ('other', 'Other')
+    ]
+    face_shape = models.CharField(max_length=20, choices=FACE_SHAPES, default='oval')
+    # New: Forehead shape
+    FOREHEAD_SHAPES = [
+        ('broad', 'Broad'), ('narrow', 'Narrow'), ('rounded', 'Rounded'), ('straight', 'Straight'), ('other', 'Other')
+    ]
+    forehead_shape = models.CharField(max_length=20, choices=FOREHEAD_SHAPES, default='straight')
+    # New: Lip shape
+    LIP_SHAPES = [
+        ('thin', 'Thin'), ('full', 'Full'), ('heart', 'Heart-shaped'), ('round', 'Round'), ('bow', 'Cupid\'s Bow'), ('other', 'Other')
+    ]
+    lip_shape = models.CharField(max_length=20, choices=LIP_SHAPES, default='full')
+    # New: Eyebrow pattern
+    EYEBROW_PATTERNS = [
+        ('arched', 'Arched'), ('straight', 'Straight'), ('curved', 'Curved'), ('thick', 'Thick'), ('thin', 'Thin'), ('other', 'Other')
+    ]
+    eyebrow_pattern = models.CharField(max_length=20, choices=EYEBROW_PATTERNS, default='straight')
+    # New: Beard color
+    BEARD_COLORS = HAIR_COLORS
+    beard_color = models.CharField(max_length=20, choices=BEARD_COLORS, default='brown', blank=True, null=True)
+    # New: Beard length
+    BEARD_LENGTHS = [
+        ('none', 'None'), ('stubble', 'Stubble'), ('short', 'Short'), ('medium', 'Medium'), ('long', 'Long'), ('other', 'Other')
+    ]
+    beard_length = models.CharField(max_length=10, choices=BEARD_LENGTHS, default='none', blank=True, null=True)
+    # New: Mustache color
+    mustache_color = models.CharField(max_length=20, choices=HAIR_COLORS, default='brown', blank=True, null=True)
+    # New: Mustache length
+    mustache_length = models.CharField(max_length=10, choices=BEARD_LENGTHS, default='none', blank=True, null=True)
+    # New: Distinctive facial marks
+    FACIAL_MARKS = [
+        ('none', 'None'), ('mole', 'Mole'), ('scar', 'Scar'), ('birthmark', 'Birthmark'), ('freckles', 'Freckles'), ('other', 'Other')
+    ]
+    distinctive_facial_marks = models.CharField(max_length=20, choices=FACIAL_MARKS, default='none', blank=True, null=True)
+    # New: Distinctive body marks
+    BODY_MARKS = [
+        ('none', 'None'), ('tattoo', 'Tattoo'), ('scar', 'Scar'), ('birthmark', 'Birthmark'), ('other', 'Other')
+    ]
+    distinctive_body_marks = models.CharField(max_length=20, choices=BODY_MARKS, default='none', blank=True, null=True)
+    # New: Voice type
+    VOICE_TYPES = [
+        ('normal', 'Normal'), ('thin', 'Thin'), ('rough', 'Rough'), ('deep', 'Deep'), ('soft', 'Soft'), ('nasal', 'Nasal'), ('other', 'Other')
+    ]
+    voice_type = models.CharField(max_length=20, choices=VOICE_TYPES, default='normal')
     BODY_TYPES = [('athletic', 'Athletic'), ('slim', 'Slim'), ('muscular', 'Muscular'), 
                   ('average', 'Average'), ('plus_size', 'Plus Size'), ('other', 'Other')]
     body_type = models.CharField(max_length=20, choices=BODY_TYPES, default='average')
@@ -715,10 +1223,11 @@ class ExpressiveWorker(models.Model):
         ('evenings', 'Evenings Only'), ('weekends', 'Weekends Only')
     ]
     availability = models.CharField(max_length=20, choices=AVAILABILITY_CHOICES, default='full_time')
-    city = models.CharField(max_length=100, default='')
-    country = models.CharField(max_length=100, default='')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    face_picture = models.ImageField(upload_to='profile_pictures/face/', null=True, blank=True)
+    mid_range_picture = models.ImageField(upload_to='profile_pictures/mid/', null=True, blank=True)
+    full_body_picture = models.ImageField(upload_to='profile_pictures/full/', null=True, blank=True)
 
 class HybridWorker(models.Model):
     profile = models.OneToOneField(TalentUserProfile, on_delete=models.CASCADE, related_name='hybrid_worker')
@@ -726,38 +1235,205 @@ class HybridWorker(models.Model):
         ('model', 'Fashion/Commercial Model'), ('stunt_performer', 'Stunt Performer'),
         ('body_double', 'Body Double'), ('motion_capture', 'Motion Capture Artist'),
         ('background_actor', 'Background Actor'), ('specialty_performer', 'Specialty Performer'),
-        ('other', 'Other Physical Performer')
+        ('other', 'Other Physical Performer'),
     ]
     hybrid_type = models.CharField(max_length=50, choices=HYBRID_TYPES, default='model')
     years_experience = models.PositiveIntegerField(default=0)
     height = models.FloatField(default=0.0, help_text="Height in cm")
     weight = models.FloatField(default=0.0, help_text="Weight in kg")
+    
+    # Hair characteristics
     HAIR_COLORS = [('blonde', 'Blonde'), ('brown', 'Brown'), ('black', 'Black'), 
                    ('red', 'Red'), ('gray', 'Gray/Silver'), ('other', 'Other')]
     hair_color = models.CharField(max_length=20, choices=HAIR_COLORS, default='brown')
+    HAIR_TYPES = [
+        ('straight', 'Straight'), ('wavy', 'Wavy'), ('curly', 'Curly'), ('coily', 'Coily'), ('bald', 'Bald'), ('other', 'Other')
+    ]
+    hair_type = models.CharField(max_length=20, choices=HAIR_TYPES, default='straight')
+    
+    # Eye characteristics
     EYE_COLORS = [('blue', 'Blue'), ('green', 'Green'), ('brown', 'Brown'), 
                   ('hazel', 'Hazel'), ('black', 'Black'), ('other', 'Other')]
     eye_color = models.CharField(max_length=20, choices=EYE_COLORS, default='brown')
+    EYE_SIZES = [
+        ('small', 'Small'), ('medium', 'Medium'), ('large', 'Large')
+    ]
+    eye_size = models.CharField(max_length=10, choices=EYE_SIZES, default='medium')
+    EYE_PATTERNS = [
+        ('normal', 'Normal'), ('protruding', 'Protruding'), ('sunken', 'Sunken'), ('almond', 'Almond'), ('round', 'Round'), ('other', 'Other')
+    ]
+    eye_pattern = models.CharField(max_length=20, choices=EYE_PATTERNS, default='normal')
+    
+    # Facial characteristics
+    FACE_SHAPES = [
+        ('oval', 'Oval'), ('round', 'Round'), ('square', 'Square'), ('heart', 'Heart'), ('diamond', 'Diamond'), ('long', 'Long'), ('other', 'Other')
+    ]
+    face_shape = models.CharField(max_length=20, choices=FACE_SHAPES, default='oval')
+    FOREHEAD_SHAPES = [
+        ('broad', 'Broad'), ('narrow', 'Narrow'), ('rounded', 'Rounded'), ('straight', 'Straight'), ('other', 'Other')
+    ]
+    forehead_shape = models.CharField(max_length=20, choices=FOREHEAD_SHAPES, default='straight')
+    LIP_SHAPES = [
+        ('thin', 'Thin'), ('full', 'Full'), ('heart', 'Heart-shaped'), ('round', 'Round'), ('bow', 'Cupid\'s Bow'), ('other', 'Other')
+    ]
+    lip_shape = models.CharField(max_length=20, choices=LIP_SHAPES, default='full')
+    EYEBROW_PATTERNS = [
+        ('arched', 'Arched'), ('straight', 'Straight'), ('curved', 'Curved'), ('thick', 'Thick'), ('thin', 'Thin'), ('other', 'Other')
+    ]
+    eyebrow_pattern = models.CharField(max_length=20, choices=EYEBROW_PATTERNS, default='straight')
+    
+    # Facial hair
+    beard_color = models.CharField(max_length=20, choices=HAIR_COLORS, default='brown', blank=True, null=True)
+    BEARD_LENGTHS = [
+        ('none', 'None'), ('stubble', 'Stubble'), ('short', 'Short'), ('medium', 'Medium'), ('long', 'Long'), ('other', 'Other')
+    ]
+    beard_length = models.CharField(max_length=10, choices=BEARD_LENGTHS, default='none', blank=True, null=True)
+    mustache_color = models.CharField(max_length=20, choices=HAIR_COLORS, default='brown', blank=True, null=True)
+    mustache_length = models.CharField(max_length=10, choices=BEARD_LENGTHS, default='none', blank=True, null=True)
+    
+    # Distinctive marks
+    FACIAL_MARKS = [
+        ('none', 'None'), ('mole', 'Mole'), ('scar', 'Scar'), ('birthmark', 'Birthmark'), ('freckles', 'Freckles'), ('other', 'Other')
+    ]
+    distinctive_facial_marks = models.CharField(max_length=20, choices=FACIAL_MARKS, default='none', blank=True, null=True)
+    BODY_MARKS = [
+        ('none', 'None'), ('tattoo', 'Tattoo'), ('scar', 'Scar'), ('birthmark', 'Birthmark'), ('other', 'Other')
+    ]
+    distinctive_body_marks = models.CharField(max_length=20, choices=BODY_MARKS, default='none', blank=True, null=True)
+    
+    # Voice characteristics
+    VOICE_TYPES = [
+        ('normal', 'Normal'), ('thin', 'Thin'), ('rough', 'Rough'), ('deep', 'Deep'), ('soft', 'Soft'), ('nasal', 'Nasal'), ('other', 'Other')
+    ]
+    voice_type = models.CharField(max_length=20, choices=VOICE_TYPES, default='normal')
+    
+    # Body characteristics
     SKIN_TONES = [('fair', 'Fair'), ('light', 'Light'), ('medium', 'Medium'), 
                   ('olive', 'Olive'), ('brown', 'Brown'), ('dark', 'Dark')]
     skin_tone = models.CharField(max_length=20, choices=SKIN_TONES, default='fair')
     BODY_TYPES = [('athletic', 'Athletic'), ('slim', 'Slim'), ('muscular', 'Muscular'), 
                   ('average', 'Average'), ('plus_size', 'Plus Size'), ('other', 'Other')]
     body_type = models.CharField(max_length=20, choices=BODY_TYPES, default='athletic')
+    
+    # Fitness and risk levels (existing HybridWorker specific fields)
     FITNESS_LEVELS = [('beginner', 'Beginner'), ('intermediate', 'Intermediate'), 
                       ('advanced', 'Advanced'), ('elite', 'Elite Athlete')]
     fitness_level = models.CharField(max_length=20, choices=FITNESS_LEVELS, default='beginner')
     RISK_LEVELS = [('low', 'Low Risk Only'), ('moderate', 'Moderate Risk'),
                    ('high', 'High Risk'), ('extreme', 'Extreme Stunts')]
     risk_levels = models.CharField(max_length=20, choices=RISK_LEVELS, default='low')
+    
+    # Availability and other fields
     AVAILABILITY_CHOICES = [
         ('full_time', 'Full Time'), ('part_time', 'Part Time'),
         ('evenings', 'Evenings Only'), ('weekends', 'Weekends Only')
     ]
     availability = models.CharField(max_length=20, choices=AVAILABILITY_CHOICES, default='full_time')
     willing_to_relocate = models.BooleanField(default=False)
-    city = models.CharField(max_length=100, default='')
-    country = models.CharField(max_length=100, default='')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    face_picture = models.ImageField(upload_to='profile_pictures/face/', null=True, blank=True)
+    mid_range_picture = models.ImageField(upload_to='profile_pictures/mid/', null=True, blank=True)
+    full_body_picture = models.ImageField(upload_to='profile_pictures/full/', null=True, blank=True)
     
+    def has_bands_subscription(self):
+        """Check if the band creator has an active bands subscription"""
+        from payments.models import Subscription
+        return Subscription.objects.filter(
+            user=self.creator.user,
+            plan__name='bands',
+            is_active=True,
+            status='active'
+        ).exists()
+    
+    def get_profile_score(self):
+        score_breakdown = {
+            'total': 0,
+            'profile_completion': 0,
+            'media_content': 0,
+            'member_count': 0,
+            'band_details': 0,
+            'details': {}
+        }
+        # Profile completion: Up to 30 points based on % of fields completed
+        profile_fields = [
+            bool(self.name), bool(self.description), bool(self.band_type), 
+            bool(self.profile_picture), bool(self.contact_email or self.contact_phone), 
+            bool(self.location)
+        ]
+        completed_fields = sum(1 for f in profile_fields if f)
+        profile_percent = (completed_fields / len(profile_fields)) * 100
+        if profile_percent == 100:
+            score_breakdown['profile_completion'] = 30
+            score_breakdown['details']['profile_completion'] = 'Complete band profile: +30 points'
+        elif profile_percent >= 75:
+            score_breakdown['profile_completion'] = 20
+            score_breakdown['details']['profile_completion'] = 'Mostly complete band profile: +20 points'
+        elif profile_percent >= 50:
+            score_breakdown['profile_completion'] = 10
+            score_breakdown['details']['profile_completion'] = 'Partially complete band profile: +10 points'
+        else:
+            score_breakdown['details']['profile_completion'] = 'Minimal band profile: +0 points (complete your band profile for up to +30 points)'
+        # Media content: Up to 30 points based on quantity
+        media_count = self.media.count()
+        if media_count >= 6:
+            score_breakdown['media_content'] = 30
+            score_breakdown['details']['media_content'] = 'Maximum media (6 items): +30 points'
+        elif media_count >= 4:
+            score_breakdown['media_content'] = 20
+            score_breakdown['details']['media_content'] = 'Good media (4-5 items): +20 points'
+        elif media_count >= 2:
+            score_breakdown['media_content'] = 10
+            score_breakdown['details']['media_content'] = 'Basic media (2-3 items): +10 points'
+        elif media_count == 1:
+            score_breakdown['media_content'] = 5
+            score_breakdown['details']['media_content'] = 'Minimal media (1 item): +5 points'
+        else:
+            score_breakdown['details']['media_content'] = 'No media: +0 points (add media for up to +30 points)'
+        # Member count: Up to 30 points based on number of members
+        member_count = self.member_count
+        if member_count >= 10:
+            score_breakdown['member_count'] = 30
+            score_breakdown['details']['member_count'] = 'Large band (10+ members): +30 points'
+        elif member_count >= 5:
+            score_breakdown['member_count'] = 20
+            score_breakdown['details']['member_count'] = 'Medium band (5-9 members): +20 points'
+        elif member_count >= 3:
+            score_breakdown['member_count'] = 10
+            score_breakdown['details']['member_count'] = 'Small band (3-4 members): +10 points'
+        elif member_count > 0:
+            score_breakdown['member_count'] = 5
+            score_breakdown['details']['member_count'] = 'Minimal band (1-2 members): +5 points'
+        else:
+            score_breakdown['details']['member_count'] = 'No members: +0 points (add members for up to +30 points)'
+        # Band details: Up to 10 points for member positions
+        members_with_positions = BandMembership.objects.filter(band=self, position__isnull=False).exclude(position='').count()
+        if members_with_positions == member_count and member_count > 0:
+            score_breakdown['band_details'] = 10
+            score_breakdown['details']['band_details'] = 'All members have positions: +10 points'
+        elif members_with_positions > 0:
+            score_breakdown['band_details'] = 5
+            score_breakdown['details']['band_details'] = 'Some members have positions: +5 points'
+        else:
+            score_breakdown['details']['band_details'] = 'No member positions: +0 points (add positions for up to +10 points)'
+        # Calculate total
+        score_breakdown['total'] = (
+            score_breakdown['profile_completion'] +
+            score_breakdown['media_content'] +
+            score_breakdown['member_count'] +
+            score_breakdown['band_details']
+        )
+        score_breakdown['total'] = min(score_breakdown['total'], 100)
+        # Improvement tips
+        if score_breakdown['total'] < 80:
+            score_breakdown['improvement_tips'] = []
+            if profile_percent < 100:
+                score_breakdown['improvement_tips'].append('Complete your band profile for up to +30 points')
+            if media_count < 6:
+                score_breakdown['improvement_tips'].append('Add more media for up to +30 points')
+            if member_count < 5:
+                score_breakdown['improvement_tips'].append('Add more members for up to +30 points')
+            if members_with_positions < member_count:
+                score_breakdown['improvement_tips'].append('Add positions for all members for up to +10 points')
+        return score_breakdown
+

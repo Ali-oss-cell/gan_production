@@ -12,7 +12,7 @@ urlpatterns = [
     # Logins
     path('login/talent/', TalentLoginView.as_view(), name='talent-login'),
     path('login/background/', BackgroundLoginView.as_view(), name='background-login'),
-    path('login/dashboard/', DashboardLoginView.as_view(), name='dashboard-login'),
+    path('admin/login/', DashboardLoginView.as_view(), name='dashboard-login'),
     
     # Dashboard User Management endpoints moved to dashboard app
     

@@ -228,6 +228,7 @@ class SubscriptionViewSet(viewsets.ModelViewSet):
     """
     serializer_class = SubscriptionSerializer
     permission_classes = [IsAuthenticated]
+    throttle_scope = 'payment_endpoints'
 
     def get_queryset(self):
         """
@@ -324,6 +325,7 @@ class SubscriptionViewSet(viewsets.ModelViewSet):
 class PaymentTransactionViewSet(viewsets.ModelViewSet):
     serializer_class = PaymentTransactionSerializer
     permission_classes = [IsAuthenticated]
+    throttle_scope = 'payment_endpoints'
 
     def get_queryset(self):
         return PaymentTransaction.objects.filter(user=self.request.user)
@@ -344,19 +346,43 @@ class PaymentTransactionViewSet(viewsets.ModelViewSet):
 
 @csrf_exempt
 def stripe_webhook(request):
+    # Get the raw request body sent from Stripe
     payload = request.body
+    # Get the Stripe signature header which contains the signing secret
     sig_header = request.META.get('HTTP_STRIPE_SIGNATURE')
 
+    # Verify that the signature header exists
+    if not sig_header:
+        # If there's no signature header, this request might not be from Stripe
+        # This is a security measure to prevent unauthorized webhook calls
+        return HttpResponse("Missing Stripe signature header", status=400)
+
     try:
+        # Pass the payload and signature to the service for verification and processing
+        # The service will:
+        # 1. Verify the signature using Stripe's library to ensure the request came from Stripe
+        # 2. Parse the event data and handle different event types (payments, subscriptions, etc.)
+        # 3. Update database records based on the event
         StripePaymentService.handle_webhook_event(payload, sig_header)
         return HttpResponse(status=200)
+    except stripe.error.SignatureVerificationError as e:
+        # This exception occurs when the signature verification fails
+        # This could happen if:
+        # - The webhook was not sent by Stripe
+        # - The webhook signing secret is incorrect
+        # - The request was tampered with during transmission
+        # - The request is a replay attack (using a previously valid signature)
+        return HttpResponse(f"Invalid signature: {str(e)}", status=400)
     except Exception as e:
-        return HttpResponse(str(e), status=400)
+        # Handle any other exceptions that might occur during processing
+        # This includes database errors, parsing errors, or any other unexpected issues
+        return HttpResponse(f"Webhook error: {str(e)}", status=400)
 
 class PricingView(APIView):
     """
     API endpoint that provides pricing information for the frontend.
     """
+    throttle_scope = 'payment_endpoints'
     def get(self, request):
         try:
             # Format subscription plans data

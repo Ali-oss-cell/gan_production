@@ -7,13 +7,15 @@ class BackGroundJobsSerializer(serializers.ModelSerializer):
     first_name = serializers.CharField(source='user.first_name', read_only=True)
     last_name = serializers.CharField(source='user.last_name', read_only=True)
     full_name = serializers.SerializerMethodField()
+    profile_score = serializers.SerializerMethodField()
     
     class Meta:
         model = BackGroundJobsProfile
         fields = [
             'id', 'email', 'username', 'first_name', 'last_name', 'full_name',
-            'country', 'date_of_birth', 'gender'
+            'country', 'date_of_birth', 'gender', 'profile_score'
         ]
+        read_only_fields = ['id', 'email', 'username', 'profile_score']
         
     def get_full_name(self, obj):
         """Combine first_name and last_name into a single field"""
@@ -27,6 +29,10 @@ class BackGroundJobsSerializer(serializers.ModelSerializer):
             return last_name
         return ""
 
+    def get_profile_score(self, obj):
+        """Get the profile score from the model's method"""
+        return obj.get_profile_score()
+
 
 
 
@@ -35,16 +41,21 @@ class BackGroundJobsSerializer(serializers.ModelSerializer):
 class BackGroundJobs(serializers.ModelSerializer):
     email = serializers.CharField(source='user.email', read_only=True)
     username = serializers.CharField(source='user.username', read_only=True)
+    profile_score = serializers.SerializerMethodField()
     
     class Meta:
         model = BackGroundJobsProfile
         fields = [
-            'id', 'email', 'username', 'country', 'date_of_birth', 'gender'
+            'id', 'email', 'username', 'country', 'date_of_birth', 'gender', 'account_type', 'profile_score'
         ]
         extra_kwargs = {
             'user': {'read_only': True}  # User cannot be updated via this serializer
-        }  
- 
+        }
+        
+    def get_profile_score(self, obj):
+        """Get the profile score from the model's method"""
+        return obj.get_profile_score()
+
 
 
 # Base serializer for Item-based models

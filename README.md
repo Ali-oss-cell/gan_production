@@ -89,4 +89,51 @@ talent_platform/
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details. 
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Recent Updates - Band Scoring System
+
+### New Band Scoring System
+The band scoring system has been updated to better align with the "one band per user" rule and subscription-based benefits:
+
+#### Key Changes:
+1. **One Band Only**: Users can now only be in one band at a time (either as creator or member)
+2. **Simplified Scoring**: Replaced total_bands, total_score, and average_score with a single overall_score
+3. **Subscription-Based Bonuses**: Users with active "Bands" subscription get significant scoring benefits
+
+#### Scoring Components:
+- **Base Score** (up to 60 points): Profile completion (30) + Media content (30)
+- **Subscription Bonus** (40 points): Active "Bands" plan subscription
+- **Profile Completion Bonus** (20 points): Complete band profile information
+- **Maximum Score**: 100 points
+
+#### How to Improve Band Score:
+1. **Subscribe to Bands Plan** (+40 points) - Biggest impact
+2. **Complete Band Profile** (+20 bonus points when 100% complete)
+3. **Add Media Content** (up to +30 points for photos/videos)
+4. **Invite Band Members** (improves visibility)
+
+#### API Response Example:
+```json
+{
+  "bands": [...],
+  "band_score": {
+    "overall_score": 85,
+    "has_bands_subscription": true,
+    "user_role": "creator",
+    "score_breakdown": {
+      "base_score": 45,
+      "subscription_bonus": 40,
+      "profile_completion_bonus": 0,
+      "details": {...}
+    },
+    "how_to_improve": ["Complete all band profile information for +20 bonus points"],
+    "message": "You are a creator of 'My Band' band"
+  }
+}
+```
+
+#### Restrictions:
+- Users can only create one band
+- Users can only join one band at a time
+- Must leave current band before joining/creating another 

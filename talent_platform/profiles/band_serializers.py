@@ -197,7 +197,6 @@ class BandUpdateWithMembersSerializer(serializers.ModelSerializer):
         return value
 
 # Serializer for creating a band
-# Serializer for creating a band
 class BandCreateSerializer(serializers.ModelSerializer):
     band_type = serializers.CharField(required=False)
     
@@ -218,7 +217,12 @@ class BandCreateSerializer(serializers.ModelSerializer):
         except TalentUserProfile.DoesNotExist:
             raise serializers.ValidationError("Talent profile not found.")
         
-        # Check if user already has a band (as creator)
+        # Check if user is already in any band (one band only rule)
+        existing_membership = BandMembership.objects.filter(talent_user=talent_profile).first()
+        if existing_membership:
+            raise serializers.ValidationError(f"You are already a member of '{existing_membership.band.name}'. Users can only be in one band at a time. Leave your current band first to create a new one.")
+        
+        # Check if user already has a band (as creator) - redundant but keeping for clarity
         if Band.objects.filter(creator=talent_profile).exists():
             raise serializers.ValidationError("You can only create one band per user.")
         
@@ -289,4 +293,35 @@ class BandInvitationSerializer(serializers.ModelSerializer):
         if obj.used_by:
             return obj.used_by.user.email
         return None
+
+# Main serializer for Band model
+class BandSerializer(serializers.ModelSerializer):
+    members = serializers.SerializerMethodField()
+    creator_name = serializers.SerializerMethodField()
+    profile_score = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Band
+        fields = [
+            'id', 'name', 'description', 'band_type', 'profile_picture',
+            'contact_email', 'contact_phone', 'location', 'website',
+            'creator_name', 'members', 'created_at', 'updated_at', 'profile_score'
+        ]
+        read_only_fields = ['id', 'creator_name', 'created_at', 'updated_at']
+    
+    def get_members(self, obj):
+        memberships = BandMembership.objects.filter(band=obj).select_related('talent_user__user')
+        return BandMembershipSerializer(memberships, many=True).data
+    
+    def get_creator_name(self, obj):
+        if obj.creator and hasattr(obj.creator, 'user'):
+            user = obj.creator.user
+            if user.first_name and user.last_name:
+                return f"{user.first_name} {user.last_name}"
+            return user.email
+        return "Unknown"
+        
+    def get_profile_score(self, obj):
+        """Get the profile score from the model's method"""
+        return obj.get_profile_score()
 

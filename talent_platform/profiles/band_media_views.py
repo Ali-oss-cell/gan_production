@@ -12,6 +12,7 @@ from .band_media_serializers import BandMediaSerializer
 from rest_framework.permissions import IsAuthenticated
 from users.permissions import IsTalentUser
 from .permissions import IsBandAdmin
+from .utils.file_validators import get_max_file_sizes
 
 
 class BandMediaView(APIView):
@@ -37,7 +38,11 @@ class BandMediaView(APIView):
         media = band.media.all()
         serializer = BandMediaSerializer(media, many=True)
         
-        return Response(serializer.data)
+        response_data = {
+            'media': serializer.data,
+            'file_limits': get_max_file_sizes()
+        }
+        return Response(response_data)
     
     def post(self, request, band_id, *args, **kwargs):
         """
@@ -71,7 +76,9 @@ class BandMediaView(APIView):
             try:
                 # The media_type will be set automatically in the serializer's validate method
                 media = serializer.save()
-                return Response(serializer.data, status=status.HTTP_201_CREATED)
+                response_data = serializer.data
+                response_data['file_limits'] = get_max_file_sizes()
+                return Response(response_data, status=status.HTTP_201_CREATED)
             except ValidationError as e:
                 return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

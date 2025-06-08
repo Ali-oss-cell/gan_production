@@ -10,10 +10,11 @@ from rest_framework.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404
 from django.core.exceptions import ValidationError
 
-from .models import TalentMedia, TalentUserProfile
-from .talent_profile_serializers import TalentMediaSerializer, TalentUserProfileSerializer, SocialMediaLinks, SocialMediaLinksSerializer, TalentUserProfileUpdateSerializer
+from .models import TalentMedia, TalentUserProfile, SocialMediaLinks
+from .talent_profile_serializers import TalentMediaSerializer, TalentUserProfileSerializer, SocialMediaLinksSerializer, TalentUserProfileUpdateSerializer
 from rest_framework.permissions import IsAuthenticated, BasePermission
 from users .permissions import IsTalentUser
+from .utils.file_validators import get_max_file_sizes
 
 
 # Combined view for fetching and updating TalentUserProfile
@@ -44,6 +45,9 @@ class TalentUserProfileView(APIView):
         response_data = serializer.data
         response_data['social_media_links'] = social_data
         response_data['media'] = media_serializer.data
+        
+        # Add file upload limits for frontend validation
+        response_data['file_limits'] = get_max_file_sizes()
         
         return Response(response_data)
     
@@ -112,9 +116,9 @@ class TalentMediaCreateView(APIView):
             # Validate against account limits
             if media_type == 'image' and not talent_profile.can_upload_image():
                 # Get current count of images
-                current_image_count = talent_profile.media.filter(media_type='image').count()
+                current_image_count = talent_profile.media.filter(media_type='image', is_test_video=False).count()
                 # Get max allowed for account type
-                max_images = 3 if talent_profile.account_type == 'free' else 4 if talent_profile.account_type == 'silver' else 'unlimited'
+                max_images = talent_profile.get_image_limit()
                 
                 return Response(
                     {
@@ -127,9 +131,9 @@ class TalentMediaCreateView(APIView):
                 )
             elif media_type == 'video' and not talent_profile.can_upload_video():
                 # Get current count of videos
-                current_video_count = talent_profile.media.filter(media_type='video').count()
+                current_video_count = talent_profile.media.filter(media_type='video', is_test_video=False).count()
                 # Get max allowed for account type
-                max_videos = 1 if talent_profile.account_type == 'free' else 2 if talent_profile.account_type == 'silver' else 'unlimited'
+                max_videos = talent_profile.get_video_limit()
                 
                 return Response(
                     {
@@ -144,7 +148,9 @@ class TalentMediaCreateView(APIView):
             try:
                 # Set media_type based on file content type
                 media = serializer.save(media_type=media_type)
-                return Response(serializer.data, status=status.HTTP_201_CREATED)
+                response_data = serializer.data
+                response_data['file_limits'] = get_max_file_sizes()
+                return Response(response_data, status=status.HTTP_201_CREATED)
             except ValidationError as e:
                 return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -184,4 +190,72 @@ class TalentUserLinks(RetrieveAPIView):
     queryset=SocialMediaLinks.objects.all()
     serializer_class=SocialMediaLinksSerializer
     lookup_field = 'user__username'
+
+
+# Create/Update social media links
+class SocialMediaLinksUpdateView(APIView):
+    permission_classes = [IsAuthenticated, IsTalentUser]
+    parser_classes = [JSONParser]
+
+    def get_object(self):
+        """Get or create social media links for the current user"""
+        try:
+            talent_profile = TalentUserProfile.objects.get(user=self.request.user)
+            social_links, created = SocialMediaLinks.objects.get_or_create(user=talent_profile)
+            return social_links
+        except TalentUserProfile.DoesNotExist:
+            raise Http404("Talent profile not found.")
+
+    def get(self, request, *args, **kwargs):
+        """Get current social media links"""
+        social_links = self.get_object()
+        serializer = SocialMediaLinksSerializer(social_links)
+        return Response(serializer.data)
+
+    def post(self, request, *args, **kwargs):
+        """Create or update social media links"""
+        social_links = self.get_object()
+        
+        # Update only the fields provided in the request
+        allowed_fields = ['facebook', 'twitter', 'instagram', 'linkedin', 'youtube', 'tiktok', 'snapchat']
+        updated_fields = []
+        
+        for field in allowed_fields:
+            if field in request.data:
+                # Validate URL format if provided
+                url = request.data[field]
+                if url and url.strip():
+                    # Basic URL validation
+                    if not (url.startswith('http://') or url.startswith('https://')):
+                        return Response(
+                            {"error": f"Invalid {field} URL format. URLs must start with http:// or https://"},
+                            status=status.HTTP_400_BAD_REQUEST
+                        )
+                    setattr(social_links, field, url.strip())
+                else:
+                    # If empty string or None, clear the field
+                    setattr(social_links, field, None)
+                updated_fields.append(field)
+        
+        if not updated_fields:
+            return Response(
+                {"error": "No valid social media fields provided."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            social_links.save(update_fields=updated_fields)
+            
+            # Return updated data
+            serializer = SocialMediaLinksSerializer(social_links)
+            return Response({
+                'message': f'Social media links updated successfully. Updated: {", ".join(updated_fields)}',
+                'social_media_links': serializer.data
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            return Response(
+                {"error": f"Failed to update social media links: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 

@@ -2,6 +2,7 @@ import mimetypes
 from rest_framework import serializers
 from .models import TalentMedia, TalentUserProfile, SocialMediaLinks
 from django.utils import timezone
+from .utils.file_validators import validate_video_file, validate_image_file
 
 
 
@@ -14,26 +15,24 @@ class TalentMediaSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = TalentMedia
-        fields = ['id', 'talent', 'media_type', 'media_file', 'created_at', 'updated_at', 'name', 'media_info']
+        fields = ['id', 'talent', 'media_type', 'media_file', 'created_at', 'updated_at', 'name', 'media_info', 'is_test_video', 'test_video_number', 'is_about_yourself_video']
         
     def validate_media_file(self, value):
-        max_size = 100 * 1024 * 1024
-        if value.size > max_size:
-            raise serializers.ValidationError("The maximum file size that can be uploaded is 100MB.")
-
+        # Determine file type
         mime_type, _ = mimetypes.guess_type(value.name)
         if mime_type is None:
             raise serializers.ValidationError("Could not determine file type.")
         
-        if mime_type.startswith('image/'):
-            valid_mime_types = ['image/jpeg', 'image/png', 'image/jpg']
-        elif mime_type.startswith('video/'):
-            valid_mime_types = ['video/mp4', 'video/mkv', 'video/MOV', 'video/Wmv']
-        else:
-            raise serializers.ValidationError("Unsupported file type. Only images and videos are allowed.")
-
-        if mime_type not in valid_mime_types:
-            raise serializers.ValidationError(f"Only {', '.join(valid_mime_types)} formats are allowed for {mime_type.split('/')[0]}s.")
+        # Use centralized validation
+        try:
+            if mime_type.startswith('image/'):
+                validate_image_file(value)
+            elif mime_type.startswith('video/'):
+                validate_video_file(value)
+            else:
+                raise serializers.ValidationError("Unsupported file type. Only images and videos are allowed.")
+        except Exception as e:
+            raise serializers.ValidationError(str(e))
 
         return value
 
@@ -73,13 +72,14 @@ class TalentUserProfileSerializer(serializers.ModelSerializer):
     first_name = serializers.CharField(source='user.first_name', read_only=True)
     last_name = serializers.CharField(source='user.last_name', read_only=True)
     full_name = serializers.SerializerMethodField()
+    profile_score = serializers.SerializerMethodField()
 
     class Meta:
         model = TalentUserProfile
         fields = [
             'id', 'email', 'username', 'first_name', 'last_name', 'full_name', 'is_verified', 'profile_complete',
             'account_type', 'country', 'city', 'zipcode', 'phone', 'profile_picture', 'aboutyou',
-            'date_of_birth', 'gender', 'media', 'social_media_links','aboutyou'
+            'date_of_birth', 'gender', 'media', 'social_media_links', 'aboutyou', 'profile_score'
         ]
         extra_kwargs = {
             'user': {'read_only': True},
@@ -103,6 +103,10 @@ class TalentUserProfileSerializer(serializers.ModelSerializer):
         elif last_name:
             return last_name
         return ""
+
+    def get_profile_score(self, obj):
+        """Get the profile score from the model's method"""
+        return obj.get_profile_score()
 
 
 #update in profile        

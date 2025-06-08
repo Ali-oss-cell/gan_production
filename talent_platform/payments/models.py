@@ -1,6 +1,8 @@
 from django.db import models
 from django.conf import settings
 from django.utils import timezone
+from .country_restrictions import RESTRICTED_COUNTRIES
+from .models_restrictions import RestrictedCountryUser
 
 # Create your models here.
 

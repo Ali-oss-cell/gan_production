@@ -30,6 +30,20 @@ class BackGroundJobsUserProfileDetailView(RetrieveAPIView):
         if not profile:
             raise Http404("Profile not found. Please create your profile first.")
         return profile
+    
+    def retrieve(self, request, *args, **kwargs):
+        """Override retrieve to include profile score"""
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        
+        # Get the profile score
+        score_data = instance.get_profile_score()
+        
+        # Return profile data with score
+        return Response({
+            'profile': serializer.data,
+            'profile_score': score_data
+        })
 
 
 

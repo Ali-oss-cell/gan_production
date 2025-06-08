@@ -35,7 +35,12 @@ from .filters import (
     VehicleFilter, ArtisticMaterialFilter, MusicItemFilter, RareItemFilter
 )
 
-class TalentUserProfileSearchView(generics.ListAPIView):
+# Define a common mixin for all search views
+class SearchViewMixin:
+    """Mixin with common attributes for all search views"""
+    format_kwarg = 'format'
+
+class TalentUserProfileSearchView(SearchViewMixin, generics.ListAPIView):
     queryset = TalentUserProfile.objects.all().prefetch_related('media')
     serializer_class = TalentDashboardSerializer
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
@@ -134,12 +139,70 @@ class TalentUserProfileSearchView(generics.ListAPIView):
         # Return the sorted profiles and their scores
         return profiles_with_scores
     
+    def calculate_profile_score(self, profile):
+        """
+        Get the profile score from the model's method.
+        """
+        score_breakdown = profile.get_profile_score()
+        return score_breakdown['total']
+    
     def list(self, request, *args, **kwargs):
-        queryset = self.filter_queryset(self.get_queryset())
+        # Start with the full queryset
+        original_queryset = self.get_queryset()
         
-        # If filter parameters are applied, calculate relevance score
-        if request.query_params and len(request.query_params) > 0:
-            profiles_with_scores = self.calculate_relevance_score(queryset, request.query_params)
+        # Apply filters from filter backends (Django-filter)
+        filtered_queryset = self.filter_queryset(original_queryset)
+        
+        # Apply additional custom filtering for fields that aren't covered by the filter class
+        query_params = self.request.query_params
+        
+        # Skip the default profile_type parameter, it's used for routing
+        search_params = {k: v for k, v in query_params.items() if k != 'profile_type' and k != 'format'}
+        
+        # Apply explicit filters only if search parameters are provided
+        if search_params:
+            # Additional strict filtering for fields not directly handled by the filter backend
+            if 'gender' in search_params and search_params['gender']:
+                filtered_queryset = filtered_queryset.filter(gender__iexact=search_params['gender'])
+            
+            if 'city' in search_params and search_params['city']:
+                filtered_queryset = filtered_queryset.filter(city__icontains=search_params['city'])
+            
+            if 'country' in search_params and search_params['country']:
+                filtered_queryset = filtered_queryset.filter(country__icontains=search_params['country'])
+            
+            if 'account_type' in search_params and search_params['account_type']:
+                filtered_queryset = filtered_queryset.filter(account_type__iexact=search_params['account_type'])
+            
+            if 'is_verified' in search_params:
+                is_verified = search_params['is_verified'].lower() in ('true', '1', 'yes')
+                filtered_queryset = filtered_queryset.filter(is_verified=is_verified)
+            
+            if 'age' in search_params:
+                try:
+                    target_age = int(search_params['age'])
+                    today = datetime.today()
+                    # Calculate the date range for the target age
+                    start_date = datetime.date(today.year - target_age - 1, today.month, today.day) + datetime.timedelta(days=1)
+                    end_date = datetime.date(today.year - target_age, today.month, today.day)
+                    filtered_queryset = filtered_queryset.filter(date_of_birth__gte=start_date, date_of_birth__lte=end_date)
+                except (ValueError, TypeError):
+                    # If age isn't a valid integer, ignore this filter
+                    pass
+            
+            # Filter by specialization type
+            if 'specialization' in search_params:
+                spec_type = search_params['specialization'].lower()
+                if spec_type == 'visual':
+                    filtered_queryset = filtered_queryset.filter(visual_worker__isnull=False)
+                elif spec_type == 'expressive':
+                    filtered_queryset = filtered_queryset.filter(expressive_worker__isnull=False)
+                elif spec_type == 'hybrid':
+                    filtered_queryset = filtered_queryset.filter(hybrid_worker__isnull=False)
+        
+        # If filter parameters are applied, calculate relevance score for sorting the filtered results
+        if search_params and filtered_queryset.exists():
+            profiles_with_scores = self.calculate_relevance_score(filtered_queryset, search_params)
             
             # Extract just the profiles from the scored results
             queryset = [profile for profile, score in profiles_with_scores]
@@ -150,9 +213,10 @@ class TalentUserProfileSearchView(generics.ListAPIView):
                 serializer = self.get_serializer(page, many=True)
                 data = serializer.data
                 
-                # Add relevance scores and profile URLs to the results
+                # Add relevance scores, profile scores, and profile URLs to the results
                 for i, item in enumerate(data):
                     item['relevance_score'] = profiles_with_scores[i][1]
+                    item['profile_score'] = self.calculate_profile_score(page[i])
                     item['profile_url'] = request.build_absolute_uri(reverse('dashboard:talent-profile-detail', args=[item['id']]))
                 
                 return self.get_paginated_response(data)
@@ -160,35 +224,50 @@ class TalentUserProfileSearchView(generics.ListAPIView):
             serializer = self.get_serializer(queryset, many=True)
             data = serializer.data
             
-            # Add relevance scores and profile URLs to the results
+            # Add relevance scores, profile scores, and profile URLs to the results
             for i, item in enumerate(data):
                 item['relevance_score'] = profiles_with_scores[i][1]
+                item['profile_score'] = self.calculate_profile_score(queryset[i])
                 item['profile_url'] = request.build_absolute_uri(reverse('dashboard:talent-profile-detail', args=[item['id']]))
             
             return Response(data)
         else:
-            # No filters applied, just return all results
-            page = self.paginate_queryset(queryset)
+            # No valid filters applied or no results after filtering
+            if search_params and not filtered_queryset.exists():
+                return Response({"message": "No profiles match your search criteria."}, status=200)
+            
+            # If no search criteria, return the default sorted results
+            page = self.paginate_queryset(filtered_queryset.order_by('-id'))
             if page is not None:
                 serializer = self.get_serializer(page, many=True)
                 data = serializer.data
-                for item in data:
+                for i, item in enumerate(data):
+                    item['profile_score'] = self.calculate_profile_score(page[i])
                     item['profile_url'] = request.build_absolute_uri(reverse('dashboard:talent-profile-detail', args=[item['id']]))
                 return self.get_paginated_response(data)
     
-            serializer = self.get_serializer(queryset, many=True)
+            serializer = self.get_serializer(filtered_queryset.order_by('-id'), many=True)
             data = serializer.data
-            for item in data:
+            for i, item in enumerate(data):
+                item['profile_score'] = self.calculate_profile_score(filtered_queryset[i])
                 item['profile_url'] = request.build_absolute_uri(reverse('dashboard:talent-profile-detail', args=[item['id']]))
             return Response(data)
 
-class VisualWorkerSearchView(generics.ListAPIView):
+class VisualWorkerSearchView(SearchViewMixin, generics.ListAPIView):
     queryset = VisualWorker.objects.select_related('profile').prefetch_related('profile__media')
     serializer_class = VisualWorkerDashboardSerializer
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     filterset_class = VisualWorkerFilter
     ordering_fields = ['years_experience', 'created_at', 'city', 'country', 'primary_category', 'experience_level']
     permission_classes = [IsDashboardUser | IsAdminDashboardUser]
+    
+    def calculate_profile_score(self, worker):
+        """
+        Get the profile score from the associated talent profile's method.
+        """
+        profile = worker.profile
+        score_breakdown = profile.get_profile_score()
+        return score_breakdown['total']
     
     def calculate_relevance_score(self, queryset, filters):
         """
@@ -294,10 +373,50 @@ class VisualWorkerSearchView(generics.ListAPIView):
         return workers_with_scores
     
     def list(self, request, *args, **kwargs):
+        # First, apply filtering with the filter_queryset method
         queryset = self.filter_queryset(self.get_queryset())
         
-        # If filter parameters are applied, calculate relevance score
-        if request.query_params and len(request.query_params) > 0:
+        # Apply additional custom filtering
+        query_params = self.request.query_params
+        
+        if 'primary_category' in query_params and query_params['primary_category']:
+            queryset = queryset.filter(primary_category=query_params['primary_category'])
+        
+        if 'experience_level' in query_params and query_params['experience_level']:
+            queryset = queryset.filter(experience_level=query_params['experience_level'])
+        
+        if 'min_years_experience' in query_params:
+            try:
+                min_exp = int(query_params['min_years_experience'])
+                queryset = queryset.filter(years_experience__gte=min_exp)
+            except (ValueError, TypeError):
+                pass
+        
+        if 'max_years_experience' in query_params:
+            try:
+                max_exp = int(query_params['max_years_experience'])
+                queryset = queryset.filter(years_experience__lte=max_exp)
+            except (ValueError, TypeError):
+                pass
+        
+        if 'city' in query_params and query_params['city']:
+            queryset = queryset.filter(city__icontains=query_params['city'])
+        
+        if 'country' in query_params and query_params['country']:
+            queryset = queryset.filter(country__icontains=query_params['country'])
+        
+        if 'availability' in query_params and query_params['availability']:
+            queryset = queryset.filter(availability=query_params['availability'])
+        
+        if 'rate_range' in query_params and query_params['rate_range']:
+            queryset = queryset.filter(rate_range=query_params['rate_range'])
+        
+        if 'willing_to_relocate' in query_params:
+            willing_to_relocate = query_params['willing_to_relocate'].lower() in ('true', '1', 'yes')
+            queryset = queryset.filter(willing_to_relocate=willing_to_relocate)
+        
+        # If filter parameters are applied, calculate relevance score for the filtered results
+        if request.query_params and len(request.query_params) > 0 and queryset.exists():
             workers_with_scores = self.calculate_relevance_score(queryset, request.query_params)
             
             # Extract just the workers from the scored results
@@ -309,9 +428,10 @@ class VisualWorkerSearchView(generics.ListAPIView):
                 serializer = self.get_serializer(page, many=True)
                 data = serializer.data
                 
-                # Add relevance scores and profile URLs to the results
+                # Add relevance scores, profile scores, and profile URLs to the results
                 for i, item in enumerate(data):
                     item['relevance_score'] = workers_with_scores[i][1]
+                    item['profile_score'] = self.calculate_profile_score(page[i])
                     item['profile_url'] = request.build_absolute_uri(reverse('dashboard:visual-worker-detail', args=[item['id']]))
                 
                 return self.get_paginated_response(data)
@@ -319,35 +439,58 @@ class VisualWorkerSearchView(generics.ListAPIView):
             serializer = self.get_serializer(queryset, many=True)
             data = serializer.data
             
-            # Add relevance scores and profile URLs to the results
+            # Add relevance scores, profile scores, and profile URLs to the results
             for i, item in enumerate(data):
                 item['relevance_score'] = workers_with_scores[i][1]
+                item['profile_score'] = self.calculate_profile_score(queryset[i])
                 item['profile_url'] = request.build_absolute_uri(reverse('dashboard:visual-worker-detail', args=[item['id']]))
             
             return Response(data)
         else:
-            # No filters applied, just return all results
-            page = self.paginate_queryset(queryset)
+            # No filters applied or no results after filtering
+            if not queryset.exists():
+                return Response({"message": "No visual workers match your search criteria."}, status=200)
+            
+            # Return results sorted by a default field
+            page = self.paginate_queryset(queryset.order_by('-id'))
             if page is not None:
                 serializer = self.get_serializer(page, many=True)
                 data = serializer.data
-                for item in data:
+                for i, item in enumerate(data):
+                    item['profile_score'] = self.calculate_profile_score(page[i])
                     item['profile_url'] = request.build_absolute_uri(reverse('dashboard:visual-worker-detail', args=[item['id']]))
                 return self.get_paginated_response(data)
     
-            serializer = self.get_serializer(queryset, many=True)
+            serializer = self.get_serializer(queryset.order_by('-id'), many=True)
             data = serializer.data
-            for item in data:
+            for i, item in enumerate(data):
+                item['profile_score'] = self.calculate_profile_score(queryset[i])
                 item['profile_url'] = request.build_absolute_uri(reverse('dashboard:visual-worker-detail', args=[item['id']]))
             return Response(data)
 
-class ExpressiveWorkerSearchView(generics.ListAPIView):
+class ExpressiveWorkerSearchView(SearchViewMixin, generics.ListAPIView):
     queryset = ExpressiveWorker.objects.select_related('profile').prefetch_related('profile__media')
     serializer_class = ExpressiveWorkerDashboardSerializer
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     filterset_class = ExpressiveWorkerFilter
-    ordering_fields = ['years_experience', 'created_at', 'city', 'country', 'performer_type', 'hair_color', 'eye_color', 'body_type']
+    ordering_fields = [
+        'id', 'performer_type', 'years_experience', 'height', 'weight',
+        'hair_color', 'hair_type', 'skin_tone', 'eye_color', 'eye_size', 'eye_pattern',
+        'face_shape', 'forehead_shape', 'lip_shape', 'eyebrow_pattern',
+        'beard_color', 'beard_length', 'mustache_color', 'mustache_length',
+        'distinctive_facial_marks', 'distinctive_body_marks', 'voice_type',
+        'body_type', 'availability', 'city', 'country',
+        'created_at', 'updated_at'
+    ]
     permission_classes = [IsDashboardUser | IsAdminDashboardUser]
+    
+    def calculate_profile_score(self, worker):
+        """
+        Get the profile score from the associated talent profile's method.
+        """
+        profile = worker.profile
+        score_breakdown = profile.get_profile_score()
+        return score_breakdown['total']
     
     def calculate_relevance_score(self, queryset, filters):
         """
@@ -467,10 +610,78 @@ class ExpressiveWorkerSearchView(generics.ListAPIView):
         return workers_with_scores
     
     def list(self, request, *args, **kwargs):
+        # First, apply filtering with the filter_queryset method
         queryset = self.filter_queryset(self.get_queryset())
         
-        # If filter parameters are applied, calculate relevance score
-        if request.query_params and len(request.query_params) > 0:
+        # Apply additional strict filtering for all parameters
+        query_params = self.request.query_params
+        
+        # Apply strict filtering to all parameters
+        if 'performer_type' in query_params and query_params['performer_type']:
+            queryset = queryset.filter(performer_type=query_params['performer_type'])
+        
+        if 'min_years_experience' in query_params:
+            try:
+                min_exp = int(query_params['min_years_experience'])
+                queryset = queryset.filter(years_experience__gte=min_exp)
+            except (ValueError, TypeError):
+                pass
+        
+        if 'max_years_experience' in query_params:
+            try:
+                max_exp = int(query_params['max_years_experience'])
+                queryset = queryset.filter(years_experience__lte=max_exp)
+            except (ValueError, TypeError):
+                pass
+        
+        # Physical attributes - strict matching
+        if 'hair_color' in query_params and query_params['hair_color']:
+            queryset = queryset.filter(hair_color=query_params['hair_color'])
+        
+        if 'eye_color' in query_params and query_params['eye_color']:
+            queryset = queryset.filter(eye_color=query_params['eye_color'])
+        
+        if 'body_type' in query_params and query_params['body_type']:
+            queryset = queryset.filter(body_type=query_params['body_type'])
+        
+        # Height with tolerance
+        if 'height' in query_params:
+            try:
+                target_height = float(query_params['height'])
+                # Apply a small tolerance of +/- 2cm
+                tolerance = float(query_params.get('height_tolerance', 2))
+                queryset = queryset.filter(
+                    height__gte=target_height-tolerance,
+                    height__lte=target_height+tolerance
+                )
+            except (ValueError, TypeError):
+                pass
+        
+        # Weight with tolerance
+        if 'weight' in query_params:
+            try:
+                target_weight = float(query_params['weight'])
+                # Apply a small tolerance of +/- 2kg
+                tolerance = float(query_params.get('weight_tolerance', 2))
+                queryset = queryset.filter(
+                    weight__gte=target_weight-tolerance,
+                    weight__lte=target_weight+tolerance
+                )
+            except (ValueError, TypeError):
+                pass
+        
+        # Location filters
+        if 'city' in query_params and query_params['city']:
+            queryset = queryset.filter(city__icontains=query_params['city'])
+        
+        if 'country' in query_params and query_params['country']:
+            queryset = queryset.filter(country__icontains=query_params['country'])
+        
+        if 'availability' in query_params and query_params['availability']:
+            queryset = queryset.filter(availability=query_params['availability'])
+        
+        # If filter parameters are applied, calculate relevance score for the filtered results
+        if request.query_params and len(request.query_params) > 0 and queryset.exists():
             workers_with_scores = self.calculate_relevance_score(queryset, request.query_params)
             
             # Extract just the workers from the scored results
@@ -482,9 +693,10 @@ class ExpressiveWorkerSearchView(generics.ListAPIView):
                 serializer = self.get_serializer(page, many=True)
                 data = serializer.data
                 
-                # Add relevance scores and profile URLs to the results
+                # Add relevance scores, profile scores, and profile URLs to the results
                 for i, item in enumerate(data):
                     item['relevance_score'] = workers_with_scores[i][1]
+                    item['profile_score'] = self.calculate_profile_score(page[i])
                     item['profile_url'] = request.build_absolute_uri(reverse('dashboard:expressive-worker-detail', args=[item['id']]))
                 
                 return self.get_paginated_response(data)
@@ -492,35 +704,50 @@ class ExpressiveWorkerSearchView(generics.ListAPIView):
             serializer = self.get_serializer(queryset, many=True)
             data = serializer.data
             
-            # Add relevance scores and profile URLs to the results
+            # Add relevance scores, profile scores, and profile URLs to the results
             for i, item in enumerate(data):
                 item['relevance_score'] = workers_with_scores[i][1]
+                item['profile_score'] = self.calculate_profile_score(queryset[i])
                 item['profile_url'] = request.build_absolute_uri(reverse('dashboard:expressive-worker-detail', args=[item['id']]))
             
             return Response(data)
         else:
-            # No filters applied, just return all results
-            page = self.paginate_queryset(queryset)
+            # No filters applied or no results after filtering
+            if not queryset.exists():
+                return Response({"message": "No expressive workers match your search criteria."}, status=200)
+            
+            # Return results sorted by a default field
+            page = self.paginate_queryset(queryset.order_by('-id'))
             if page is not None:
                 serializer = self.get_serializer(page, many=True)
                 data = serializer.data
-                for item in data:
+                for i, item in enumerate(data):
+                    item['profile_score'] = self.calculate_profile_score(page[i])
                     item['profile_url'] = request.build_absolute_uri(reverse('dashboard:expressive-worker-detail', args=[item['id']]))
                 return self.get_paginated_response(data)
     
-            serializer = self.get_serializer(queryset, many=True)
+            serializer = self.get_serializer(queryset.order_by('-id'), many=True)
             data = serializer.data
-            for item in data:
+            for i, item in enumerate(data):
+                item['profile_score'] = self.calculate_profile_score(queryset[i])
                 item['profile_url'] = request.build_absolute_uri(reverse('dashboard:expressive-worker-detail', args=[item['id']]))
             return Response(data)
 
-class HybridWorkerSearchView(generics.ListAPIView):
+class HybridWorkerSearchView(SearchViewMixin, generics.ListAPIView):
     queryset = HybridWorker.objects.select_related('profile').prefetch_related('profile__media')
     serializer_class = HybridWorkerDashboardSerializer
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     filterset_class = HybridWorkerFilter
     ordering_fields = ['years_experience', 'created_at', 'city', 'country', 'hybrid_type', 'hair_color', 'eye_color', 'skin_tone', 'body_type', 'fitness_level', 'risk_levels']
     permission_classes = [IsDashboardUser | IsAdminDashboardUser]
+    
+    def calculate_profile_score(self, worker):
+        """
+        Get the profile score from the associated talent profile's method.
+        """
+        profile = worker.profile
+        score_breakdown = profile.get_profile_score()
+        return score_breakdown['total']
     
     def calculate_relevance_score(self, queryset, filters):
         """
@@ -672,6 +899,7 @@ class HybridWorkerSearchView(generics.ListAPIView):
                 # Add relevance scores and profile URLs to the results
                 for i, item in enumerate(data):
                     item['relevance_score'] = workers_with_scores[i][1]
+                    item['profile_score'] = self.calculate_profile_score(page[i])
                     item['profile_url'] = request.build_absolute_uri(reverse('dashboard:hybrid-worker-detail', args=[item['id']]))
                 
                 return self.get_paginated_response(data)
@@ -682,6 +910,7 @@ class HybridWorkerSearchView(generics.ListAPIView):
             # Add relevance scores and profile URLs to the results
             for i, item in enumerate(data):
                 item['relevance_score'] = workers_with_scores[i][1]
+                item['profile_score'] = self.calculate_profile_score(queryset[i])
                 item['profile_url'] = request.build_absolute_uri(reverse('dashboard:hybrid-worker-detail', args=[item['id']]))
             
             return Response(data)
@@ -691,17 +920,19 @@ class HybridWorkerSearchView(generics.ListAPIView):
             if page is not None:
                 serializer = self.get_serializer(page, many=True)
                 data = serializer.data
-                for item in data:
+                for i, item in enumerate(data):
+                    item['profile_score'] = self.calculate_profile_score(page[i])
                     item['profile_url'] = request.build_absolute_uri(reverse('dashboard:hybrid-worker-detail', args=[item['id']]))
                 return self.get_paginated_response(data)
     
             serializer = self.get_serializer(queryset, many=True)
             data = serializer.data
-            for item in data:
+            for i, item in enumerate(data):
+                item['profile_score'] = self.calculate_profile_score(queryset[i])
                 item['profile_url'] = request.build_absolute_uri(reverse('dashboard:hybrid-worker-detail', args=[item['id']]))
             return Response(data)
 
-class BackGroundJobsProfileSearchView(generics.ListAPIView):
+class BackGroundJobsProfileSearchView(SearchViewMixin, generics.ListAPIView):
     queryset = BackGroundJobsProfile.objects.all().select_related('user')
     serializer_class = BackGroundDashboardSerializer
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
@@ -709,7 +940,14 @@ class BackGroundJobsProfileSearchView(generics.ListAPIView):
     ordering_fields = ['date_of_birth', 'country', 'account_type']
     permission_classes = [IsDashboardUser | IsAdminDashboardUser]
 
-class PropSearchView(generics.ListAPIView):
+    def calculate_profile_score(self, profile):
+        """
+        Get the profile score from the model's method.
+        """
+        score_breakdown = profile.get_profile_score()
+        return score_breakdown['total']
+
+class PropSearchView(SearchViewMixin, generics.ListAPIView):
     queryset = Prop.objects.select_related('BackGroundJobsProfile__user')
     serializer_class = PropDashboardSerializer
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
@@ -717,7 +955,7 @@ class PropSearchView(generics.ListAPIView):
     ordering_fields = ['name', 'price', 'created_at']
     permission_classes = [IsDashboardUser | IsAdminDashboardUser]
 
-class CostumeSearchView(generics.ListAPIView):
+class CostumeSearchView(SearchViewMixin, generics.ListAPIView):
     queryset = Costume.objects.select_related('BackGroundJobsProfile__user')
     serializer_class = CostumeDashboardSerializer
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
@@ -725,7 +963,7 @@ class CostumeSearchView(generics.ListAPIView):
     ordering_fields = ['name', 'price', 'created_at', 'size', 'era']
     permission_classes = [IsDashboardUser | IsAdminDashboardUser]
 
-class LocationSearchView(generics.ListAPIView):
+class LocationSearchView(SearchViewMixin, generics.ListAPIView):
     queryset = Location.objects.select_related('BackGroundJobsProfile__user')
     serializer_class = LocationDashboardSerializer
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
@@ -733,7 +971,7 @@ class LocationSearchView(generics.ListAPIView):
     ordering_fields = ['name', 'price', 'created_at', 'location_type']
     permission_classes = [IsDashboardUser | IsAdminDashboardUser]
 
-class MemorabiliaSearchView(generics.ListAPIView):
+class MemorabiliaSearchView(SearchViewMixin, generics.ListAPIView):
     queryset = Memorabilia.objects.select_related('BackGroundJobsProfile__user')
     serializer_class = MemorabilaDashboardSerializer
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
@@ -741,7 +979,7 @@ class MemorabiliaSearchView(generics.ListAPIView):
     ordering_fields = ['name', 'price', 'created_at', 'signed_by']
     permission_classes = [IsDashboardUser | IsAdminDashboardUser]
 
-class VehicleSearchView(generics.ListAPIView):
+class VehicleSearchView(SearchViewMixin, generics.ListAPIView):
     queryset = Vehicle.objects.select_related('BackGroundJobsProfile__user')
     serializer_class = VehicleDashboardSerializer
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
@@ -749,7 +987,7 @@ class VehicleSearchView(generics.ListAPIView):
     ordering_fields = ['name', 'price', 'created_at', 'make', 'model', 'year']
     permission_classes = [IsDashboardUser | IsAdminDashboardUser]
 
-class ArtisticMaterialSearchView(generics.ListAPIView):
+class ArtisticMaterialSearchView(SearchViewMixin, generics.ListAPIView):
     queryset = ArtisticMaterial.objects.select_related('BackGroundJobsProfile__user')
     serializer_class = ArtisticMaterialDashboardSerializer
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
@@ -757,7 +995,7 @@ class ArtisticMaterialSearchView(generics.ListAPIView):
     ordering_fields = ['name', 'price', 'created_at', 'type']
     permission_classes = [IsDashboardUser | IsAdminDashboardUser]
 
-class MusicItemSearchView(generics.ListAPIView):
+class MusicItemSearchView(SearchViewMixin, generics.ListAPIView):
     queryset = MusicItem.objects.select_related('BackGroundJobsProfile__user')
     serializer_class = MusicItemDashboardSerializer
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
@@ -765,7 +1003,7 @@ class MusicItemSearchView(generics.ListAPIView):
     ordering_fields = ['name', 'price', 'created_at', 'instrument_type']
     permission_classes = [IsDashboardUser | IsAdminDashboardUser]
 
-class RareItemSearchView(generics.ListAPIView):
+class RareItemSearchView(SearchViewMixin, generics.ListAPIView):
     queryset = RareItem.objects.select_related('BackGroundJobsProfile__user')
     serializer_class = RareItemDashboardSerializer
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
@@ -773,13 +1011,20 @@ class RareItemSearchView(generics.ListAPIView):
     ordering_fields = ['name', 'price', 'created_at', 'provenance']
     permission_classes = [IsDashboardUser | IsAdminDashboardUser]
 
-class BandSearchView(generics.ListAPIView):
+class BandSearchView(SearchViewMixin, generics.ListAPIView):
     queryset = Band.objects.all().prefetch_related('members', 'media')
     serializer_class = BandDashboardSerializer
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     filterset_class = BandFilter
     ordering_fields = ['name', 'created_at', 'band_type', 'location']
     permission_classes = [IsDashboardUser | IsAdminDashboardUser]
+    
+    def calculate_profile_score(self, band):
+        """
+        Get the profile score from the model's method.
+        """
+        score_breakdown = band.get_profile_score()
+        return score_breakdown['total']
     
     def calculate_relevance_score(self, queryset, filters):
         """
@@ -865,6 +1110,7 @@ class BandSearchView(generics.ListAPIView):
                 # Add relevance scores and band URLs to the results
                 for i, item in enumerate(data):
                     item['relevance_score'] = bands_with_scores[i][1]
+                    item['profile_score'] = self.calculate_profile_score(page[i])
                     item['band_url'] = request.build_absolute_uri(reverse('dashboard:band-detail', args=[item['id']]))
                 
                 return self.get_paginated_response(data)
@@ -875,6 +1121,7 @@ class BandSearchView(generics.ListAPIView):
             # Add relevance scores and band URLs to the results
             for i, item in enumerate(data):
                 item['relevance_score'] = bands_with_scores[i][1]
+                item['profile_score'] = self.calculate_profile_score(queryset[i])
                 item['band_url'] = request.build_absolute_uri(reverse('dashboard:band-detail', args=[item['id']]))
             
             return Response(data)
@@ -884,17 +1131,19 @@ class BandSearchView(generics.ListAPIView):
             if page is not None:
                 serializer = self.get_serializer(page, many=True)
                 data = serializer.data
-                for item in data:
+                for i, item in enumerate(data):
+                    item['profile_score'] = self.calculate_profile_score(page[i])
                     item['band_url'] = request.build_absolute_uri(reverse('dashboard:band-detail', args=[item['id']]))
                 return self.get_paginated_response(data)
     
             serializer = self.get_serializer(queryset, many=True)
             data = serializer.data
-            for item in data:
+            for i, item in enumerate(data):
+                item['profile_score'] = self.calculate_profile_score(queryset[i])
                 item['band_url'] = request.build_absolute_uri(reverse('dashboard:band-detail', args=[item['id']]))
             return Response(data)
 
-class UnifiedSearchView(generics.GenericAPIView):
+class UnifiedSearchView(SearchViewMixin, generics.GenericAPIView):
     """
     Unified search endpoint for all profile types in the platform.
     
@@ -940,6 +1189,10 @@ class UnifiedSearchView(generics.GenericAPIView):
         # Get profile type from request
         profile_type = request.query_params.get('profile_type', 'talent').lower()
         
+        # Extract search criteria, skipping profile_type and format
+        search_criteria = {k: v for k, v in request.query_params.items() 
+                          if k != 'format' and (k != 'profile_type' or k == 'profile_type' and profile_type != 'talent')}
+        
         # Map profile types to their respective view classes
         profile_views = {
             'talent': TalentUserProfileSearchView,
@@ -965,14 +1218,85 @@ class UnifiedSearchView(generics.GenericAPIView):
                 status=400
             )
         
+        # Log search criteria
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"Search criteria: {search_criteria}")
+        
         # Create an instance of the appropriate view
         view_class = profile_views[profile_type]
         view = view_class()
+        
+        # Properly initialize the view
         view.request = request
+        view.format_kwarg = self.format_kwarg
+        view.kwargs = kwargs
+        view.args = args
         
         # Get response from the view
-        response = view.list(request)
+        try:
+            original_response = view.list(request)
         
-        # Return the response directly
-        return response
+            # Check if the response contains a message about no results
+            if isinstance(original_response.data, dict) and 'message' in original_response.data:
+                # Include the profile type in the message for clarity
+                return Response({
+                    'success': True,
+                    'profile_type': profile_type,
+                    'message': f"No {profile_type} profiles match your search criteria.",
+                    'count': 0,
+                    'search_criteria': search_criteria,
+                    'results': []
+                })
+            
+            # For paginated responses, restructure the response
+            if hasattr(original_response, 'data') and 'results' in original_response.data:
+                # Paginated response
+                results = original_response.data['results']
+                count = original_response.data.get('count', len(results))
+                
+                # Extract pagination links if they exist
+                next_link = original_response.data.get('next', None)
+                previous_link = original_response.data.get('previous', None)
+                
+                # Create enhanced response with metadata
+                response_data = {
+                    'success': True,
+                    'profile_type': profile_type,
+                    'count': count,
+                    'search_criteria': search_criteria,
+                    'results': results
+                }
+                
+                # Add pagination links if present
+                if next_link:
+                    response_data['next'] = next_link
+                if previous_link:
+                    response_data['previous'] = previous_link
+                    
+                return Response(response_data)
+            else:
+                # Non-paginated response
+                results = original_response.data
+                count = len(results)
+                
+                # Create enhanced response with metadata
+                return Response({
+                    'success': True,
+                    'profile_type': profile_type,
+                    'count': count,
+                    'search_criteria': search_criteria,
+                    'results': results
+                })
+            
+        except Exception as e:
+            # Log the error and provide a helpful message
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error in UnifiedSearchView: {str(e)}")
+            return Response({
+                'success': False,
+                'profile_type': profile_type,
+                'error': f'An error occurred while searching for {profile_type} profiles: {str(e)}'
+            }, status=500)
 

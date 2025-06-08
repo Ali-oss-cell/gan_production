@@ -19,14 +19,11 @@ from .serializers import (
 )
 
 
-def dashboard_home(request):
-    """Dashboard home view"""
-    return render(request, 'dashboard/home.html')
 
 
 class DashboardUserCreateView(APIView):
     """View for creating new dashboard users"""
-    permission_classes = [IsAdminUser]
+    permission_classes = [IsAdminDashboardUser]
     
     def post(self, request):
         """Create a new dashboard user"""

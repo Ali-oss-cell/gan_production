@@ -1,0 +1,359 @@
+{
+  "info": {
+    "name": "Talent Platform - Specializations",
+    "description": "Collection for testing talent specialization endpoints - Production Ready",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Create Expressive Worker (Actor) - PRODUCTION READY",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{auth_token}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "expressive_worker",
+              "value": "{\"performer_type\": \"actor\", \"years_experience\": 3, \"height\": 175.5, \"weight\": 70.0, \"hair_color\": \"brown\", \"hair_type\": \"wavy\", \"skin_tone\": \"medium\", \"eye_color\": \"brown\", \"eye_size\": \"medium\", \"eye_pattern\": \"almond\", \"face_shape\": \"oval\", \"forehead_shape\": \"straight\", \"lip_shape\": \"full\", \"eyebrow_pattern\": \"arched\", \"beard_color\": \"brown\", \"beard_length\": \"stubble\", \"mustache_color\": \"brown\", \"mustache_length\": \"none\", \"distinctive_facial_marks\": \"none\", \"distinctive_body_marks\": \"none\", \"voice_type\": \"normal\", \"body_type\": \"athletic\", \"availability\": \"full_time\"}",
+              "type": "text",
+              "description": "Expressive worker data as JSON string"
+            },
+            {
+              "key": "test_videos",
+              "value": "[{\"name\": \"Test Video 1\", \"media_info\": \"30-second acting test 1\", \"is_test_video\": true, \"is_about_yourself_video\": false, \"test_video_number\": 1}, {\"name\": \"Test Video 2\", \"media_info\": \"30-second acting test 2\", \"is_test_video\": true, \"is_about_yourself_video\": false, \"test_video_number\": 2}, {\"name\": \"Test Video 3\", \"media_info\": \"30-second acting test 3\", \"is_test_video\": true, \"is_about_yourself_video\": false, \"test_video_number\": 3}, {\"name\": \"Test Video 4\", \"media_info\": \"30-second acting test 4\", \"is_test_video\": true, \"is_about_yourself_video\": false, \"test_video_number\": 4}]",
+              "type": "text",
+              "description": "Test videos metadata as JSON string (files uploaded separately)"
+            },
+            {
+              "key": "about_yourself_video",
+              "value": "{\"name\": \"About Myself\", \"media_info\": \"1-minute introduction video\", \"is_test_video\": true, \"is_about_yourself_video\": true, \"test_video_number\": 5}",
+              "type": "text",
+              "description": "About video metadata as JSON string (file uploaded separately)"
+            },
+            {
+              "key": "test_video_1",
+              "type": "file",
+              "src": "",
+              "description": "Upload actual video file for test video 1"
+            },
+            {
+              "key": "test_video_2",
+              "type": "file",
+              "src": "",
+              "description": "Upload actual video file for test video 2"
+            },
+            {
+              "key": "test_video_3",
+              "type": "file",
+              "src": "",
+              "description": "Upload actual video file for test video 3"
+            },
+            {
+              "key": "test_video_4",
+              "type": "file",
+              "src": "",
+              "description": "Upload actual video file for test video 4"
+            },
+            {
+              "key": "about_video",
+              "type": "file",
+              "src": "",
+              "description": "Upload actual video file for about yourself video"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{base_url}}/profile/specializations/",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "profile",
+            "specializations",
+            ""
+          ]
+        },
+        "description": "Production-ready request that handles file uploads properly. Users upload actual video files, metadata is sent as JSON strings."
+      }
+    },
+    {
+      "name": "Create Visual Worker - PRODUCTION READY",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{auth_token}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "visual_worker",
+              "value": "{\"primary_category\": \"photographer\", \"years_experience\": 5, \"experience_level\": \"professional\", \"portfolio_link\": \"https://myportfolio.com\", \"availability\": \"full_time\", \"rate_range\": \"mid\", \"willing_to_relocate\": true}",
+              "type": "text",
+              "description": "Visual worker data as JSON string"
+            },
+            {
+              "key": "about_yourself_video",
+              "value": "{\"name\": \"About Myself\", \"media_info\": \"1-minute introduction video\", \"is_test_video\": true, \"is_about_yourself_video\": true, \"test_video_number\": 5}",
+              "type": "text",
+              "description": "About video metadata as JSON string"
+            },
+            {
+              "key": "about_video",
+              "type": "file",
+              "src": "",
+              "description": "Upload actual video file for about yourself video"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{base_url}}/profile/specializations/",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "profile",
+            "specializations",
+            ""
+          ]
+        },
+        "description": "Visual worker with file upload - only requires about yourself video"
+      }
+    },
+    {
+      "name": "Create Expressive Worker (Singer) - No Test Videos",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{auth_token}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "expressive_worker",
+              "value": "{\"performer_type\": \"singer\", \"years_experience\": 2, \"height\": 165.0, \"weight\": 55.0, \"hair_color\": \"blonde\", \"hair_type\": \"straight\", \"skin_tone\": \"fair\", \"eye_color\": \"blue\", \"eye_size\": \"large\", \"eye_pattern\": \"round\", \"face_shape\": \"heart\", \"forehead_shape\": \"rounded\", \"lip_shape\": \"bow\", \"eyebrow_pattern\": \"curved\", \"distinctive_facial_marks\": \"freckles\", \"distinctive_body_marks\": \"none\", \"voice_type\": \"soft\", \"body_type\": \"slim\", \"availability\": \"part_time\"}",
+              "type": "text",
+              "description": "Singer performer type - no test videos required"
+            },
+            {
+              "key": "about_yourself_video",
+              "value": "{\"name\": \"About Myself\", \"media_info\": \"1-minute introduction video\", \"is_test_video\": true, \"is_about_yourself_video\": true, \"test_video_number\": 5}",
+              "type": "text"
+            },
+            {
+              "key": "about_video",
+              "type": "file",
+              "src": "",
+              "description": "Upload actual video file for about yourself video"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{base_url}}/profile/specializations/",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "profile",
+            "specializations",
+            ""
+          ]
+        },
+        "description": "Singer performer type only needs about yourself video, no test videos"
+      }
+    },
+    {
+      "name": "Create - JSON for Testing (No Files)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{auth_token}}",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"visual_worker\": {\n    \"primary_category\": \"photographer\",\n    \"years_experience\": 5,\n    \"experience_level\": \"professional\",\n    \"portfolio_link\": \"https://myportfolio.com\",\n    \"availability\": \"full_time\",\n    \"rate_range\": \"mid\",\n    \"willing_to_relocate\": true\n  },\n  \"about_yourself_video\": {\n    \"media_file\": \"data:video/mp4;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj\",\n    \"name\": \"About Myself\",\n    \"media_info\": \"1-minute introduction video\",\n    \"is_test_video\": true,\n    \"is_about_yourself_video\": true,\n    \"test_video_number\": 5\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/profile/specializations/",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "profile",
+            "specializations",
+            ""
+          ]
+        },
+        "description": "JSON approach for testing with sample base64 data - NOT for production use"
+      }
+    },
+    {
+      "name": "Get Specializations",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{auth_token}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/profile/specializations/",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "profile",
+            "specializations",
+            ""
+          ]
+        }
+      }
+    },
+    {
+      "name": "Delete Specialization",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{auth_token}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/profile/specializations/?specialization=expressive_worker",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "profile",
+            "specializations",
+            ""
+          ],
+          "query": [
+            {
+              "key": "specialization",
+              "value": "expressive_worker"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Get Reference Data - Visual Worker",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/profile/reference-data/?type=visual_worker",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "profile",
+            "reference-data",
+            ""
+          ],
+          "query": [
+            {
+              "key": "type",
+              "value": "visual_worker"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Get Reference Data - Expressive Worker",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/profile/reference-data/?type=expressive_worker",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "profile",
+            "reference-data",
+            ""
+          ],
+          "query": [
+            {
+              "key": "type",
+              "value": "expressive_worker"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Get Reference Data - Hybrid Worker",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/profile/reference-data/?type=hybrid_worker",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "profile",
+            "reference-data",
+            ""
+          ],
+          "query": [
+            {
+              "key": "type",
+              "value": "hybrid_worker"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000",
+      "type": "string"
+    },
+    {
+      "key": "auth_token",
+      "value": "your_jwt_token_here",
+      "type": "string"
+    }
+  ]
+} 
