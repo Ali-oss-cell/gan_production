@@ -1,6 +1,8 @@
 from django.db import models
 from django.conf import settings
 from users.models import BaseUser
+from django.contrib.contenttypes.models import ContentType
+from django.contrib.contenttypes.fields import GenericForeignKey
 
 class BulkEmail(models.Model):
     """Model for tracking bulk email campaigns sent to talent"""
@@ -77,3 +79,92 @@ class EmailRecipient(models.Model):
     
     def __str__(self):
         return f"{self.user.email} - {self.bulk_email.subject} ({self.status})"
+
+class SharedMediaPost(models.Model):
+    """
+    Model for dashboard admins to share media from search results to gallery.
+    Uses GenericForeignKey to reference any type of media (TalentMedia, BandMedia, Item images, etc.)
+    """
+    # Who shared it (must be dashboard user or admin)
+    shared_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='shared_media_posts'
+    )
+    
+    # What was shared (flexible to handle different media types)
+    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
+    object_id = models.PositiveIntegerField()
+    shared_content = GenericForeignKey('content_type', 'object_id')
+    
+    # Admin's caption/commentary
+    caption = models.TextField(blank=True, help_text="Admin's commentary about the shared media")
+    
+    # Metadata
+    shared_at = models.DateTimeField(auto_now_add=True)
+    is_active = models.BooleanField(default=True)
+    
+    # Optional: categorization for gallery organization
+    CATEGORY_CHOICES = [
+        ('featured', 'Featured Work'),
+        ('inspiration', 'Inspiration'),
+        ('trending', 'Trending'),
+        ('spotlight', 'Artist Spotlight'),
+        ('general', 'General'),
+    ]
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, default='general')
+    
+    class Meta:
+        ordering = ['-shared_at']
+        unique_together = ['shared_by', 'content_type', 'object_id']  # Prevent duplicate shares by same user
+        
+    def __str__(self):
+        return f"Shared by {self.shared_by.email} at {self.shared_at}"
+    
+    def get_original_owner(self):
+        """Get the original owner of the shared content"""
+        content = self.shared_content
+        
+        if hasattr(content, 'talent'):
+            # TalentMedia
+            return content.talent.user
+        elif hasattr(content, 'band'):
+            # BandMedia
+            return content.band.creator.user
+        elif hasattr(content, 'BackGroundJobsProfile'):
+            # Item models (Prop, Costume, etc.)
+            return content.BackGroundJobsProfile.user
+        
+        return None
+    
+    def get_content_info(self):
+        """Get basic info about the shared content"""
+        content = self.shared_content
+        
+        if hasattr(content, 'media_file'):
+            # TalentMedia or BandMedia
+            return {
+                'type': 'media',
+                'name': getattr(content, 'name', 'Untitled'),
+                'media_type': getattr(content, 'media_type', 'unknown'),
+                'file_url': content.media_file.url if content.media_file else None,
+                'thumbnail_url': getattr(content, 'thumbnail', {}).url if hasattr(content, 'thumbnail') and content.thumbnail else None,
+            }
+        elif hasattr(content, 'image'):
+            # Item models
+            return {
+                'type': 'item',
+                'name': getattr(content, 'name', 'Untitled'),
+                'item_type': content.__class__.__name__.lower(),
+                'file_url': content.image.url if content.image else None,
+                'price': getattr(content, 'price', None),
+            }
+            
+        return {'type': 'unknown', 'name': 'Unknown Content'}
+    
+    def get_attribution_text(self):
+        """Get text for attribution to original creator"""
+        owner = self.get_original_owner()
+        if owner:
+            return f"Originally by {owner.first_name} {owner.last_name} (@{owner.email})"
+        return "Original creator unknown"

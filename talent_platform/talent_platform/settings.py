@@ -58,7 +58,7 @@ if USE_SPACES:
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-v946=cn*-^yu8o(-y0)r@+y7!ambqsjwk$7w0-p)!5x4p94j)f'
+SECRET_KEY = os.getenv('SECRET_KEY', '7@aaku@q1$6&^xg6re*i&(_&@m69-#&^ql%sh^u9!96ljm#cq=')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -109,23 +109,23 @@ CORS_ALLOW_CREDENTIALS = True
 
 CORS_ALLOWED_ORIGINS = [
     "http://192.168.0.119:3000",  # React frontend IP:port
-    "http://192.168.0.102:3000",  # Your IP address
-    "http://192.168.0.111:3000",
-    "http://192.168.0.104:3000",
+    "http://192.168.1.3:3000",  # Your IP address
+    "http://192.168.77.79:3000",
+    "http://192.168.77.85:3000",
 ]
 
 CSRF_TRUSTED_ORIGINS = [
     "http://192.168.0.119:3000",
-    "http://192.168.0.102:3000",
-    "http://192.168.0.111:3000",
-    "http://192.168.0.102:3000",
+    "http://192.168.1.3:3000",
+    "http://192.168.77.79:3000",
+    "http://192.168.77.85:3000",
 ]
 
 ALLOWED_HOSTS = [
     'localhost',
-    '192.168.0.102',
-    '192.168.0.111',
-    '192.168.213.85',  # <-- your backend IP
+    '192.168.0.108',
+    '192.168.77.79',
+    '192.168.77.85',  # <-- your backend IP
     '39c3-149-34-246-34.ngrok-free.app' # <-- add your ngrok domain here,
 
 ]

@@ -2,6 +2,10 @@ from django.urls import path, include
 from . import views, email_views
 from .search_views import UnifiedSearchView
 from .views_restricted_api import RestrictedUsersAPIView
+from .shared_media_views import (
+    ShareMediaView, SharedMediaListView, SharedMediaDetailView,
+    DeleteSharedMediaView, MySharedMediaView, SharedMediaStatsView
+)
 from django.views.generic import TemplateView
 
 app_name = 'dashboard'
@@ -29,6 +33,14 @@ urlpatterns = [
     path('profiles/expressive/<int:pk>/', views.ExpressiveWorkerDetailView.as_view(), name='expressive-worker-detail'),
     path('profiles/hybrid/<int:pk>/', views.HybridWorkerDetailView.as_view(), name='hybrid-worker-detail'),
     path('profiles/band/<int:pk>/', views.BandDetailView.as_view(), name='band-detail'),
+    
+    # Shared Media Management
+    path('share-media/', ShareMediaView.as_view(), name='share-media'),
+    path('shared-media/', SharedMediaListView.as_view(), name='shared-media-list'),
+    path('shared-media/<int:pk>/', SharedMediaDetailView.as_view(), name='shared-media-detail'),
+    path('shared-media/<int:pk>/delete/', DeleteSharedMediaView.as_view(), name='delete-shared-media'),
+    path('my-shared-media/', MySharedMediaView.as_view(), name='my-shared-media'),
+    path('shared-media/stats/', SharedMediaStatsView.as_view(), name='shared-media-stats'),
     
     # Restricted country users management
     path('restricted-users/', RestrictedUsersAPIView.as_view(), name='restricted-users-api'),

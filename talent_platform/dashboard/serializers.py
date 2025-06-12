@@ -6,6 +6,8 @@ from profiles.models import (
 )
 from users.models import BaseUser
 import datetime
+from .models import SharedMediaPost
+from django.contrib.contenttypes.models import ContentType
 
 class UserBasicSerializer(serializers.ModelSerializer):
     class Meta:
@@ -701,3 +703,128 @@ class EmailRecipientSerializer(serializers.ModelSerializer):
     
     def get_user_name(self, obj):
         return f"{obj.user.first_name} {obj.user.last_name}".strip() or obj.user.email 
+
+class SharedMediaPostSerializer(serializers.ModelSerializer):
+    """Serializer for viewing shared media posts"""
+    shared_by_name = serializers.CharField(source='shared_by.get_full_name', read_only=True)
+    shared_by_email = serializers.CharField(source='shared_by.email', read_only=True)
+    content_info = serializers.SerializerMethodField()
+    attribution_text = serializers.SerializerMethodField()
+    original_owner = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = SharedMediaPost
+        fields = [
+            'id', 'caption', 'category', 'shared_at', 'is_active',
+            'shared_by_name', 'shared_by_email', 'content_info', 
+            'attribution_text', 'original_owner'
+        ]
+    
+    def get_content_info(self, obj):
+        return obj.get_content_info()
+    
+    def get_attribution_text(self, obj):
+        return obj.get_attribution_text()
+    
+    def get_original_owner(self, obj):
+        owner = obj.get_original_owner()
+        if owner:
+            return {
+                'id': owner.id,
+                'name': f"{owner.first_name} {owner.last_name}",
+                'email': owner.email
+            }
+        return None
+
+class ShareMediaSerializer(serializers.Serializer):
+    """Serializer for creating shared media posts"""
+    content_type = serializers.CharField(help_text="Type of content: 'talent_media', 'band_media', 'prop', 'costume', etc.")
+    object_id = serializers.IntegerField(help_text="ID of the content to share")
+    caption = serializers.CharField(max_length=1000, required=False, allow_blank=True)
+    category = serializers.ChoiceField(
+        choices=SharedMediaPost.CATEGORY_CHOICES,
+        default='general',
+        required=False
+    )
+    
+    def validate_content_type(self, value):
+        """Validate that content_type is valid"""
+        valid_types = {
+            'talent_media': 'profiles.TalentMedia',
+            'band_media': 'profiles.BandMedia',
+            'prop': 'profiles.Prop',
+            'costume': 'profiles.Costume',
+            'location': 'profiles.Location',
+            'memorabilia': 'profiles.Memorabilia',
+            'vehicle': 'profiles.Vehicle',
+            'artistic_material': 'profiles.ArtisticMaterial',
+            'music_item': 'profiles.MusicItem',
+            'rare_item': 'profiles.RareItem',
+        }
+        
+        if value not in valid_types:
+            raise serializers.ValidationError(
+                f"Invalid content_type. Must be one of: {', '.join(valid_types.keys())}"
+            )
+        
+        return valid_types[value]
+    
+    def validate(self, data):
+        """Validate that the object exists and can be shared"""
+        content_type_str = data['content_type']
+        object_id = data['object_id']
+        
+        try:
+            # Get the ContentType
+            app_label, model_name = content_type_str.split('.')
+            content_type = ContentType.objects.get(app_label=app_label, model=model_name.lower())
+            
+            # Check if object exists
+            model_class = content_type.model_class()
+            obj = model_class.objects.get(id=object_id)
+            
+            # Store for later use
+            data['content_type_obj'] = content_type
+            data['shared_object'] = obj
+            
+        except ContentType.DoesNotExist:
+            raise serializers.ValidationError("Invalid content type")
+        except model_class.DoesNotExist:
+            raise serializers.ValidationError("Content not found")
+        
+        return data
+    
+    def create(self, validated_data):
+        """Create a new shared media post"""
+        # Remove our custom fields
+        content_type_obj = validated_data.pop('content_type_obj')
+        shared_object = validated_data.pop('shared_object')
+        
+        # Create the shared post
+        shared_post = SharedMediaPost.objects.create(
+            shared_by=self.context['request'].user,
+            content_type=content_type_obj,
+            object_id=shared_object.id,
+            **validated_data
+        )
+        
+        return shared_post
+
+class SharedMediaPostListSerializer(serializers.ModelSerializer):
+    """Serializer for listing shared media posts in gallery"""
+    shared_by_name = serializers.CharField(source='shared_by.get_full_name', read_only=True)
+    content_info = serializers.SerializerMethodField()
+    attribution_text = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = SharedMediaPost
+        fields = [
+            'id', 'caption', 'category', 'shared_at',
+            'shared_by_name', 'content_info', 'attribution_text'
+        ]
+    
+    def get_content_info(self, obj):
+        return obj.get_content_info()
+    
+    def get_attribution_text(self, obj):
+        return obj.get_attribution_text() 
