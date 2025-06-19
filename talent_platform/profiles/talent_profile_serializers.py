@@ -78,7 +78,7 @@ class TalentUserProfileSerializer(serializers.ModelSerializer):
         model = TalentUserProfile
         fields = [
             'id', 'email', 'username', 'first_name', 'last_name', 'full_name', 'is_verified', 'profile_complete',
-            'account_type', 'country', 'city', 'zipcode', 'phone', 'profile_picture', 'aboutyou',
+            'account_type', 'country', 'city','phone', 'profile_picture', 'aboutyou',
             'date_of_birth', 'gender', 'media', 'social_media_links', 'aboutyou', 'profile_score'
         ]
         extra_kwargs = {

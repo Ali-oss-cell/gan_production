@@ -3,7 +3,7 @@ from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from django.urls import reverse
 from django.db.models import Q, F, ExpressionWrapper, FloatField
-from datetime import datetime
+from datetime import datetime, date
 import math
 
 from users.permissions import IsDashboardUser, IsAdminDashboardUser
@@ -39,6 +39,33 @@ from .filters import (
 class SearchViewMixin:
     """Mixin with common attributes for all search views"""
     format_kwarg = 'format'
+    
+    def calculate_simple_relevance_score(self, item, query_params, field_mappings):
+        """
+        Simple relevance scoring based on field matches.
+        
+        Args:
+            item: The model instance
+            query_params: Request query parameters
+            field_mappings: Dict mapping query param names to model field names and weights
+                Example: {'name': ('name', 20), 'city': ('city', 15)}
+        
+        Returns:
+            int: Relevance score (0-100)
+        """
+        score = 0
+        
+        for param_name, (field_name, weight) in field_mappings.items():
+            if param_name in query_params and query_params[param_name]:
+                field_value = getattr(item, field_name, None)
+                if field_value:
+                    if isinstance(field_value, str):
+                        if query_params[param_name].lower() in field_value.lower():
+                            score += weight
+                    elif field_value == query_params[param_name]:
+                        score += weight
+        
+        return min(score, 100)  # Cap at 100
 
 class TalentUserProfileSearchView(SearchViewMixin, generics.ListAPIView):
     queryset = TalentUserProfile.objects.all().prefetch_related('media')
@@ -157,7 +184,10 @@ class TalentUserProfileSearchView(SearchViewMixin, generics.ListAPIView):
         query_params = self.request.query_params
         
         # Skip the default profile_type parameter, it's used for routing
-        search_params = {k: v for k, v in query_params.items() if k != 'profile_type' and k != 'format'}
+        search_params = {k: v for k, v in query_params.items() if k != 'profile_type' and k != 'format' and k != 'include_media'}
+        
+        # Check if media should be included
+        include_media = query_params.get('include_media', '').lower() in ('true', '1', 'yes')
         
         # Apply explicit filters only if search parameters are provided
         if search_params:
@@ -183,8 +213,8 @@ class TalentUserProfileSearchView(SearchViewMixin, generics.ListAPIView):
                     target_age = int(search_params['age'])
                     today = datetime.today()
                     # Calculate the date range for the target age
-                    start_date = datetime.date(today.year - target_age - 1, today.month, today.day) + datetime.timedelta(days=1)
-                    end_date = datetime.date(today.year - target_age, today.month, today.day)
+                    start_date = date(today.year - target_age - 1, today.month, today.day) + datetime.timedelta(days=1)
+                    end_date = date(today.year - target_age, today.month, today.day)
                     filtered_queryset = filtered_queryset.filter(date_of_birth__gte=start_date, date_of_birth__lte=end_date)
                 except (ValueError, TypeError):
                     # If age isn't a valid integer, ignore this filter
@@ -218,6 +248,23 @@ class TalentUserProfileSearchView(SearchViewMixin, generics.ListAPIView):
                     item['relevance_score'] = profiles_with_scores[i][1]
                     item['profile_score'] = self.calculate_profile_score(page[i])
                     item['profile_url'] = request.build_absolute_uri(reverse('dashboard:talent-profile-detail', args=[item['id']]))
+                    
+                    # Include media data if requested
+                    if include_media:
+                        item['media_items'] = []
+                        for media in page[i].media.all():
+                            media_data = {
+                                'id': media.id,
+                                'name': media.name,
+                                'media_info': media.media_info,
+                                'media_type': media.media_type,
+                                'media_file': request.build_absolute_uri(media.media_file.url) if media.media_file else None,
+                                'thumbnail': request.build_absolute_uri(media.thumbnail.url) if media.thumbnail else None,
+                                'created_at': media.created_at,
+                                'is_test_video': media.is_test_video,
+                                'is_about_yourself_video': media.is_about_yourself_video,
+                            }
+                            item['media_items'].append(media_data)
                 
                 return self.get_paginated_response(data)
             
@@ -229,6 +276,23 @@ class TalentUserProfileSearchView(SearchViewMixin, generics.ListAPIView):
                 item['relevance_score'] = profiles_with_scores[i][1]
                 item['profile_score'] = self.calculate_profile_score(queryset[i])
                 item['profile_url'] = request.build_absolute_uri(reverse('dashboard:talent-profile-detail', args=[item['id']]))
+                
+                # Include media data if requested
+                if include_media:
+                    item['media_items'] = []
+                    for media in queryset[i].media.all():
+                        media_data = {
+                            'id': media.id,
+                            'name': media.name,
+                            'media_info': media.media_info,
+                            'media_type': media.media_type,
+                            'media_file': request.build_absolute_uri(media.media_file.url) if media.media_file else None,
+                            'thumbnail': request.build_absolute_uri(media.thumbnail.url) if media.thumbnail else None,
+                            'created_at': media.created_at,
+                            'is_test_video': media.is_test_video,
+                            'is_about_yourself_video': media.is_about_yourself_video,
+                        }
+                        item['media_items'].append(media_data)
             
             return Response(data)
         else:
@@ -244,6 +308,23 @@ class TalentUserProfileSearchView(SearchViewMixin, generics.ListAPIView):
                 for i, item in enumerate(data):
                     item['profile_score'] = self.calculate_profile_score(page[i])
                     item['profile_url'] = request.build_absolute_uri(reverse('dashboard:talent-profile-detail', args=[item['id']]))
+                    
+                    # Include media data if requested
+                    if include_media:
+                        item['media_items'] = []
+                        for media in page[i].media.all():
+                            media_data = {
+                                'id': media.id,
+                                'name': media.name,
+                                'media_info': media.media_info,
+                                'media_type': media.media_type,
+                                'media_file': request.build_absolute_uri(media.media_file.url) if media.media_file else None,
+                                'thumbnail': request.build_absolute_uri(media.thumbnail.url) if media.thumbnail else None,
+                                'created_at': media.created_at,
+                                'is_test_video': media.is_test_video,
+                                'is_about_yourself_video': media.is_about_yourself_video,
+                            }
+                            item['media_items'].append(media_data)
                 return self.get_paginated_response(data)
     
             serializer = self.get_serializer(filtered_queryset.order_by('-id'), many=True)
@@ -251,6 +332,23 @@ class TalentUserProfileSearchView(SearchViewMixin, generics.ListAPIView):
             for i, item in enumerate(data):
                 item['profile_score'] = self.calculate_profile_score(filtered_queryset[i])
                 item['profile_url'] = request.build_absolute_uri(reverse('dashboard:talent-profile-detail', args=[item['id']]))
+                
+                # Include media data if requested
+                if include_media:
+                    item['media_items'] = []
+                    for media in filtered_queryset[i].media.all():
+                        media_data = {
+                            'id': media.id,
+                            'name': media.name,
+                            'media_info': media.media_info,
+                            'media_type': media.media_type,
+                            'media_file': request.build_absolute_uri(media.media_file.url) if media.media_file else None,
+                            'thumbnail': request.build_absolute_uri(media.thumbnail.url) if media.thumbnail else None,
+                            'created_at': media.created_at,
+                            'is_test_video': media.is_test_video,
+                            'is_about_yourself_video': media.is_about_yourself_video,
+                        }
+                        item['media_items'].append(media_data)
             return Response(data)
 
 class VisualWorkerSearchView(SearchViewMixin, generics.ListAPIView):
@@ -946,6 +1044,70 @@ class BackGroundJobsProfileSearchView(SearchViewMixin, generics.ListAPIView):
         """
         score_breakdown = profile.get_profile_score()
         return score_breakdown['total']
+    
+    def calculate_relevance_score(self, queryset, filters):
+        """Calculate relevance score for background profiles"""
+        query_params = self.request.query_params
+        profiles_with_scores = []
+        
+        for profile in queryset:
+            score = 100
+            
+            if 'gender' in query_params:
+                score += 20 if profile.gender == query_params['gender'] else 0
+            
+            if 'country' in query_params and profile.country:
+                if query_params['country'].lower() in profile.country.lower():
+                    score += 15
+            
+            if 'account_type' in query_params:
+                score += 15 if profile.account_type == query_params['account_type'] else 0
+            
+            profiles_with_scores.append((profile, score))
+        
+        profiles_with_scores.sort(key=lambda x: x[1], reverse=True)
+        return profiles_with_scores
+    
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        
+        if request.query_params and len(request.query_params) > 0:
+            profiles_with_scores = self.calculate_relevance_score(queryset, request.query_params)
+            queryset = [profile for profile, score in profiles_with_scores]
+            
+            page = self.paginate_queryset(queryset)
+            if page is not None:
+                serializer = self.get_serializer(page, many=True)
+                data = serializer.data
+                
+                for i, item in enumerate(data):
+                    item['relevance_score'] = profiles_with_scores[i][1]
+                    item['profile_score'] = self.calculate_profile_score(page[i])
+                
+                return self.get_paginated_response(data)
+            
+            serializer = self.get_serializer(queryset, many=True)
+            data = serializer.data
+            
+            for i, item in enumerate(data):
+                item['relevance_score'] = profiles_with_scores[i][1]
+                item['profile_score'] = self.calculate_profile_score(queryset[i])
+            
+            return Response(data)
+        else:
+            page = self.paginate_queryset(queryset.order_by('-id'))
+            if page is not None:
+                serializer = self.get_serializer(page, many=True)
+                data = serializer.data
+                for i, item in enumerate(data):
+                    item['profile_score'] = self.calculate_profile_score(page[i])
+                return self.get_paginated_response(data)
+    
+            serializer = self.get_serializer(queryset.order_by('-id'), many=True)
+            data = serializer.data
+            for i, item in enumerate(data):
+                item['profile_score'] = self.calculate_profile_score(queryset[i])
+            return Response(data)
 
 class PropSearchView(SearchViewMixin, generics.ListAPIView):
     queryset = Prop.objects.select_related('BackGroundJobsProfile__user')
@@ -954,6 +1116,51 @@ class PropSearchView(SearchViewMixin, generics.ListAPIView):
     filterset_class = PropFilter
     ordering_fields = ['name', 'price', 'created_at']
     permission_classes = [IsDashboardUser | IsAdminDashboardUser]
+    
+    def calculate_relevance_score(self, queryset, filters):
+        query_params = self.request.query_params
+        items_with_scores = []
+        
+        # Simple field mappings for props
+        field_mappings = {
+            'name': ('name', 20),
+            'material': ('material', 15),
+            'condition': ('condition', 10)
+        }
+        
+        for item in queryset:
+            relevance_score = self.calculate_simple_relevance_score(item, query_params, field_mappings)
+            items_with_scores.append((item, relevance_score))
+        
+        items_with_scores.sort(key=lambda x: x[1], reverse=True)
+        return items_with_scores
+    
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        
+        if request.query_params and len(request.query_params) > 0:
+            items_with_scores = self.calculate_relevance_score(queryset, request.query_params)
+            queryset = [item for item, score in items_with_scores]
+            
+            page = self.paginate_queryset(queryset)
+            if page is not None:
+                serializer = self.get_serializer(page, many=True)
+                data = serializer.data
+                
+                for i, item in enumerate(data):
+                    item['relevance_score'] = items_with_scores[i][1]
+                
+                return self.get_paginated_response(data)
+            
+            serializer = self.get_serializer(queryset, many=True)
+            data = serializer.data
+            
+            for i, item in enumerate(data):
+                item['relevance_score'] = items_with_scores[i][1]
+            
+            return Response(data)
+        else:
+            return super().list(request, *args, **kwargs)
 
 class CostumeSearchView(SearchViewMixin, generics.ListAPIView):
     queryset = Costume.objects.select_related('BackGroundJobsProfile__user')
@@ -962,6 +1169,57 @@ class CostumeSearchView(SearchViewMixin, generics.ListAPIView):
     filterset_class = CostumeFilter
     ordering_fields = ['name', 'price', 'created_at', 'size', 'era']
     permission_classes = [IsDashboardUser | IsAdminDashboardUser]
+    
+    def calculate_relevance_score(self, queryset, filters):
+        query_params = self.request.query_params
+        items_with_scores = []
+        
+        for item in queryset:
+            score = 100
+            
+            if 'name' in query_params and item.name:
+                if query_params['name'].lower() in item.name.lower():
+                    score += 20
+            
+            if 'size' in query_params and item.size:
+                if item.size == query_params['size']:
+                    score += 15
+            
+            if 'era' in query_params and item.era:
+                if query_params['era'].lower() in item.era.lower():
+                    score += 15
+            
+            items_with_scores.append((item, score))
+        
+        items_with_scores.sort(key=lambda x: x[1], reverse=True)
+        return items_with_scores
+    
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        
+        if request.query_params and len(request.query_params) > 0:
+            items_with_scores = self.calculate_relevance_score(queryset, request.query_params)
+            queryset = [item for item, score in items_with_scores]
+            
+            page = self.paginate_queryset(queryset)
+            if page is not None:
+                serializer = self.get_serializer(page, many=True)
+                data = serializer.data
+                
+                for i, item in enumerate(data):
+                    item['relevance_score'] = items_with_scores[i][1]
+                
+                return self.get_paginated_response(data)
+            
+            serializer = self.get_serializer(queryset, many=True)
+            data = serializer.data
+            
+            for i, item in enumerate(data):
+                item['relevance_score'] = items_with_scores[i][1]
+            
+            return Response(data)
+        else:
+            return super().list(request, *args, **kwargs)
 
 class LocationSearchView(SearchViewMixin, generics.ListAPIView):
     queryset = Location.objects.select_related('BackGroundJobsProfile__user')
@@ -970,6 +1228,58 @@ class LocationSearchView(SearchViewMixin, generics.ListAPIView):
     filterset_class = LocationFilter
     ordering_fields = ['name', 'price', 'created_at', 'location_type']
     permission_classes = [IsDashboardUser | IsAdminDashboardUser]
+    
+    def calculate_relevance_score(self, queryset, filters):
+        query_params = self.request.query_params
+        items_with_scores = []
+        
+        for item in queryset:
+            score = 100
+            
+            if 'name' in query_params and item.name:
+                if query_params['name'].lower() in item.name.lower():
+                    score += 20
+            
+            if 'address' in query_params and item.address:
+                if query_params['address'].lower() in item.address.lower():
+                    score += 15
+            
+            if 'is_indoor' in query_params:
+                is_indoor = query_params['is_indoor'].lower() in ('true', '1', 'yes')
+                if item.is_indoor == is_indoor:
+                    score += 10
+            
+            items_with_scores.append((item, score))
+        
+        items_with_scores.sort(key=lambda x: x[1], reverse=True)
+        return items_with_scores
+    
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        
+        if request.query_params and len(request.query_params) > 0:
+            items_with_scores = self.calculate_relevance_score(queryset, request.query_params)
+            queryset = [item for item, score in items_with_scores]
+            
+            page = self.paginate_queryset(queryset)
+            if page is not None:
+                serializer = self.get_serializer(page, many=True)
+                data = serializer.data
+                
+                for i, item in enumerate(data):
+                    item['relevance_score'] = items_with_scores[i][1]
+                
+                return self.get_paginated_response(data)
+            
+            serializer = self.get_serializer(queryset, many=True)
+            data = serializer.data
+            
+            for i, item in enumerate(data):
+                item['relevance_score'] = items_with_scores[i][1]
+            
+            return Response(data)
+        else:
+            return super().list(request, *args, **kwargs)
 
 class MemorabiliaSearchView(SearchViewMixin, generics.ListAPIView):
     queryset = Memorabilia.objects.select_related('BackGroundJobsProfile__user')
@@ -978,6 +1288,53 @@ class MemorabiliaSearchView(SearchViewMixin, generics.ListAPIView):
     filterset_class = MemorabiliaFilter
     ordering_fields = ['name', 'price', 'created_at', 'signed_by']
     permission_classes = [IsDashboardUser | IsAdminDashboardUser]
+    
+    def calculate_relevance_score(self, queryset, filters):
+        query_params = self.request.query_params
+        items_with_scores = []
+        
+        for item in queryset:
+            score = 100
+            
+            if 'name' in query_params and item.name:
+                if query_params['name'].lower() in item.name.lower():
+                    score += 20
+            
+            if 'signed_by' in query_params and item.signed_by:
+                if query_params['signed_by'].lower() in item.signed_by.lower():
+                    score += 25
+            
+            items_with_scores.append((item, score))
+        
+        items_with_scores.sort(key=lambda x: x[1], reverse=True)
+        return items_with_scores
+    
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        
+        if request.query_params and len(request.query_params) > 0:
+            items_with_scores = self.calculate_relevance_score(queryset, request.query_params)
+            queryset = [item for item, score in items_with_scores]
+            
+            page = self.paginate_queryset(queryset)
+            if page is not None:
+                serializer = self.get_serializer(page, many=True)
+                data = serializer.data
+                
+                for i, item in enumerate(data):
+                    item['relevance_score'] = items_with_scores[i][1]
+                
+                return self.get_paginated_response(data)
+            
+            serializer = self.get_serializer(queryset, many=True)
+            data = serializer.data
+            
+            for i, item in enumerate(data):
+                item['relevance_score'] = items_with_scores[i][1]
+            
+            return Response(data)
+        else:
+            return super().list(request, *args, **kwargs)
 
 class VehicleSearchView(SearchViewMixin, generics.ListAPIView):
     queryset = Vehicle.objects.select_related('BackGroundJobsProfile__user')
@@ -986,6 +1343,61 @@ class VehicleSearchView(SearchViewMixin, generics.ListAPIView):
     filterset_class = VehicleFilter
     ordering_fields = ['name', 'price', 'created_at', 'make', 'model', 'year']
     permission_classes = [IsDashboardUser | IsAdminDashboardUser]
+    
+    def calculate_relevance_score(self, queryset, filters):
+        query_params = self.request.query_params
+        items_with_scores = []
+        
+        for item in queryset:
+            score = 100
+            
+            if 'make' in query_params and item.make:
+                if query_params['make'].lower() in item.make.lower():
+                    score += 20
+            
+            if 'model' in query_params and item.model:
+                if query_params['model'].lower() in item.model.lower():
+                    score += 20
+            
+            if 'year' in query_params and item.year:
+                try:
+                    target_year = int(query_params['year'])
+                    if item.year == target_year:
+                        score += 15
+                except (ValueError, TypeError):
+                    pass
+            
+            items_with_scores.append((item, score))
+        
+        items_with_scores.sort(key=lambda x: x[1], reverse=True)
+        return items_with_scores
+    
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        
+        if request.query_params and len(request.query_params) > 0:
+            items_with_scores = self.calculate_relevance_score(queryset, request.query_params)
+            queryset = [item for item, score in items_with_scores]
+            
+            page = self.paginate_queryset(queryset)
+            if page is not None:
+                serializer = self.get_serializer(page, many=True)
+                data = serializer.data
+                
+                for i, item in enumerate(data):
+                    item['relevance_score'] = items_with_scores[i][1]
+                
+                return self.get_paginated_response(data)
+            
+            serializer = self.get_serializer(queryset, many=True)
+            data = serializer.data
+            
+            for i, item in enumerate(data):
+                item['relevance_score'] = items_with_scores[i][1]
+            
+            return Response(data)
+        else:
+            return super().list(request, *args, **kwargs)
 
 class ArtisticMaterialSearchView(SearchViewMixin, generics.ListAPIView):
     queryset = ArtisticMaterial.objects.select_related('BackGroundJobsProfile__user')

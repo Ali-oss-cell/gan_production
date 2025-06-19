@@ -77,7 +77,8 @@ class Command(BaseCommand):
                 email=email,
                 password=password,
                 first_name=first_name,
-                last_name=last_name
+                last_name=last_name,
+                is_staff=True
             )
             self.stdout.write(self.style.SUCCESS(f'Admin dashboard user {username} created successfully'))
         except Exception as e:

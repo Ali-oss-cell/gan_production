@@ -25,14 +25,14 @@ class DashboardUserRateThrottle(UserRateThrottle):
     Throttle for authenticated dashboard users.
     """
     scope = 'dashboard_user'
-    rate = '200/hour'
+    rate = '500/hour'
 
 class AdminDashboardUserRateThrottle(UserRateThrottle):
     """
     Throttle for authenticated admin dashboard users with higher limits.
     """
     scope = 'admin_dashboard_user'
-    rate = '300/hour'
+    rate = '2000/hour'
 
 class PaymentEndpointRateThrottle(UserRateThrottle):
     """

@@ -108,23 +108,27 @@ CORS_ORIGIN_ALLOW_ALL = True
 CORS_ALLOW_CREDENTIALS = True
 
 CORS_ALLOWED_ORIGINS = [
+    "http://192.168.0.106:3000",
     "http://192.168.0.119:3000",  # React frontend IP:port
-    "http://192.168.1.3:3000",  # Your IP address
-    "http://192.168.77.79:3000",
-    "http://192.168.77.85:3000",
+  # React frontend IP:port
+    "http://192.168.1.6:3000",  # Your IP address
+    "http://192.168.1.9:3000",
+    "http://192.168.1.14:3000",
+    "http://192.168.0.103:3000",
 ]
 
 CSRF_TRUSTED_ORIGINS = [
     "http://192.168.0.119:3000",
-    "http://192.168.1.3:3000",
-    "http://192.168.77.79:3000",
-    "http://192.168.77.85:3000",
+    "http://192.168.0.106:3000",
+    "http://192.168.1.6:3000",
+    "http://192.168.1.9:3000",
+    "http://192.168.0.103:3000",
 ]
 
 ALLOWED_HOSTS = [
     'localhost',
     '192.168.0.108',
-    '192.168.77.79',
+    '192.168.0.103',
     '192.168.77.85',  # <-- your backend IP
     '39c3-149-34-246-34.ngrok-free.app' # <-- add your ngrok domain here,
 
@@ -236,8 +240,8 @@ REST_FRAMEWORK = {
         'user': '100/hour',
         'talent_user': '100/hour',
         'background_user': '100/hour',
-        'dashboard_user': '200/hour',
-        'admin_dashboard_user': '300/hour',
+        'dashboard_user': '500/hour',        # Increased from 200
+        'admin_dashboard_user': '2000/hour', # Increased from 300 (much higher for admins)
         'payment_endpoints': '30/hour',
         'restricted_country': '50/hour',
     }

@@ -8,6 +8,7 @@ from payments.serializers_restrictions import RestrictedCountryUserSerializer
 from payments.country_restrictions import RESTRICTED_COUNTRIES
 from users.models import BaseUser
 from profiles.models import TalentUserProfile, BackGroundJobsProfile
+from django.db.models import Q
 
 class RestrictedUsersAPIView(APIView):
     """
@@ -68,7 +69,7 @@ class RestrictedUsersAPIView(APIView):
             'account_types': {
                 'talent': ['free', 'silver', 'gold', 'platinum'],
                 'background': ['free', 'back_ground_jobs'],
-                'band_subscription': ['basic', 'premium', 'pro']
+                'band_subscription': ['bands']  # Only one type of band subscription
             }
         })
     
@@ -93,19 +94,40 @@ class RestrictedUsersAPIView(APIView):
     
     def _scan_for_restricted_users(self, request):
         """Scan all users to find those from restricted countries"""
-        users = BaseUser.objects.filter(country__isnull=False).exclude(country='')
+        # Get all users with country information from either BaseUser or their profiles
+        users = BaseUser.objects.filter(
+            Q(country__isnull=False) & ~Q(country='') |  # Check BaseUser country
+            Q(talent_user__country__isnull=False) & ~Q(talent_user__country='') |  # Check TalentUserProfile
+            Q(background_profile__country__isnull=False) & ~Q(background_profile__country='')  # Check BackgroundUserProfile
+        ).distinct()
+
         restricted_countries_lower = [c.lower() for c in RESTRICTED_COUNTRIES]
         new_restricted_users = []
         
         for user in users:
-            if user.country.lower() in restricted_countries_lower:
+            # Check country in all possible locations
+            user_country = None
+            
+            # Check BaseUser country
+            if user.country and user.country.lower() in restricted_countries_lower:
+                user_country = user.country
+            # Check TalentUserProfile country
+            elif hasattr(user, 'talent_user') and user.talent_user.country and user.talent_user.country.lower() in restricted_countries_lower:
+                user_country = user.talent_user.country
+            # Check BackgroundUserProfile country
+            elif hasattr(user, 'background_profile') and user.background_profile.country and user.background_profile.country.lower() in restricted_countries_lower:
+                user_country = user.background_profile.country
+            
+            if user_country:
+                # Check if entry already exists
                 entry, created = RestrictedCountryUser.objects.get_or_create(
                     user=user,
                     defaults={
-                        'country': user.country,
+                        'country': user_country,
                         'account_type': getattr(user.talent_user, 'account_type', 'free') if hasattr(user, 'talent_user') else 'free'
                     }
                 )
+                
                 if created:
                     new_restricted_users.append(entry)
         
@@ -150,38 +172,43 @@ class RestrictedUsersAPIView(APIView):
     def _give_band_subscription(self, request):
         """Give a Syrian user band subscription and make them band creator"""
         user_id = request.data.get('user_id')
-        band_subscription_type = request.data.get('band_subscription_type', 'basic')  # basic, premium, pro
         notes = request.data.get('notes', '')
         
         try:
             restricted_user = RestrictedCountryUser.objects.get(id=user_id)
             user = restricted_user.user
             
+            # Check if user has talent profile
+            if not hasattr(user, 'talent_user'):
+                return Response({
+                    'error': 'User does not have a talent profile. Please create a talent profile first.',
+                    'user_id': user_id,
+                    'email': user.email
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
             # Create or update talent profile first (required for bands)
             talent_profile, created = TalentUserProfile.objects.get_or_create(
                 user=user,
                 defaults={
-                    'account_type': 'gold',  # Give them gold account for band features
+                    'account_type': restricted_user.account_type,  # Keep original account type
                 }
             )
             
             # Update talent profile account type if it exists
             if not created:
-                talent_profile.account_type = 'gold'
+                talent_profile.account_type = restricted_user.account_type  # Keep original account type
                 talent_profile.save(update_fields=['account_type'])
             
             # Update restricted user record
             restricted_user.is_approved = True
-            restricted_user.account_type = 'gold'
-            restricted_user.notes = f"{notes} | Band subscription: {band_subscription_type} | Band creator privileges granted"
+            restricted_user.notes = f"{notes} | Band subscription granted"
             restricted_user.last_updated_by = request.user
             restricted_user.save()
             
             return Response({
-                'message': f'User granted band subscription ({band_subscription_type}) and band creator privileges',
+                'message': 'User granted band subscription and band creator privileges',
                 'user': RestrictedCountryUserSerializer(restricted_user).data,
-                'band_subscription': band_subscription_type,
-                'account_type': 'gold',
+                'account_type': restricted_user.account_type,
                 'band_creator': True
             })
             
@@ -199,6 +226,14 @@ class RestrictedUsersAPIView(APIView):
         try:
             restricted_user = RestrictedCountryUser.objects.get(id=user_id)
             user = restricted_user.user
+            
+            # Check if user has background profile
+            if not hasattr(user, 'background_user'):
+                return Response({
+                    'error': 'User does not have a background profile. Please create a background profile first.',
+                    'user_id': user_id,
+                    'email': user.email
+                }, status=status.HTTP_400_BAD_REQUEST)
             
             # Create or update background profile
             background_profile, created = BackGroundJobsProfile.objects.get_or_create(

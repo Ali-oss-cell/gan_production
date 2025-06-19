@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Shared Media API allows dashboard users and admins to share media content from search results to the platform gallery. This creates a Facebook-style post system where admins can curate and highlight content from the platform's users.
+The Shared Media API allows dashboard admins to share media content from search results to the platform gallery. This creates a curated gallery where admins can highlight content while maintaining the privacy of the original creators. Companies interested in the media must contact the platform to connect with the talent.
 
 ## Authentication
 
@@ -16,9 +16,9 @@ All endpoints require authentication. Most endpoints also require dashboard user
 
 **POST** `/api/dashboard/share-media/`
 
-Share media from search results to the gallery.
+Share media from search results to the gallery. Only dashboard admins can share media.
 
-**Permissions:** Dashboard users and admins only
+**Permissions:** Dashboard admins only
 
 **Request Body:**
 ```json
@@ -26,7 +26,8 @@ Share media from search results to the gallery.
   "content_type": "talent_media",  // Required: Type of content to share
   "object_id": 123,                // Required: ID of the content
   "caption": "Amazing work by our talent!", // Optional: Admin's commentary
-  "category": "featured"           // Optional: Category for organization
+  "category": "featured",          // Optional: Category for organization
+  "attribution": "Talent Platform" // Optional: Attribution text, defaults to "Talent Platform"
 }
 ```
 
@@ -58,20 +59,19 @@ Share media from search results to the gallery.
     "caption": "Amazing work by our talent!",
     "category": "featured",
     "shared_at": "2024-01-15T10:30:00Z",
-    "shared_by_name": "Admin User",
-    "shared_by_email": "admin@example.com",
+    "shared_by": {
+      "id": 1,
+      "email": "admin@example.com",
+      "first_name": "Admin",
+      "last_name": "User"
+    },
+    "attribution": "Talent Platform",
     "content_info": {
       "type": "media",
       "name": "Portrait Photo",
       "media_type": "image",
       "file_url": "/media/uploads/photo.jpg",
       "thumbnail_url": "/media/thumbnails/photo_thumb.jpg"
-    },
-    "attribution_text": "Originally by John Doe (@john@example.com)",
-    "original_owner": {
-      "id": 5,
-      "name": "John Doe",
-      "email": "john@example.com"
     }
   }
 }
@@ -79,7 +79,7 @@ Share media from search results to the gallery.
 
 **Error Responses:**
 - `400`: Invalid data or already shared
-- `403`: Permission denied
+- `403`: Permission denied (not an admin)
 - `404`: Content not found
 
 ---
@@ -94,7 +94,8 @@ Get shared media for gallery display. **PUBLIC ACCESS** - Available to everyone 
 
 **Query Parameters:**
 - `category`: Filter by category (optional)
-- `shared_by`: Filter by user ID who shared (optional)
+- `shared_by`: Filter by admin ID who shared (optional)
+- `content_type`: Filter by content type (optional)
 - `page`: Page number for pagination
 - `page_size`: Number of results per page
 
@@ -115,14 +116,19 @@ GET /api/dashboard/shared-media/?category=featured&page=1&page_size=10
       "caption": "Amazing work by our talent!",
       "category": "featured",
       "shared_at": "2024-01-15T10:30:00Z",
-      "shared_by_name": "Admin User",
+      "shared_by": {
+        "id": 1,
+        "email": "admin@example.com",
+        "first_name": "Admin",
+        "last_name": "User"
+      },
+      "attribution": "Talent Platform",
       "content_info": {
         "type": "media",
         "name": "Portrait Photo",
         "media_type": "image",
         "file_url": "/media/uploads/photo.jpg"
-      },
-      "attribution_text": "Originally by John Doe (@john@example.com)"
+      }
     }
   ]
 }
@@ -146,20 +152,19 @@ Get detailed information about a specific shared media post. **PUBLIC ACCESS** -
   "category": "featured",
   "shared_at": "2024-01-15T10:30:00Z",
   "is_active": true,
-  "shared_by_name": "Admin User",
-  "shared_by_email": "admin@example.com",
+  "shared_by": {
+    "id": 1,
+    "email": "admin@example.com",
+    "first_name": "Admin",
+    "last_name": "User"
+  },
+  "attribution": "Talent Platform",
   "content_info": {
     "type": "media",
     "name": "Portrait Photo",
     "media_type": "image",
     "file_url": "/media/uploads/photo.jpg",
     "thumbnail_url": "/media/thumbnails/photo_thumb.jpg"
-  },
-  "attribution_text": "Originally by John Doe (@john@example.com)",
-  "original_owner": {
-    "id": 5,
-    "name": "John Doe",
-    "email": "john@example.com"
   }
 }
 ```
@@ -168,11 +173,11 @@ Get detailed information about a specific shared media post. **PUBLIC ACCESS** -
 
 ### 4. Delete Shared Media
 
-**DELETE** `/api/dashboard/shared-media/{id}/delete/`
+**DELETE** `/api/dashboard/shared-media/{id}/`
 
-Delete a shared media post. Users can only delete their own posts, admins can delete any.
+Delete a shared media post. Admins can delete any post.
 
-**Permissions:** Dashboard users and admins
+**Permissions:** Dashboard admins only
 
 **Response:**
 ```json
@@ -182,7 +187,7 @@ Delete a shared media post. Users can only delete their own posts, admins can de
 ```
 
 **Error Responses:**
-- `403`: Can only delete your own posts
+- `403`: Not authorized to delete this post
 - `404`: Shared media not found
 
 ---
@@ -191,9 +196,9 @@ Delete a shared media post. Users can only delete their own posts, admins can de
 
 **GET** `/api/dashboard/my-shared-media/`
 
-Get all shared media posts by the current user.
+Get all shared media posts by the current admin.
 
-**Permissions:** Dashboard users and admins
+**Permissions:** Dashboard admins only
 
 **Response:**
 ```json
@@ -207,11 +212,13 @@ Get all shared media posts by the current user.
       "caption": "Amazing work by our talent!",
       "category": "featured",
       "shared_at": "2024-01-15T10:30:00Z",
-      "shared_by_name": "Admin User",
-      "shared_by_email": "admin@example.com",
-      "content_info": {...},
-      "attribution_text": "Originally by John Doe (@john@example.com)",
-      "original_owner": {...}
+      "attribution": "Talent Platform",
+      "content_info": {
+        "type": "media",
+        "name": "Portrait Photo",
+        "media_type": "image",
+        "file_url": "/media/uploads/photo.jpg"
+      }
     }
   ]
 }
@@ -259,14 +266,14 @@ Get statistics about shared media (admin only).
 
 ## Integration with Search Results
 
-When dashboard users perform searches, the search results automatically include share information for each media item:
+When dashboard admins perform searches, the search results automatically include share information for each media item:
 
 ```json
 {
   "results": [
     {
       "id": 1,
-      "name": "John Doe",
+      "name": "Portrait Photo",
       "media_items": [
         {
           "id": 123,
@@ -292,7 +299,7 @@ When dashboard users perform searches, the search results automatically include 
 
 #### Sharing from Search Results
 ```javascript
-// Share media from search results
+// Share media from search results (admin only)
 async function shareMedia(contentType, objectId, caption, category = 'general') {
   const response = await fetch('/api/dashboard/share-media/', {
     method: 'POST',
@@ -304,7 +311,8 @@ async function shareMedia(contentType, objectId, caption, category = 'general') 
       content_type: contentType,
       object_id: objectId,
       caption: caption,
-      category: category
+      category: category,
+      attribution: "Talent Platform"
     })
   });
   
@@ -327,11 +335,7 @@ async function getGalleryPosts(category = null, page = 1) {
     url += `&category=${category}`;
   }
   
-  const response = await fetch(url, {
-    headers: {
-      'Authorization': `Bearer ${token}`
-    }
-  });
+  const response = await fetch(url);
   
   return await response.json();
 }
@@ -362,13 +366,13 @@ Error responses include descriptive messages:
 ## Rate Limiting
 
 Shared media endpoints are subject to the platform's rate limiting:
-- Dashboard users: 200 requests/hour
-- Admin dashboard users: 300 requests/hour
+- Dashboard admins: 300 requests/hour
 
 ## Notes
 
 - Shared posts use soft deletion (marked as `is_active=False`)
-- Each user can only share the same content once
+- Each admin can only share the same content once
 - Original media files are not duplicated
-- Attribution to original creators is automatically generated
-- All shared content maintains links to original owners 
+- Original creator information is kept private
+- Companies must contact the platform to connect with talent
+- All shared content is attributed to the platform 
