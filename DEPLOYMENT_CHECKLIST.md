@@ -87,7 +87,7 @@ SPACES_ENDPOINT_URL=https://fra1.digitaloceanspaces.com
 # Stripe
 STRIPE_PUBLIC_KEY=pk_test_...
 STRIPE_SECRET_KEY=sk_test_...
-STRIPE_WEBHOOK_SECRET=whsec_...
+STRIPE_WEBHOOK_SECRET=whsec_lzIMy9lvp1zgrM4qGr8Yy2mJ5vGHDbLC
 
 # Email (Hostinger SMTP)
 EMAIL_HOST=smtp.hostinger.com
@@ -285,6 +285,14 @@ Your platform includes a comprehensive email verification system:
 - ✅ Automatic re-sending of expired verification links
 - ✅ Email verification status tracked in user accounts
 - ✅ Verification URLs use environment variables for production
+
+## 💳 Stripe Webhook Configuration
+
+Your payment system includes webhook handling:
+- ✅ Webhook endpoint: `https://api.gan7club.com/api/payments/webhook/`
+- ✅ Webhook secret: `whsec_lzIMy9lvp1zgrM4qGr8Yy2mJ5vGHDbLC`
+- ✅ Signature verification enabled
+- ✅ Handles payment events, subscriptions, and customer updates
 
 ## 🚨 Important Notes
 
