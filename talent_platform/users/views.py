@@ -11,6 +11,7 @@ from datetime import timedelta
 from django.shortcuts import get_object_or_404
 from .models import BaseUser
 from .permissions import IsAdminDashboardUser
+import os
 
 class UserRegistrationView(APIView):
     """
@@ -49,7 +50,9 @@ class BaseLoginView(TokenObtainPairView):
         response.data['email_verified'] = user.email_verified
         if not user.email_verified:
             response.data['message'] = 'Your email is not verified. You can still use your account, but we recommend verifying your email for enhanced security.'
-            response.data['verification_url'] = f"http://localhost:3000/verify-email?token={user.email_verification_token}"
+            # Get the frontend URL from environment variables, fallback to localhost for development
+            frontend_url = os.getenv('FRONTEND_URL', 'http://localhost:3000')
+            response.data['verification_url'] = f"{frontend_url}/verify-email?token={user.email_verification_token}"
         
         # Set secure cookies
         response.set_cookie(
@@ -237,7 +240,11 @@ class VerifyEmailView(APIView):
 
             from django.core.mail import send_mail
             from django.conf import settings
-            verification_url = f"http://localhost:3000/verify-email?token={user.email_verification_token}"
+            
+            # Get the frontend URL from environment variables, fallback to localhost for development
+            frontend_url = os.getenv('FRONTEND_URL', 'http://localhost:3000')
+            verification_url = f"{frontend_url}/verify-email?token={user.email_verification_token}"
+            
             send_mail(
                 'New email verification link',
                 f'Your previous verification link has expired. Please use this new link to verify your email address: {verification_url}',

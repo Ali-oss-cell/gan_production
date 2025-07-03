@@ -97,6 +97,9 @@ EMAIL_HOST_USER=your_email@yourdomain.com
 EMAIL_HOST_PASSWORD=your_email_password
 DEFAULT_FROM_EMAIL=noreply@yourdomain.com
 ADMIN_EMAIL=admin@yourdomain.com
+
+# Frontend URL (for email verification links)
+FRONTEND_URL=https://your_domain.com
 ```
 
 ### 8. Run Django Setup
@@ -220,6 +223,16 @@ Make sure you have these values ready:
 - **Stripe**: From your Stripe dashboard
 - **Email**: From Hostinger SMTP settings
 - **Domain**: Your registered domain name
+- **Frontend URL**: Your domain for email verification links
+
+## 📧 Email Verification System
+
+Your platform includes a comprehensive email verification system:
+- ✅ Users receive verification emails upon registration
+- ✅ Verification links expire after 24 hours
+- ✅ Automatic re-sending of expired verification links
+- ✅ Email verification status tracked in user accounts
+- ✅ Verification URLs use environment variables for production
 
 ## 🚨 Important Notes
 
