@@ -65,10 +65,10 @@ nano .env
 
 **Add your environment variables:**
 ```env
-# Django
+# Django Backend (API)
 SECRET_KEY=your_secret_key_here
 DEBUG=False
-ALLOWED_HOSTS=your_domain.com,www.your_domain.com,YOUR_DROPLET_IP
+ALLOWED_HOSTS=api.your_domain.com,YOUR_DROPLET_IP
 
 # DigitalOcean Database
 DO_DB_HOST=db-postgresql-fra1-05452-do-user-12345678-0.b.db.ondigitalocean.com
@@ -98,7 +98,7 @@ EMAIL_HOST_PASSWORD=your_email_password
 DEFAULT_FROM_EMAIL=noreply@yourdomain.com
 ADMIN_EMAIL=admin@yourdomain.com
 
-# Frontend URL (for email verification links)
+# Frontend URL (for email verification links - your React app domain)
 FRONTEND_URL=https://your_domain.com
 ```
 
@@ -132,11 +132,11 @@ python manage.py runserver 0.0.0.0:8000 --settings=talent_platform.settings_prod
 nano /etc/nginx/sites-available/talent-platform
 ```
 
-**Add this configuration:**
+**Add this configuration for API subdomain:**
 ```nginx
 server {
     listen 80;
-    server_name your_domain.com www.your_domain.com YOUR_DROPLET_IP;
+    server_name api.your_domain.com YOUR_DROPLET_IP;
 
     location = /favicon.ico { access_log off; log_not_found off; }
     
@@ -201,19 +201,25 @@ systemctl status talent-platform
 apt install certbot python3-certbot-nginx -y
 ```
 
-### 15. Get SSL Certificate
+### 15. Get SSL Certificate for API
 ```bash
-certbot --nginx -d your_domain.com -d www.your_domain.com
+certbot --nginx -d api.your_domain.com
 ```
 
 ## 🧪 Final Testing
 
-### 16. Test Your Application
-- Visit `https://your_domain.com`
+### 16. Test Your Django API
+- Test API endpoints: `https://api.your_domain.com/api/`
 - Test user registration
 - Test file uploads
 - Test payment integration
 - Check logs: `tail -f /home/root/talent-platform/logs/django.log`
+
+### 17. Deploy React Frontend
+- Deploy your React app to your hosting platform (Netlify, Vercel, etc.)
+- Configure custom domain: `your_domain.com`
+- Set API base URL to: `https://api.your_domain.com`
+- Test email verification links work correctly
 
 ## 📋 Environment Variables Reference
 
@@ -223,7 +229,28 @@ Make sure you have these values ready:
 - **Stripe**: From your Stripe dashboard
 - **Email**: From Hostinger SMTP settings
 - **Domain**: Your registered domain name
-- **Frontend URL**: Your domain for email verification links
+- **Frontend URL**: Your React app domain for email verification links
+
+## 🌐 Domain Setup for React + Django
+
+### DNS Configuration (in Hostinger):
+```
+Type    Name    Value
+A       @       YOUR_DROPLET_IP (for api.your_domain.com)
+CNAME   api     your_domain.com
+```
+
+### React App Configuration:
+```javascript
+// In your React app, set API base URL
+const API_BASE_URL = 'https://api.your_domain.com';
+
+// Example API calls
+fetch(`${API_BASE_URL}/api/users/login/`, {
+  method: 'POST',
+  // ... rest of your API calls
+});
+```
 
 ## 📧 Email Verification System
 
