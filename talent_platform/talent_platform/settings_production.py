@@ -9,21 +9,24 @@ DEBUG = False
 SECRET_KEY = os.getenv('SECRET_KEY')
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '').split(',')
 
-# Database Configuration
+# Database Configuration - DigitalOcean Managed PostgreSQL
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'talent_platform',
-        'USER': 'talent_user',
-        'PASSWORD': os.getenv('DB_PASSWORD'),
-        'HOST': 'localhost',
-        'PORT': '5432',
+        'NAME': os.getenv('DO_DB_NAME'),
+        'USER': os.getenv('DO_DB_USER'),
+        'PASSWORD': os.getenv('DO_DB_PASSWORD'),
+        'HOST': os.getenv('DO_DB_HOST'),
+        'PORT': os.getenv('DO_DB_PORT', '25060'),
+        'OPTIONS': {
+            'sslmode': 'require',
+        },
     }
 }
 
-# Email Configuration
-EMAIL_BACKEND = os.getenv('EMAIL_BACKEND', 'django.core.mail.backends.smtp.EmailBackend')
-EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
+# Email Configuration - Hostinger SMTP
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.hostinger.com')
 EMAIL_PORT = int(os.getenv('EMAIL_PORT', 587))
 EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True').lower() == 'true'
 EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
@@ -31,8 +34,8 @@ EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@yourdomain.com')
 
 # Static Files
-STATIC_ROOT = os.getenv('STATIC_ROOT', '/home/yourusername/talent-platform/staticfiles')
-MEDIA_ROOT = os.getenv('MEDIA_ROOT', '/home/yourusername/talent-platform/media')
+STATIC_ROOT = os.getenv('STATIC_ROOT', '/home/root/talent-platform/staticfiles')
+MEDIA_ROOT = os.getenv('MEDIA_ROOT', '/home/root/talent-platform/media')
 
 # Security Settings
 SECURE_SSL_REDIRECT = os.getenv('SECURE_SSL_REDIRECT', 'True').lower() == 'true'
@@ -65,7 +68,7 @@ LOGGING = {
         'file': {
             'level': 'INFO',
             'class': 'logging.FileHandler',
-            'filename': '/home/yourusername/talent-platform/logs/django.log',
+            'filename': '/home/root/talent-platform/logs/django.log',
             'formatter': 'verbose',
         },
         'mail_admins': {
@@ -113,7 +116,7 @@ ADMINS = [
 
 # Create logs directory
 import os
-logs_dir = '/home/yourusername/talent-platform/logs'
+logs_dir = '/home/root/talent-platform/logs'
 os.makedirs(logs_dir, exist_ok=True)
 
 # Cache Configuration (Database-based for Railway compatibility)
