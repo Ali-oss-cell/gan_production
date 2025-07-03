@@ -12,8 +12,8 @@ import subprocess
 
 class TalentUserProfile(models.Model):
     user = models.OneToOneField(BaseUser, on_delete=models.CASCADE, related_name='talent_user')
-    is_verified = models.BooleanField(default=False)
-    profile_complete = models.BooleanField(default=False)  # Track profile completion status
+    is_verified = models.BooleanField(default=False, db_index=True)
+    profile_complete = models.BooleanField(default=False, db_index=True)  # Track profile completion status
     profile_picture = models.ImageField(upload_to='profile_pictures/', blank=True, null=True)
     aboutyou = models.TextField(blank=True, null=True)
 
@@ -23,7 +23,7 @@ class TalentUserProfile(models.Model):
         ('silver', 'Silver'),
         ('free', 'Free'),
     ]
-    account_type = models.CharField(max_length=10, choices=ACCOUNT_TYPES, default='free')
+    account_type = models.CharField(max_length=10, choices=ACCOUNT_TYPES, default='free', db_index=True)
     
     def has_specialization(self):
         """
@@ -181,11 +181,11 @@ class TalentUserProfile(models.Model):
             self._video_count = video_count  # Cache the count
             
         return video_count < self.get_video_limit()
-    country = models.CharField(max_length=25, null=False,default='country')
-    city = models.CharField(max_length=25, null=False,default='city')
-    zipcode = models.CharField(max_length=30, null=False,default="")
-    phone = models.CharField(max_length=20, null=False,default="")
-    date_of_birth = models.DateField(verbose_name="Date of Birth", blank=True, null=True, help_text="The user's date of birth.")
+    country = models.CharField(max_length=25, null=False, default='country', db_index=True)
+    city = models.CharField(max_length=25, null=False, default='city', db_index=True)
+    zipcode = models.CharField(max_length=30, null=False, default="")
+    phone = models.CharField(max_length=20, null=False, default="")
+    date_of_birth = models.DateField(verbose_name="Date of Birth", blank=True, null=True, help_text="The user's date of birth.", db_index=True)
     #parental_approval = models.BooleanField(default=False, verbose_name="Parental Approval", help_text="Indicates whether parental approval has been provided for minors.")
 
     
@@ -194,7 +194,7 @@ class TalentUserProfile(models.Model):
         ('Female', 'Female'),
         ('Other', 'Other'),
     ]
-    gender = models.CharField(max_length=10, choices=GENDER_CHOICES,default="Male")
+    gender = models.CharField(max_length=10, choices=GENDER_CHOICES, default="Male", db_index=True)
 
     def __str__(self):
         return self.user.email
@@ -213,39 +213,53 @@ class TalentUserProfile(models.Model):
             _video_count=Count('media', filter=Q(media__media_type='video'))
         )
 
+    class Meta:
+        indexes = [
+            models.Index(fields=['account_type', 'is_verified']),
+            models.Index(fields=['country', 'city']),
+            models.Index(fields=['gender', 'date_of_birth']),
+            models.Index(fields=['profile_complete', 'account_type']),
+        ]
+
 class BackGroundJobsProfile(models.Model):
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name='background_profile'
     )
-    country = models.CharField(max_length=25, null=False, default='country')
-    date_of_birth = models.DateField(verbose_name="Date of Birth", blank=True, null=True)
+    country = models.CharField(max_length=25, null=False, default='country', db_index=True)
+    date_of_birth = models.DateField(verbose_name="Date of Birth", blank=True, null=True, db_index=True)
     GENDER_CHOICES = [
         ('Male', 'Male'),
         ('Female', 'Female'),
         ('Other', 'Other'),
     ]
-    gender = models.CharField(max_length=10, choices=GENDER_CHOICES,default="Male")
+    gender = models.CharField(max_length=10, choices=GENDER_CHOICES, default="Male", db_index=True)
     
     ACCOUNT_TYPES = [
         ('back_ground_jobs', 'Background Jobs'),
         ('free', 'Free'),
     ]
-    account_type = models.CharField(max_length=20, choices=ACCOUNT_TYPES, default='free')
+    account_type = models.CharField(max_length=20, choices=ACCOUNT_TYPES, default='free', db_index=True)
 
     def get_profile_score(self):
         score_breakdown = {
             'total': 0,
-            'account_tier': 50,  # All accounts are paid, flat 50 points
+            'account_tier': 25,  # Reduced from 50 to 25 for more balanced scoring
             'profile_completion': 0,
             'item_diversity': 0,
             'item_quantity': 0,
             'details': {}
         }
-        score_breakdown['details']['account_tier'] = 'All accounts paid: +50 points'
-        # Profile completion: 15 points for filling basic fields
-        profile_complete = bool(self.country and self.date_of_birth and self.gender)
+        score_breakdown['details']['account_tier'] = 'All accounts paid: +25 points'
+        # Profile completion: 15 points for filling basic fields (more comprehensive check)
+        profile_complete = bool(
+            self.country and 
+            self.country != 'country' and  # Check it's not the default value
+            self.date_of_birth and 
+            self.gender and 
+            self.gender != 'Male'  # Check it's not the default value
+        )
         if profile_complete:
             score_breakdown['profile_completion'] = 15
             score_breakdown['details']['profile_completion'] = 'Profile complete: +15 points'
@@ -315,6 +329,12 @@ class BackGroundJobsProfile(models.Model):
     def __str__(self):
         return f"Background Profile - {self.user.email}"
 
+    class Meta:
+        indexes = [
+            models.Index(fields=['account_type', 'gender']),
+            models.Index(fields=['country', 'date_of_birth']),
+        ]
+
 
 
 
@@ -348,54 +368,23 @@ def unique_user_media_path(instance, filename):
 
 class TalentMedia(models.Model):
     talent = models.ForeignKey(TalentUserProfile, on_delete=models.CASCADE, related_name='media')
-    name = models.CharField(max_length=124, blank=False, null=False, default="Untitled Media")
+    name = models.CharField(max_length=124, blank=False, null=False, default="Untitled Media", db_index=True)
     media_info = models.TextField(max_length=160, blank=False, null=False)
     MEDIA_TYPE_CHOICES = [
         ('image', 'Image'),
         ('video', 'Video'),
     ]
-    media_type = models.CharField(max_length=10, choices=MEDIA_TYPE_CHOICES)
+    media_type = models.CharField(max_length=10, choices=MEDIA_TYPE_CHOICES, db_index=True)
     media_file = models.FileField(upload_to=user_media_path)
     thumbnail = models.ImageField(upload_to='thumbnails/', blank=True, null=True)
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     updated_at = models.DateTimeField(auto_now=True)
     date_of_birth = models.DateField(verbose_name="Date of Birth", blank=True, null=True, help_text="The user's date of birth.")
     # New fields for test video logic
-    is_test_video = models.BooleanField(default=False, help_text="Is this a required test video for actor/comparse?")
+    is_test_video = models.BooleanField(default=False, help_text="Is this a required test video for actor/comparse?", db_index=True)
     test_video_number = models.PositiveSmallIntegerField(blank=True, null=True, help_text="Test video order (1-5)")
     # New: Special flag for the 1-minute 'about yourself' video
-    is_about_yourself_video = models.BooleanField(default=False, help_text="Is this the 1-minute 'about yourself' video?")
-
-    def _get_video_duration(self, file_path):
-        """
-        Returns the duration of the video in seconds using ffprobe (from ffmpeg).
-        Returns None if ffprobe is not available or fails.
-        """
-        import subprocess
-        import json
-        import shutil
-        
-        # Check if ffprobe is available
-        if not shutil.which('ffprobe'):
-            print("Warning: ffprobe not found. Video duration validation disabled.")
-            return None
-            
-        try:
-            result = subprocess.run([
-                'ffprobe', '-v', 'error', '-show_entries', 'format=duration',
-                '-of', 'json', file_path
-            ], capture_output=True, text=True, check=True)
-            info = json.loads(result.stdout)
-            duration = float(info['format']['duration'])
-            return duration
-        except Exception as e:
-            print(f"Error getting video duration: {e}")
-            return None
-
-    def _is_ffmpeg_available(self):
-        """Check if FFmpeg is available on the system"""
-        import shutil
-        return shutil.which('ffprobe') is not None
+    is_about_yourself_video = models.BooleanField(default=False, help_text="Is this the 1-minute 'about yourself' video?", db_index=True)
 
     def save(self, *args, **kwargs):
         # Validate file size limits using centralized validation
@@ -450,41 +439,11 @@ class TalentMedia(models.Model):
                 )
                 if self.pk is None and test_videos.count() >= 4:
                     raise ValidationError("You can only upload 4 test videos.")
-            
-            # Duration validation (only if FFmpeg is available)
-            if self.media_file and self._is_ffmpeg_available():
-                temp_path = None
-                try:
-                    # Save to temp file
-                    import tempfile
-                    with tempfile.NamedTemporaryFile(delete=False, suffix='.mp4') as tmp:
-                        for chunk in self.media_file.chunks():
-                            tmp.write(chunk)
-                        temp_path = tmp.name
-                    duration = self._get_video_duration(temp_path)
-                    if duration is not None:  # Only validate if we could get duration
-                        # Duration validation
-                        if self.is_about_yourself_video:
-                            # About yourself video must be ~60s
-                            if not (58 <= duration <= 62):
-                                raise ValidationError("About yourself video must be about 60 seconds.")
-                        else:
-                            # Regular test videos must be ~30s
-                            if not (28 <= duration <= 32):
-                                raise ValidationError("Test videos must be about 30 seconds.")
-                    # If duration is None (FFmpeg failed), we skip validation but log a warning
-                    elif duration is None:
-                        print(f"Warning: Could not validate duration for video {self.name}. FFmpeg may not be properly configured.")
-                finally:
-                    if temp_path and os.path.exists(temp_path):
-                        os.unlink(temp_path)
-            elif self.media_file and not self._is_ffmpeg_available():
-                print("Warning: FFmpeg not available. Video duration validation skipped.")
         
-        # Process media file before saving
+        # Process media file before saving (only images, videos go directly to S3)
         if self.media_file and not self.pk:  # Only process new uploads
             try:
-                # For images, process immediately
+                # Only process images, videos go directly to S3
                 if self.media_type == 'image':
                     # Process the image file
                     processed_path = MediaProcessor.process_media(self.media_file)
@@ -500,13 +459,6 @@ class TalentMedia(models.Model):
                         
                         # Clean up temporary files
                         os.unlink(processed_path)
-                
-                # For videos, use the queue system to prevent server overload
-                elif self.media_type == 'video':
-                    # Save the original file temporarily for processing
-                    # The actual processing will happen after the model is saved
-                    # via the post_save signal handler
-                    pass  # Video processing will be handled in post_save
                     
             except Exception as e:
                 print(f"Error processing media: {str(e)}")
@@ -515,93 +467,16 @@ class TalentMedia(models.Model):
     
     def _generate_video_thumbnail(self, video_path):
         """
-        Generate a thumbnail from a video file.
-        Returns None if FFmpeg is not available.
+        Video thumbnail generation disabled - no FFmpeg available
         """
-        # Check if FFmpeg is available
-        if not self._is_ffmpeg_available():
-            print("Warning: FFmpeg not available. Skipping video thumbnail generation.")
-            return None
-        
-        try:
-            thumbnail_path = tempfile.NamedTemporaryFile(suffix='.jpg', delete=False).name
-            
-            cmd = [
-                'ffmpeg',
-                '-i', video_path,
-                '-ss', '00:00:01',  # Take frame at 1 second
-                '-vframes', '1',
-                '-q:v', '2',
-                thumbnail_path
-            ]
-            
-            subprocess.run(cmd, check=True, capture_output=True)
-            return thumbnail_path
-            
-        except Exception as e:
-            print(f"Error generating video thumbnail: {str(e)}")
-            return None
+        print("Video thumbnail generation disabled - no FFmpeg available")
+        return None
 
     def __str__(self):
-        return f"{self.talent.user.username}'s {self.media_type} - {self.media_file.name}"
+        return f"{self.talent.user.email}'s {self.media_type} - {self.media_file.name}"
    
 
-# Signal handler for video processing
-from django.db.models.signals import post_save
-from django.dispatch import receiver
-from .utils.video_queue import enqueue_video_processing
-
-@receiver(post_save, sender=TalentMedia)
-def process_video_after_save(sender, instance, created, **kwargs):
-    """Process video files asynchronously after the model is saved"""
-    if created and instance.media_type == 'video':
-        # Check if FFmpeg is available before attempting video processing
-        if not instance._is_ffmpeg_available():
-            print(f"Warning: FFmpeg not available. Skipping video processing for {instance.name}. Video will be used as-is.")
-            return
-        
-        # Enqueue the video for processing
-        def video_processing_callback(task):
-            if task.status == 'completed':
-                try:
-                    # Get the processed video path from the task result
-                    processed_path = task.result
-                    if processed_path:
-                        # Update the media file with the processed version
-                        with open(processed_path, 'rb') as f:
-                            instance.media_file.save(
-                                os.path.basename(instance.media_file.name),
-                                ContentFile(f.read()),
-                                save=False
-                            )
-                        
-                        # Generate thumbnail
-                        thumbnail_path = instance._generate_video_thumbnail(processed_path)
-                        if thumbnail_path:
-                            with open(thumbnail_path, 'rb') as f:
-                                instance.thumbnail.save(
-                                    f"{os.path.splitext(instance.media_file.name)[0]}_thumb.jpg",
-                                    ContentFile(f.read()),
-                                    save=False
-                                )
-                        
-                        # Save the instance with the processed file and thumbnail
-                        instance.save(update_fields=['media_file', 'thumbnail'])
-                        
-                        # Clean up temporary files
-                        os.unlink(processed_path)
-                        if thumbnail_path and os.path.exists(thumbnail_path):
-                            os.unlink(thumbnail_path)
-                    else:
-                        # Processing returned None (likely due to missing FFmpeg)
-                        print(f"Video processing returned None for {instance.name}. Video will be used as-is.")
-                except Exception as e:
-                    print(f"Error updating video after processing: {str(e)}")
-            elif task.status == 'failed':
-                print(f"Video processing failed for {instance.name}: {task.error}")
-        
-        # Enqueue the video processing task
-        enqueue_video_processing(instance.id, callback=video_processing_callback)
+# Video processing signal handler removed - videos go directly to S3
 
 
     #socil media links
@@ -656,9 +531,9 @@ class Item(models.Model):
         on_delete=models.CASCADE,
         related_name='%(class)s_items',  # Dynamically generates unique related_name
     null=True,blank=True)
-    name = models.CharField(max_length=255)
+    name = models.CharField(max_length=255, db_index=True)
     description = models.TextField(blank=True, null=True)
-    price = models.DecimalField(max_digits=10, decimal_places=2, null=False)
+    price = models.DecimalField(max_digits=10, decimal_places=2, null=False, db_index=True)
     genre = models.ForeignKey(
         Genre,
         on_delete=models.SET_NULL,
@@ -666,17 +541,23 @@ class Item(models.Model):
         blank=True,
         related_name='%(class)s_items'  # Dynamically generates unique related_name
     )
-    is_for_rent = models.BooleanField(default=False)
-    is_for_sale = models.BooleanField(default=False)
-    created_at = models.DateTimeField(auto_now_add=True)
+    is_for_rent = models.BooleanField(default=False, db_index=True)
+    is_for_sale = models.BooleanField(default=False, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     updated_at = models.DateTimeField(auto_now=True)
     image = models.ImageField(upload_to='item_images/')
 
     class Meta:
         abstract = True  # This makes it an abstract base class
+        indexes = [
+            models.Index(fields=['name', 'price']),
+            models.Index(fields=['is_for_rent', 'is_for_sale']),
+            models.Index(fields=['created_at', 'price']),
+        ]
 
     def __str__(self):
         return self.name
+
 class Prop(Item):
     material = models.CharField(max_length=255, blank=True, null=True)
     used_in_movie = models.CharField(max_length=255, blank=True, null=True)
@@ -723,9 +604,9 @@ def band_media_path(instance, filename):
 
 # Band model for talent users to form groups
 class Band(models.Model):
-    name = models.CharField(max_length=255, unique=True)
+    name = models.CharField(max_length=255, unique=True, db_index=True)
     description = models.TextField(blank=True, null=True)
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     updated_at = models.DateTimeField(auto_now=True)
     
     # The creator/admin of the band
@@ -742,9 +623,8 @@ class Band(models.Model):
         ('dance', 'Dance Troupes'),
         ('event', 'Event Squads'),
     ]
-    band_type = models.CharField(max_length=20, choices=BAND_TYPE_CHOICES, default='musical')
+    band_type = models.CharField(max_length=20, choices=BAND_TYPE_CHOICES, default='musical', db_index=True)
     
-
     # Band profile picture
     profile_picture = models.ImageField(upload_to='band_profile_pictures/', blank=True, null=True)
     
@@ -753,11 +633,18 @@ class Band(models.Model):
     contact_phone = models.CharField(max_length=20, blank=True, null=True)
     
     # Band location
-    location = models.CharField(max_length=255, blank=True, null=True)
+    location = models.CharField(max_length=255, blank=True, null=True, db_index=True)
     
     # Band website and social media
     website = models.URLField(blank=True, null=True)
-    
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['band_type', 'location']),
+            models.Index(fields=['created_at', 'band_type']),
+            models.Index(fields=['name', 'band_type']),
+        ]
+
     def has_bands_subscription(self):
         """Check if the band creator has an active bands subscription"""
         from payments.models import Subscription
@@ -1103,30 +990,38 @@ class VisualWorker(models.Model):
         ('visual_artist', 'Visual Artist'), ('composer', 'Music Composer'),
         ('sound_designer', 'Sound Designer'), ('other', 'Other Visual Creator')
     ]
-    primary_category = models.CharField(max_length=50, choices=PRIMARY_CATEGORIES, default='photographer')
-    years_experience = models.PositiveIntegerField(default=0)
+    primary_category = models.CharField(max_length=50, choices=PRIMARY_CATEGORIES, default='photographer', db_index=True)
+    years_experience = models.PositiveIntegerField(default=0, db_index=True)
     EXPERIENCE_LEVEL = [
         ('beginner', 'Beginner'), ('intermediate', 'Intermediate'),
         ('professional', 'Professional'), ('expert', 'Expert')
     ]
-    experience_level = models.CharField(max_length=20, choices=EXPERIENCE_LEVEL, default='beginner')
+    experience_level = models.CharField(max_length=20, choices=EXPERIENCE_LEVEL, default='beginner', db_index=True)
     portfolio_link = models.URLField(blank=True, null=True)
     AVAILABILITY_CHOICES = [
         ('full_time', 'Full Time'), ('part_time', 'Part Time'),
         ('weekends', 'Weekends Only'), ('flexible', 'Flexible')
     ]
-    availability = models.CharField(max_length=20, choices=AVAILABILITY_CHOICES, default='full_time')
+    availability = models.CharField(max_length=20, choices=AVAILABILITY_CHOICES, default='full_time', db_index=True)
     RATE_RANGES = [
         ('low', 'Budget Friendly'), ('mid', 'Mid-Range'),
         ('high', 'Premium'), ('negotiable', 'Negotiable')
     ]
-    rate_range = models.CharField(max_length=20, choices=RATE_RANGES, default='low')
-    willing_to_relocate = models.BooleanField(default=False)
-    created_at = models.DateTimeField(auto_now_add=True)
+    rate_range = models.CharField(max_length=20, choices=RATE_RANGES, default='low', db_index=True)
+    willing_to_relocate = models.BooleanField(default=False, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     updated_at = models.DateTimeField(auto_now=True)
     face_picture = models.ImageField(upload_to='profile_pictures/face/', null=True, blank=True)
     mid_range_picture = models.ImageField(upload_to='profile_pictures/mid/', null=True, blank=True)
     full_body_picture = models.ImageField(upload_to='profile_pictures/full/', null=True, blank=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['primary_category', 'experience_level']),
+            models.Index(fields=['years_experience', 'availability']),
+            models.Index(fields=['rate_range', 'willing_to_relocate']),
+            models.Index(fields=['created_at', 'primary_category']),
+        ]
 
 class ExpressiveWorker(models.Model):
     profile = models.OneToOneField(TalentUserProfile, on_delete=models.CASCADE, related_name='expressive_worker')
@@ -1137,97 +1032,106 @@ class ExpressiveWorker(models.Model):
         ('host', 'TV/Event Host'), ('narrator', 'Narrator'),
         ('puppeteer', 'Puppeteer'), ('other', 'Other Performer')
     ]
-    performer_type = models.CharField(max_length=50, choices=PERFORMER_TYPES, default='actor')
-    years_experience = models.PositiveIntegerField(default=0)
-    height = models.FloatField(default=0.0, help_text="Height in cm")
-    weight = models.FloatField(default=0.0, help_text="Weight in kg")
+    performer_type = models.CharField(max_length=50, choices=PERFORMER_TYPES, default='actor', db_index=True)
+    years_experience = models.PositiveIntegerField(default=0, db_index=True)
+    height = models.FloatField(default=0.0, help_text="Height in cm", db_index=True)
+    weight = models.FloatField(default=0.0, help_text="Weight in kg", db_index=True)
     HAIR_COLORS = [('blonde', 'Blonde'), ('brown', 'Brown'), ('black', 'Black'), 
                    ('red', 'Red'), ('gray', 'Gray/Silver'), ('other', 'Other')]
-    hair_color = models.CharField(max_length=20, choices=HAIR_COLORS, default='brown')
+    hair_color = models.CharField(max_length=20, choices=HAIR_COLORS, default='brown', db_index=True)
     # New: Hair type
     HAIR_TYPES = [
         ('straight', 'Straight'), ('wavy', 'Wavy'), ('curly', 'Curly'), ('coily', 'Coily'), ('bald', 'Bald'), ('other', 'Other')
     ]
-    hair_type = models.CharField(max_length=20, choices=HAIR_TYPES, default='straight')
+    hair_type = models.CharField(max_length=20, choices=HAIR_TYPES, default='straight', db_index=True)
     # New: Skin tone (reuse HybridWorker's choices)
     SKIN_TONES = [
         ('fair', 'Fair'), ('light', 'Light'), ('medium', 'Medium'), 
         ('olive', 'Olive'), ('brown', 'Brown'), ('dark', 'Dark')
     ]
-    skin_tone = models.CharField(max_length=20, choices=SKIN_TONES, default='fair')
+    skin_tone = models.CharField(max_length=20, choices=SKIN_TONES, default='fair', db_index=True)
     EYE_COLORS = [('blue', 'Blue'), ('green', 'Green'), ('brown', 'Brown'), 
                   ('hazel', 'Hazel'), ('black', 'Black'), ('other', 'Other')]
-    eye_color = models.CharField(max_length=20, choices=EYE_COLORS, default='brown')
+    eye_color = models.CharField(max_length=20, choices=EYE_COLORS, default='brown', db_index=True)
     # New: Eye size
     EYE_SIZES = [
         ('small', 'Small'), ('medium', 'Medium'), ('large', 'Large')
     ]
-    eye_size = models.CharField(max_length=10, choices=EYE_SIZES, default='medium')
+    eye_size = models.CharField(max_length=10, choices=EYE_SIZES, default='medium', db_index=True)
     # New: Eye pattern
     EYE_PATTERNS = [
         ('normal', 'Normal'), ('protruding', 'Protruding'), ('sunken', 'Sunken'), ('almond', 'Almond'), ('round', 'Round'), ('other', 'Other')
     ]
-    eye_pattern = models.CharField(max_length=20, choices=EYE_PATTERNS, default='normal')
+    eye_pattern = models.CharField(max_length=20, choices=EYE_PATTERNS, default='normal', db_index=True)
     # New: Face shape
     FACE_SHAPES = [
         ('oval', 'Oval'), ('round', 'Round'), ('square', 'Square'), ('heart', 'Heart'), ('diamond', 'Diamond'), ('long', 'Long'), ('other', 'Other')
     ]
-    face_shape = models.CharField(max_length=20, choices=FACE_SHAPES, default='oval')
+    face_shape = models.CharField(max_length=20, choices=FACE_SHAPES, default='oval', db_index=True)
     # New: Forehead shape
     FOREHEAD_SHAPES = [
         ('broad', 'Broad'), ('narrow', 'Narrow'), ('rounded', 'Rounded'), ('straight', 'Straight'), ('other', 'Other')
     ]
-    forehead_shape = models.CharField(max_length=20, choices=FOREHEAD_SHAPES, default='straight')
+    forehead_shape = models.CharField(max_length=20, choices=FOREHEAD_SHAPES, default='straight', db_index=True)
     # New: Lip shape
     LIP_SHAPES = [
         ('thin', 'Thin'), ('full', 'Full'), ('heart', 'Heart-shaped'), ('round', 'Round'), ('bow', 'Cupid\'s Bow'), ('other', 'Other')
     ]
-    lip_shape = models.CharField(max_length=20, choices=LIP_SHAPES, default='full')
+    lip_shape = models.CharField(max_length=20, choices=LIP_SHAPES, default='full', db_index=True)
     # New: Eyebrow pattern
     EYEBROW_PATTERNS = [
         ('arched', 'Arched'), ('straight', 'Straight'), ('curved', 'Curved'), ('thick', 'Thick'), ('thin', 'Thin'), ('other', 'Other')
     ]
-    eyebrow_pattern = models.CharField(max_length=20, choices=EYEBROW_PATTERNS, default='straight')
+    eyebrow_pattern = models.CharField(max_length=20, choices=EYEBROW_PATTERNS, default='straight', db_index=True)
     # New: Beard color
     BEARD_COLORS = HAIR_COLORS
-    beard_color = models.CharField(max_length=20, choices=BEARD_COLORS, default='brown', blank=True, null=True)
+    beard_color = models.CharField(max_length=20, choices=BEARD_COLORS, default='brown', blank=True, null=True, db_index=True)
     # New: Beard length
     BEARD_LENGTHS = [
         ('none', 'None'), ('stubble', 'Stubble'), ('short', 'Short'), ('medium', 'Medium'), ('long', 'Long'), ('other', 'Other')
     ]
-    beard_length = models.CharField(max_length=10, choices=BEARD_LENGTHS, default='none', blank=True, null=True)
+    beard_length = models.CharField(max_length=10, choices=BEARD_LENGTHS, default='none', blank=True, null=True, db_index=True)
     # New: Mustache color
-    mustache_color = models.CharField(max_length=20, choices=HAIR_COLORS, default='brown', blank=True, null=True)
+    mustache_color = models.CharField(max_length=20, choices=HAIR_COLORS, default='brown', blank=True, null=True, db_index=True)
     # New: Mustache length
-    mustache_length = models.CharField(max_length=10, choices=BEARD_LENGTHS, default='none', blank=True, null=True)
+    mustache_length = models.CharField(max_length=10, choices=BEARD_LENGTHS, default='none', blank=True, null=True, db_index=True)
     # New: Distinctive facial marks
     FACIAL_MARKS = [
         ('none', 'None'), ('mole', 'Mole'), ('scar', 'Scar'), ('birthmark', 'Birthmark'), ('freckles', 'Freckles'), ('other', 'Other')
     ]
-    distinctive_facial_marks = models.CharField(max_length=20, choices=FACIAL_MARKS, default='none', blank=True, null=True)
+    distinctive_facial_marks = models.CharField(max_length=20, choices=FACIAL_MARKS, default='none', blank=True, null=True, db_index=True)
     # New: Distinctive body marks
     BODY_MARKS = [
         ('none', 'None'), ('tattoo', 'Tattoo'), ('scar', 'Scar'), ('birthmark', 'Birthmark'), ('other', 'Other')
     ]
-    distinctive_body_marks = models.CharField(max_length=20, choices=BODY_MARKS, default='none', blank=True, null=True)
+    distinctive_body_marks = models.CharField(max_length=20, choices=BODY_MARKS, default='none', blank=True, null=True, db_index=True)
     # New: Voice type
     VOICE_TYPES = [
         ('normal', 'Normal'), ('thin', 'Thin'), ('rough', 'Rough'), ('deep', 'Deep'), ('soft', 'Soft'), ('nasal', 'Nasal'), ('other', 'Other')
     ]
-    voice_type = models.CharField(max_length=20, choices=VOICE_TYPES, default='normal')
+    voice_type = models.CharField(max_length=20, choices=VOICE_TYPES, default='normal', db_index=True)
     BODY_TYPES = [('athletic', 'Athletic'), ('slim', 'Slim'), ('muscular', 'Muscular'), 
                   ('average', 'Average'), ('plus_size', 'Plus Size'), ('other', 'Other')]
-    body_type = models.CharField(max_length=20, choices=BODY_TYPES, default='average')
+    body_type = models.CharField(max_length=20, choices=BODY_TYPES, default='average', db_index=True)
     AVAILABILITY_CHOICES = [
         ('full_time', 'Full Time'), ('part_time', 'Part Time'),
         ('evenings', 'Evenings Only'), ('weekends', 'Weekends Only')
     ]
-    availability = models.CharField(max_length=20, choices=AVAILABILITY_CHOICES, default='full_time')
-    created_at = models.DateTimeField(auto_now_add=True)
+    availability = models.CharField(max_length=20, choices=AVAILABILITY_CHOICES, default='full_time', db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     updated_at = models.DateTimeField(auto_now=True)
     face_picture = models.ImageField(upload_to='profile_pictures/face/', null=True, blank=True)
     mid_range_picture = models.ImageField(upload_to='profile_pictures/mid/', null=True, blank=True)
     full_body_picture = models.ImageField(upload_to='profile_pictures/full/', null=True, blank=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['performer_type', 'years_experience']),
+            models.Index(fields=['hair_color', 'eye_color']),
+            models.Index(fields=['height', 'weight']),
+            models.Index(fields=['body_type', 'availability']),
+            models.Index(fields=['created_at', 'performer_type']),
+        ]
 
 class HybridWorker(models.Model):
     profile = models.OneToOneField(TalentUserProfile, on_delete=models.CASCADE, related_name='hybrid_worker')
@@ -1237,203 +1141,112 @@ class HybridWorker(models.Model):
         ('background_actor', 'Background Actor'), ('specialty_performer', 'Specialty Performer'),
         ('other', 'Other Physical Performer'),
     ]
-    hybrid_type = models.CharField(max_length=50, choices=HYBRID_TYPES, default='model')
-    years_experience = models.PositiveIntegerField(default=0)
-    height = models.FloatField(default=0.0, help_text="Height in cm")
-    weight = models.FloatField(default=0.0, help_text="Weight in kg")
+    hybrid_type = models.CharField(max_length=50, choices=HYBRID_TYPES, default='model', db_index=True)
+    years_experience = models.PositiveIntegerField(default=0, db_index=True)
+    height = models.FloatField(default=0.0, help_text="Height in cm", db_index=True)
+    weight = models.FloatField(default=0.0, help_text="Weight in kg", db_index=True)
     
     # Hair characteristics
     HAIR_COLORS = [('blonde', 'Blonde'), ('brown', 'Brown'), ('black', 'Black'), 
                    ('red', 'Red'), ('gray', 'Gray/Silver'), ('other', 'Other')]
-    hair_color = models.CharField(max_length=20, choices=HAIR_COLORS, default='brown')
+    hair_color = models.CharField(max_length=20, choices=HAIR_COLORS, default='brown', db_index=True)
     HAIR_TYPES = [
         ('straight', 'Straight'), ('wavy', 'Wavy'), ('curly', 'Curly'), ('coily', 'Coily'), ('bald', 'Bald'), ('other', 'Other')
     ]
-    hair_type = models.CharField(max_length=20, choices=HAIR_TYPES, default='straight')
+    hair_type = models.CharField(max_length=20, choices=HAIR_TYPES, default='straight', db_index=True)
     
     # Eye characteristics
     EYE_COLORS = [('blue', 'Blue'), ('green', 'Green'), ('brown', 'Brown'), 
                   ('hazel', 'Hazel'), ('black', 'Black'), ('other', 'Other')]
-    eye_color = models.CharField(max_length=20, choices=EYE_COLORS, default='brown')
+    eye_color = models.CharField(max_length=20, choices=EYE_COLORS, default='brown', db_index=True)
     EYE_SIZES = [
         ('small', 'Small'), ('medium', 'Medium'), ('large', 'Large')
     ]
-    eye_size = models.CharField(max_length=10, choices=EYE_SIZES, default='medium')
+    eye_size = models.CharField(max_length=10, choices=EYE_SIZES, default='medium', db_index=True)
     EYE_PATTERNS = [
         ('normal', 'Normal'), ('protruding', 'Protruding'), ('sunken', 'Sunken'), ('almond', 'Almond'), ('round', 'Round'), ('other', 'Other')
     ]
-    eye_pattern = models.CharField(max_length=20, choices=EYE_PATTERNS, default='normal')
+    eye_pattern = models.CharField(max_length=20, choices=EYE_PATTERNS, default='normal', db_index=True)
     
     # Facial characteristics
     FACE_SHAPES = [
         ('oval', 'Oval'), ('round', 'Round'), ('square', 'Square'), ('heart', 'Heart'), ('diamond', 'Diamond'), ('long', 'Long'), ('other', 'Other')
     ]
-    face_shape = models.CharField(max_length=20, choices=FACE_SHAPES, default='oval')
+    face_shape = models.CharField(max_length=20, choices=FACE_SHAPES, default='oval', db_index=True)
     FOREHEAD_SHAPES = [
         ('broad', 'Broad'), ('narrow', 'Narrow'), ('rounded', 'Rounded'), ('straight', 'Straight'), ('other', 'Other')
     ]
-    forehead_shape = models.CharField(max_length=20, choices=FOREHEAD_SHAPES, default='straight')
+    forehead_shape = models.CharField(max_length=20, choices=FOREHEAD_SHAPES, default='straight', db_index=True)
     LIP_SHAPES = [
         ('thin', 'Thin'), ('full', 'Full'), ('heart', 'Heart-shaped'), ('round', 'Round'), ('bow', 'Cupid\'s Bow'), ('other', 'Other')
     ]
-    lip_shape = models.CharField(max_length=20, choices=LIP_SHAPES, default='full')
+    lip_shape = models.CharField(max_length=20, choices=LIP_SHAPES, default='full', db_index=True)
     EYEBROW_PATTERNS = [
         ('arched', 'Arched'), ('straight', 'Straight'), ('curved', 'Curved'), ('thick', 'Thick'), ('thin', 'Thin'), ('other', 'Other')
     ]
-    eyebrow_pattern = models.CharField(max_length=20, choices=EYEBROW_PATTERNS, default='straight')
+    eyebrow_pattern = models.CharField(max_length=20, choices=EYEBROW_PATTERNS, default='straight', db_index=True)
     
     # Facial hair
-    beard_color = models.CharField(max_length=20, choices=HAIR_COLORS, default='brown', blank=True, null=True)
+    beard_color = models.CharField(max_length=20, choices=HAIR_COLORS, default='brown', blank=True, null=True, db_index=True)
     BEARD_LENGTHS = [
         ('none', 'None'), ('stubble', 'Stubble'), ('short', 'Short'), ('medium', 'Medium'), ('long', 'Long'), ('other', 'Other')
     ]
-    beard_length = models.CharField(max_length=10, choices=BEARD_LENGTHS, default='none', blank=True, null=True)
-    mustache_color = models.CharField(max_length=20, choices=HAIR_COLORS, default='brown', blank=True, null=True)
-    mustache_length = models.CharField(max_length=10, choices=BEARD_LENGTHS, default='none', blank=True, null=True)
+    beard_length = models.CharField(max_length=10, choices=BEARD_LENGTHS, default='none', blank=True, null=True, db_index=True)
+    mustache_color = models.CharField(max_length=20, choices=HAIR_COLORS, default='brown', blank=True, null=True, db_index=True)
+    mustache_length = models.CharField(max_length=10, choices=BEARD_LENGTHS, default='none', blank=True, null=True, db_index=True)
     
     # Distinctive marks
     FACIAL_MARKS = [
         ('none', 'None'), ('mole', 'Mole'), ('scar', 'Scar'), ('birthmark', 'Birthmark'), ('freckles', 'Freckles'), ('other', 'Other')
     ]
-    distinctive_facial_marks = models.CharField(max_length=20, choices=FACIAL_MARKS, default='none', blank=True, null=True)
+    distinctive_facial_marks = models.CharField(max_length=20, choices=FACIAL_MARKS, default='none', blank=True, null=True, db_index=True)
     BODY_MARKS = [
         ('none', 'None'), ('tattoo', 'Tattoo'), ('scar', 'Scar'), ('birthmark', 'Birthmark'), ('other', 'Other')
     ]
-    distinctive_body_marks = models.CharField(max_length=20, choices=BODY_MARKS, default='none', blank=True, null=True)
+    distinctive_body_marks = models.CharField(max_length=20, choices=BODY_MARKS, default='none', blank=True, null=True, db_index=True)
     
     # Voice characteristics
     VOICE_TYPES = [
         ('normal', 'Normal'), ('thin', 'Thin'), ('rough', 'Rough'), ('deep', 'Deep'), ('soft', 'Soft'), ('nasal', 'Nasal'), ('other', 'Other')
     ]
-    voice_type = models.CharField(max_length=20, choices=VOICE_TYPES, default='normal')
+    voice_type = models.CharField(max_length=20, choices=VOICE_TYPES, default='normal', db_index=True)
     
     # Body characteristics
     SKIN_TONES = [('fair', 'Fair'), ('light', 'Light'), ('medium', 'Medium'), 
                   ('olive', 'Olive'), ('brown', 'Brown'), ('dark', 'Dark')]
-    skin_tone = models.CharField(max_length=20, choices=SKIN_TONES, default='fair')
+    skin_tone = models.CharField(max_length=20, choices=SKIN_TONES, default='fair', db_index=True)
     BODY_TYPES = [('athletic', 'Athletic'), ('slim', 'Slim'), ('muscular', 'Muscular'), 
                   ('average', 'Average'), ('plus_size', 'Plus Size'), ('other', 'Other')]
-    body_type = models.CharField(max_length=20, choices=BODY_TYPES, default='athletic')
+    body_type = models.CharField(max_length=20, choices=BODY_TYPES, default='athletic', db_index=True)
     
     # Fitness and risk levels (existing HybridWorker specific fields)
     FITNESS_LEVELS = [('beginner', 'Beginner'), ('intermediate', 'Intermediate'), 
                       ('advanced', 'Advanced'), ('elite', 'Elite Athlete')]
-    fitness_level = models.CharField(max_length=20, choices=FITNESS_LEVELS, default='beginner')
+    fitness_level = models.CharField(max_length=20, choices=FITNESS_LEVELS, default='beginner', db_index=True)
     RISK_LEVELS = [('low', 'Low Risk Only'), ('moderate', 'Moderate Risk'),
                    ('high', 'High Risk'), ('extreme', 'Extreme Stunts')]
-    risk_levels = models.CharField(max_length=20, choices=RISK_LEVELS, default='low')
+    risk_levels = models.CharField(max_length=20, choices=RISK_LEVELS, default='low', db_index=True)
     
     # Availability and other fields
     AVAILABILITY_CHOICES = [
         ('full_time', 'Full Time'), ('part_time', 'Part Time'),
         ('evenings', 'Evenings Only'), ('weekends', 'Weekends Only')
     ]
-    availability = models.CharField(max_length=20, choices=AVAILABILITY_CHOICES, default='full_time')
-    willing_to_relocate = models.BooleanField(default=False)
-    created_at = models.DateTimeField(auto_now_add=True)
+    availability = models.CharField(max_length=20, choices=AVAILABILITY_CHOICES, default='full_time', db_index=True)
+    willing_to_relocate = models.BooleanField(default=False, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     updated_at = models.DateTimeField(auto_now=True)
     face_picture = models.ImageField(upload_to='profile_pictures/face/', null=True, blank=True)
     mid_range_picture = models.ImageField(upload_to='profile_pictures/mid/', null=True, blank=True)
     full_body_picture = models.ImageField(upload_to='profile_pictures/full/', null=True, blank=True)
-    
-    def has_bands_subscription(self):
-        """Check if the band creator has an active bands subscription"""
-        from payments.models import Subscription
-        return Subscription.objects.filter(
-            user=self.creator.user,
-            plan__name='bands',
-            is_active=True,
-            status='active'
-        ).exists()
-    
-    def get_profile_score(self):
-        score_breakdown = {
-            'total': 0,
-            'profile_completion': 0,
-            'media_content': 0,
-            'member_count': 0,
-            'band_details': 0,
-            'details': {}
-        }
-        # Profile completion: Up to 30 points based on % of fields completed
-        profile_fields = [
-            bool(self.name), bool(self.description), bool(self.band_type), 
-            bool(self.profile_picture), bool(self.contact_email or self.contact_phone), 
-            bool(self.location)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['hybrid_type', 'years_experience']),
+            models.Index(fields=['hair_color', 'eye_color', 'skin_tone']),
+            models.Index(fields=['height', 'weight']),
+            models.Index(fields=['fitness_level', 'risk_levels']),
+            models.Index(fields=['body_type', 'availability']),
+            models.Index(fields=['created_at', 'hybrid_type']),
         ]
-        completed_fields = sum(1 for f in profile_fields if f)
-        profile_percent = (completed_fields / len(profile_fields)) * 100
-        if profile_percent == 100:
-            score_breakdown['profile_completion'] = 30
-            score_breakdown['details']['profile_completion'] = 'Complete band profile: +30 points'
-        elif profile_percent >= 75:
-            score_breakdown['profile_completion'] = 20
-            score_breakdown['details']['profile_completion'] = 'Mostly complete band profile: +20 points'
-        elif profile_percent >= 50:
-            score_breakdown['profile_completion'] = 10
-            score_breakdown['details']['profile_completion'] = 'Partially complete band profile: +10 points'
-        else:
-            score_breakdown['details']['profile_completion'] = 'Minimal band profile: +0 points (complete your band profile for up to +30 points)'
-        # Media content: Up to 30 points based on quantity
-        media_count = self.media.count()
-        if media_count >= 6:
-            score_breakdown['media_content'] = 30
-            score_breakdown['details']['media_content'] = 'Maximum media (6 items): +30 points'
-        elif media_count >= 4:
-            score_breakdown['media_content'] = 20
-            score_breakdown['details']['media_content'] = 'Good media (4-5 items): +20 points'
-        elif media_count >= 2:
-            score_breakdown['media_content'] = 10
-            score_breakdown['details']['media_content'] = 'Basic media (2-3 items): +10 points'
-        elif media_count == 1:
-            score_breakdown['media_content'] = 5
-            score_breakdown['details']['media_content'] = 'Minimal media (1 item): +5 points'
-        else:
-            score_breakdown['details']['media_content'] = 'No media: +0 points (add media for up to +30 points)'
-        # Member count: Up to 30 points based on number of members
-        member_count = self.member_count
-        if member_count >= 10:
-            score_breakdown['member_count'] = 30
-            score_breakdown['details']['member_count'] = 'Large band (10+ members): +30 points'
-        elif member_count >= 5:
-            score_breakdown['member_count'] = 20
-            score_breakdown['details']['member_count'] = 'Medium band (5-9 members): +20 points'
-        elif member_count >= 3:
-            score_breakdown['member_count'] = 10
-            score_breakdown['details']['member_count'] = 'Small band (3-4 members): +10 points'
-        elif member_count > 0:
-            score_breakdown['member_count'] = 5
-            score_breakdown['details']['member_count'] = 'Minimal band (1-2 members): +5 points'
-        else:
-            score_breakdown['details']['member_count'] = 'No members: +0 points (add members for up to +30 points)'
-        # Band details: Up to 10 points for member positions
-        members_with_positions = BandMembership.objects.filter(band=self, position__isnull=False).exclude(position='').count()
-        if members_with_positions == member_count and member_count > 0:
-            score_breakdown['band_details'] = 10
-            score_breakdown['details']['band_details'] = 'All members have positions: +10 points'
-        elif members_with_positions > 0:
-            score_breakdown['band_details'] = 5
-            score_breakdown['details']['band_details'] = 'Some members have positions: +5 points'
-        else:
-            score_breakdown['details']['band_details'] = 'No member positions: +0 points (add positions for up to +10 points)'
-        # Calculate total
-        score_breakdown['total'] = (
-            score_breakdown['profile_completion'] +
-            score_breakdown['media_content'] +
-            score_breakdown['member_count'] +
-            score_breakdown['band_details']
-        )
-        score_breakdown['total'] = min(score_breakdown['total'], 100)
-        # Improvement tips
-        if score_breakdown['total'] < 80:
-            score_breakdown['improvement_tips'] = []
-            if profile_percent < 100:
-                score_breakdown['improvement_tips'].append('Complete your band profile for up to +30 points')
-            if media_count < 6:
-                score_breakdown['improvement_tips'].append('Add more media for up to +30 points')
-            if member_count < 5:
-                score_breakdown['improvement_tips'].append('Add more members for up to +30 points')
-            if members_with_positions < member_count:
-                score_breakdown['improvement_tips'].append('Add positions for all members for up to +10 points')
-        return score_breakdown
 

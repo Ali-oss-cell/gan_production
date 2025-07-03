@@ -39,31 +39,11 @@ class BandListView(ListAPIView):
             return Band.objects.none()
     
     def list(self, request, *args, **kwargs):
-        """Override list to include band scoring information"""
+        """Override list to include band scoring information and subscription status"""
         queryset = self.get_queryset()
         
         try:
             talent_profile = TalentUserProfile.objects.get(user=request.user)
-            
-            if not queryset.exists():
-                # User has no bands - return 0 score with empty list
-                return Response({
-                    'bands': [],
-                    'band_score': {
-                        'overall_score': 0,
-                        'message': 'You have no band yet. Create or join a band to start earning band scores!',
-                        'how_to_improve': [
-                            'Subscribe to the Bands plan to get premium features and +40 bonus points',
-                            'Create a band or join an existing one (you can only be in one band at a time)',
-                            'Complete all band profile information for +20 bonus points',
-                            'Add media content to your band profile for up to +30 points'
-                        ]
-                    }
-                })
-            
-            # User has bands - get the first (and only) band
-            user_band = queryset.first()
-            serializer = self.get_serializer(queryset, many=True)
             
             # Check if user has bands subscription
             from payments.models import Subscription
@@ -73,6 +53,67 @@ class BandListView(ListAPIView):
                 is_active=True,
                 status='active'
             ).exists()
+            
+            # Get subscription details if exists
+            subscription_data = None
+            if has_bands_subscription:
+                subscription = Subscription.objects.get(
+                    user=request.user,
+                    plan__name='bands',
+                    is_active=True,
+                    status='active'
+                )
+                subscription_data = {
+                    'id': subscription.id,
+                    'plan_name': subscription.plan.name,
+                    'status': subscription.status,
+                    'start_date': subscription.start_date,
+                    'current_period_end': subscription.current_period_end,
+                    'plan_end': subscription.current_period_end.strftime('%Y-%m-%d %H:%M:%S') if subscription.current_period_end else None
+                }
+            
+            # Check if user is in any band
+            is_in_band = False
+            band_info = None
+            existing_membership = BandMembership.objects.filter(talent_user=talent_profile).first()
+            if existing_membership:
+                is_in_band = True
+                band_info = {
+                    'band_id': existing_membership.band.id,
+                    'band_name': existing_membership.band.name,
+                    'role': existing_membership.role,
+                    'position': existing_membership.position
+                }
+            
+            if not queryset.exists():
+                # User has no bands - return 0 score with empty list
+                return Response({
+                    'bands': [],
+                    'subscription_status': {
+                        'has_bands_subscription': has_bands_subscription,
+                        'subscription': subscription_data,
+                        'has_talent_profile': True,
+                        'is_in_band': is_in_band,
+                        'band_info': band_info,
+                        'can_create_band': has_bands_subscription and not is_in_band,  # Need subscription to create
+                        'can_join_band': not is_in_band,  # Can join for free (no subscription required)
+                        'message': self._get_status_message(has_bands_subscription, True, is_in_band)
+                    },
+                    'band_score': {
+                        'overall_score': 0,
+                        'message': 'You have no band yet. Create or join a band to start earning band scores!',
+                        'how_to_improve': [
+                            'Subscribe to the Bands plan to create your own band and get +40 bonus points',
+                            'Join an existing band for free (no subscription required)',
+                            'Complete all band profile information for +20 bonus points',
+                            'Add media content to your band profile for up to +30 points'
+                        ]
+                    }
+                })
+            
+            # User has bands - get the first (and only) band
+            user_band = queryset.first()
+            serializer = self.get_serializer(queryset, many=True)
             
             # Calculate band score based on new requirements
             score_data = user_band.get_profile_score()
@@ -109,6 +150,16 @@ class BandListView(ListAPIView):
             
             return Response({
                 'bands': serializer.data,
+                'subscription_status': {
+                    'has_bands_subscription': has_bands_subscription,
+                    'subscription': subscription_data,
+                    'has_talent_profile': True,
+                    'is_in_band': is_in_band,
+                    'band_info': band_info,
+                    'can_create_band': has_bands_subscription and not is_in_band,  # Need subscription to create
+                    'can_join_band': not is_in_band,  # Can join for free (no subscription required)
+                    'message': self._get_status_message(has_bands_subscription, True, is_in_band)
+                },
                 'band_score': {
                     'overall_score': overall_score,
                     'has_bands_subscription': has_bands_subscription,
@@ -126,8 +177,29 @@ class BandListView(ListAPIView):
             
         except TalentUserProfile.DoesNotExist:
             return Response({
-                'error': 'Talent profile not found'
+                'error': 'Talent profile not found',
+                'subscription_status': {
+                    'has_bands_subscription': False,
+                    'subscription': None,
+                    'has_talent_profile': False,
+                    'is_in_band': False,
+                    'band_info': None,
+                    'can_create_band': False,
+                    'can_join_band': False,
+                    'message': 'You need to create a talent profile first.'
+                }
             }, status=status.HTTP_404_NOT_FOUND)
+    
+    def _get_status_message(self, has_subscription, has_profile, is_in_band):
+        """Generate appropriate status message"""
+        if not has_profile:
+            return "You need to create a talent profile first."
+        elif is_in_band:
+            return "You are already in a band. You can only be in one band at a time."
+        elif not has_subscription:
+            return "You can join existing bands for free, or subscribe to the Bands plan to create your own band."
+        else:
+            return "You can create a new band or join an existing one for free."
 
 # Get detailed information about a specific band
 class BandDetailView(RetrieveAPIView):
@@ -474,7 +546,5 @@ class UseBandInvitationView(APIView):
 
 
 # Note: The following views were documented in band_api_documentation.md but not used in any URL patterns
-# They have been removed as part of code cleanup since member management is now handled through
-# the BandUpdateView with BandUpdateWithMembersSerializer
 
 

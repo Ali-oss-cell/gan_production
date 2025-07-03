@@ -5,69 +5,73 @@ from django.conf import settings
 SUBSCRIPTION_PLANS = {
     'SILVER': {
         'name': 'Silver',
-        'price': Decimal('150.00'),  # Yearly price in USD
+        'price': Decimal('99.00'),  # Yearly price in USD
         'features': [
-            'Basic profile visibility',
-            'Up to 4 picturs media uploads',
-            'Up to 2 videos uplode'
-            'Basic search functionality (we can find you)',
-            'Email support (we will reach you in email)',
+            'Profile visible in search results',
+            'Upload up to 4 profile pictures',
+            'Upload up to 2 showcase videos',
+            'Basic search functionality',
+            'Email support',
         ],
-        'stripe_price_id': settings.STRIPE_SILVER_PRICE_ID,
+        'stripe_price_id': 'test_price_silver',
         'duration_months': 12,
     },
     'GOLD': {
         'name': 'Gold',
-        'price': Decimal('200.00'),  # Yearly price in USD
+        'price': Decimal('199.00'),  # Yearly price in USD
         'features': [
-           'Ehanced profile visibility',
-            'Up to 5 picturs media uploads',
-            'Up to 3 videos uplode'
-            'Ehanced search functionality (we are looking for YOU )',
-            'Email support (we will reach you in Email or Phone)',
+            'Enhanced profile visibility in search',
+            'Upload up to 5 profile pictures',
+            'Upload up to 3 showcase videos',
+            'Enhanced search optimization',
+            'Email and phone support',
         ],
-        'stripe_price_id': settings.STRIPE_GOLD_PRICE_ID,
+        'stripe_price_id': 'test_price_gold',
         'duration_months': 12,
     },
     'PLATINUM': {
         'name': 'Platinum',
-        'price': Decimal('300.00'),  # Yearly price in USD
+        'price': Decimal('350.00'),  # Yearly price in USD
         'features': [
-           'primuem profile visibility',
-            'Up to 5 picturs media uploads',
-            'Up to 3 videos uplode'
-            'Ehanced search functionality (we are looking for YOU )',
-            'Email support (You are the Star of the show)',
+            'Maximum profile visibility in search',
+            'Upload up to 6 profile pictures',
+            'Upload up to 4 showcase videos',
+            'VIP search optimization',
+            'Priority email and phone support',
         ],
-        'stripe_price_id': settings.STRIPE_PLATINUM_PRICE_ID,
+        'stripe_price_id': 'test_price_platinum',
         'duration_months': 12,
     },
     'BANDS': {
         'name': 'Bands',
-        'price': Decimal('350.00'),  # Yearly price in USD
+        'price': Decimal('500.00'),  # Yearly price in USD
         'features': [
             'Special band profile layout',
-            'Up to 10 pictures media uploads',
-            'Up to 5 videos upload',
+            'Upload up to 5 band pictures',
+            'Upload up to 5 band videos',
             'Band member management',
             'Event calendar integration',
-            'Music track uploads (up to 10 songs)',
             'Priority booking requests',
             'Dedicated band support',
         ],
-        'stripe_price_id': settings.STRIPE_BANDS_PRICE_ID,
+        'stripe_price_id': 'test_price_bands',
         'duration_months': 12,
     },
     'BACKGROUND_JOBS': {
-        'name': 'Background Jobs',
-        'price': Decimal('500.00'),  # Yearly price in USD
+        'name': 'Production Assets Pro',
+        'price': Decimal('300.00'),  # Yearly price in USD
         'features': [
-            'Access to background job processing services',
-            'you will be able to share your rare items',
-            'reant or seal any thing related to art and cenima',
-            'this is the place where you able to share any cool things',
+            'Create and share props, costumes, locations, vehicles',
+            'Rent and sell items to production companies',
+            'Upload unlimited media files for your items',
+            'Create detailed listings with descriptions and pricing',
+            'Respond to job requests and booking inquiries',
+            'Priority listing in search results',
+            'Direct communication with production companies',
+            'Professional profile with enhanced visibility',
+            'Dedicated support for equipment services',
         ],
-        'stripe_price_id': settings.STRIPE_BACKGROUND_JOBS_PRICE_ID,
+        'stripe_price_id': 'test_price_background_jobs',
         'duration_months': 12,
     },
 }
@@ -78,25 +82,25 @@ ADDITIONAL_SERVICES = {
         'name': 'Profile Verification',
         'price': Decimal('19.99'),
         'description': 'Get your profile verified by our team',
-        'stripe_price_id': settings.STRIPE_VERIFICATION_PRICE_ID,
+        'stripe_price_id': 'test_price_verification',
     },
     'FEATURED_PLACEMENT': {
         'name': 'Featured Placement',
         'price': Decimal('49.99'),
         'description': 'Get your profile featured for 7 days',
-        'stripe_price_id': settings.STRIPE_FEATURED_PRICE_ID,
+        'stripe_price_id': 'test_price_featured',
     },
     'CUSTOM_URL': {
         'name': 'Custom Profile URL',
         'price': Decimal('9.99'),
         'description': 'Get a custom URL for your profile',
-        'stripe_price_id': settings.STRIPE_CUSTOM_URL_PRICE_ID,
+        'stripe_price_id': 'test_price_custom_url',
     },
     'BANDS': {
         'name': 'Bands Package',
         'price': Decimal('350.00'),
         'description': 'Special package for bands and musical groups',
-        'stripe_price_id': settings.STRIPE_BANDS_PRICE_ID,
+        'stripe_price_id': 'test_price_bands',
     },
 }
 

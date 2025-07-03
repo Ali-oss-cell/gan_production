@@ -1,29 +1,28 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, generics
-from rest_framework.decorators import api_view, permission_classes
 from django.shortcuts import get_object_or_404
-from django.http import JsonResponse
-from django.core.paginator import Paginator
+from django.core.mail import send_mail
+from django.conf import settings
+from django.utils import timezone
 
 from users.permissions import IsDashboardUser, IsAdminDashboardUser
 from .models import BulkEmail, EmailRecipient
-from .email_service import DashboardEmailService
-from .serializers import BulkEmailSerializer, EmailRecipientSerializer
+from .serializers import BulkEmailSerializer, EmailRecipientSerializer, EmailListSerializer
+from profiles.models import Band
 
-class BulkEmailView(APIView):
-    """Create and send bulk emails to selected users"""
+class SendEmailView(APIView):
+    """Send single email to one user or band creator"""
     permission_classes = [IsDashboardUser | IsAdminDashboardUser]
     
     def post(self, request, *args, **kwargs):
-        """Create and send bulk email to selected user IDs"""
+        """Send email to one user or band creator"""
         
         # Get data from request
         subject = request.data.get('subject', '')
         message = request.data.get('message', '')
-        user_ids = request.data.get('user_ids', [])
-        search_criteria = request.data.get('search_criteria', {})
-        send_immediately = request.data.get('send_immediately', True)
+        user_id = request.data.get('user_id')
+        band_id = request.data.get('band_id')
         
         # Validation
         if not subject or not message:
@@ -32,146 +31,147 @@ class BulkEmailView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        if not user_ids:
+        # Check if we have either user_id or band_id (but not both)
+        if not user_id and not band_id:
             return Response(
-                {'error': 'At least one user must be selected'}, 
+                {'error': 'Either user_id or band_id is required'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if user_id and band_id:
+            return Response(
+                {'error': 'Please provide either user_id OR band_id, not both'}, 
                 status=status.HTTP_400_BAD_REQUEST
             )
         
         try:
-            # Create bulk email record
-            bulk_email = DashboardEmailService.create_bulk_email(
+            target_user = None
+            recipient_info = {}
+            
+            if user_id:
+                # Send to specific user
+                from users.models import BaseUser
+                target_user = BaseUser.objects.get(id=user_id)
+                recipient_info = {
+                    'type': 'user',
+                    'email': target_user.email,
+                    'name': f"{target_user.first_name} {target_user.last_name}".strip() or target_user.email
+                }
+            else:
+                # Send to band creator
+                band = Band.objects.get(id=band_id)
+                target_user = band.creator.user
+                recipient_info = {
+                    'type': 'band_creator',
+                    'email': target_user.email,
+                    'name': f"{target_user.first_name} {target_user.last_name}".strip() or target_user.email,
+                    'band_name': band.name,
+                    'band_id': band.id
+                }
+            
+            # Create email record
+            email = BulkEmail.objects.create(
                 sender=request.user,
                 subject=subject,
                 message=message,
-                search_criteria=search_criteria
+                status='sent',
+                total_recipients=1,
+                sent_at=timezone.now()
             )
             
-            # Add recipients
-            recipients = DashboardEmailService.add_recipients(bulk_email, user_ids)
+            # Create recipient record
+            recipient = EmailRecipient.objects.create(
+                bulk_email=email,
+                user=target_user,
+                status='pending'
+            )
             
-            if send_immediately:
-                # Send emails
-                result = DashboardEmailService.send_bulk_email(bulk_email.id)
-                
-                return Response({
-                    'success': True,
-                    'bulk_email_id': bulk_email.id,
-                    'message': f'Email sent to {result["emails_sent"]} users',
-                    'emails_sent': result['emails_sent'],
-                    'emails_failed': result['emails_failed'],
-                    'total_recipients': result['total_recipients']
-                })
+            # Send email
+            success = send_mail(
+                subject=subject,
+                message=message,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[target_user.email],
+                fail_silently=False,
+            )
+            
+            if success:
+                recipient.status = 'sent'
+                recipient.sent_at = timezone.now()
+                email.emails_sent = 1
+                email.emails_failed = 0
             else:
-                return Response({
-                    'success': True,
-                    'bulk_email_id': bulk_email.id,
-                    'message': f'Email saved as draft with {len(recipients)} recipients',
-                    'total_recipients': len(recipients)
+                recipient.status = 'failed'
+                recipient.error_message = 'Email sending failed'
+                email.emails_sent = 0
+                email.emails_failed = 1
+            
+            recipient.save()
+            email.save()
+            
+            # Prepare response
+            response_data = {
+                'success': True,
+                'message': f'Email sent to {recipient_info["email"]}',
+                'recipient': recipient_info["email"],
+                'recipient_name': recipient_info["name"],
+                'recipient_type': recipient_info["type"],
+                'status': 'sent' if success else 'failed'
+            }
+            
+            # Add band info if sending to band creator
+            if recipient_info["type"] == 'band_creator':
+                response_data.update({
+                    'message': f'Email sent to {recipient_info["email"]} (Creator of "{recipient_info["band_name"]}")',
+                    'band_name': recipient_info["band_name"],
+                    'band_id': recipient_info["band_id"],
+                    'creator_name': recipient_info["name"]
                 })
+            
+            return Response(response_data)
                 
-        except Exception as e:
+        except (BaseUser.DoesNotExist, Band.DoesNotExist) as e:
+            error_msg = 'User not found' if user_id else 'Band not found'
             return Response(
-                {'error': f'Failed to create bulk email: {str(e)}'}, 
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {'error': error_msg}, 
+                status=status.HTTP_404_NOT_FOUND
             )
-
-class SendDraftEmailView(APIView):
-    """Send a previously created draft email"""
-    permission_classes = [IsDashboardUser | IsAdminDashboardUser]
-    
-    def post(self, request, bulk_email_id, *args, **kwargs):
-        """Send a draft bulk email"""
-        
-        try:
-            bulk_email = get_object_or_404(BulkEmail, id=bulk_email_id, sender=request.user)
-            
-            if bulk_email.status != 'draft':
-                return Response(
-                    {'error': 'Email has already been sent or is not a draft'}, 
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-            
-            # Send the email
-            result = DashboardEmailService.send_bulk_email(bulk_email.id)
-            
-            if result['success']:
-                return Response({
-                    'success': True,
-                    'message': f'Email sent to {result["emails_sent"]} users',
-                    'emails_sent': result['emails_sent'],
-                    'emails_failed': result['emails_failed'],
-                    'total_recipients': result['total_recipients']
-                })
-            else:
-                return Response(
-                    {'error': result['error']}, 
-                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                )
-                
         except Exception as e:
             return Response(
                 {'error': f'Failed to send email: {str(e)}'}, 
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-class BulkEmailListView(generics.ListAPIView):
-    """List all bulk emails sent by the current user"""
+class EmailListView(generics.ListAPIView):
+    """List all emails sent by the current user"""
+    serializer_class = EmailListSerializer
+    permission_classes = [IsDashboardUser | IsAdminDashboardUser]
+    
+    def get_queryset(self):
+        return BulkEmail.objects.filter(sender=self.request.user).prefetch_related(
+            'recipients__user'
+        ).order_by('-created_at')
+
+class EmailDetailView(generics.RetrieveAPIView):
+    """Get details of a specific email and its recipient"""
     serializer_class = BulkEmailSerializer
     permission_classes = [IsDashboardUser | IsAdminDashboardUser]
     
     def get_queryset(self):
         return BulkEmail.objects.filter(sender=self.request.user)
-
-class BulkEmailDetailView(generics.RetrieveAPIView):
-    """Get details of a specific bulk email"""
-    serializer_class = BulkEmailSerializer
-    permission_classes = [IsDashboardUser | IsAdminDashboardUser]
     
-    def get_queryset(self):
-        return BulkEmail.objects.filter(sender=self.request.user)
-
-class EmailRecipientsView(APIView):
-    """Get recipients for a specific bulk email"""
-    permission_classes = [IsDashboardUser | IsAdminDashboardUser]
-    
-    def get(self, request, bulk_email_id, *args, **kwargs):
-        """Get paginated list of recipients for a bulk email"""
+    def retrieve(self, request, *args, **kwargs):
+        # Get the email
+        email = self.get_object()
         
-        bulk_email = get_object_or_404(BulkEmail, id=bulk_email_id, sender=request.user)
+        # Get recipient
+        recipient = EmailRecipient.objects.filter(bulk_email=email).select_related('user').first()
+        recipient_serializer = EmailRecipientSerializer(recipient) if recipient else None
         
-        recipients = EmailRecipient.objects.filter(bulk_email=bulk_email).select_related('user')
-        
-        # Pagination
-        page = request.GET.get('page', 1)
-        per_page = request.GET.get('per_page', 20)
-        
-        paginator = Paginator(recipients, per_page)
-        page_obj = paginator.get_page(page)
-        
-        serializer = EmailRecipientSerializer(page_obj.object_list, many=True)
+        # Get email details
+        email_serializer = self.get_serializer(email)
         
         return Response({
-            'recipients': serializer.data,
-            'pagination': {
-                'current_page': page_obj.number,
-                'total_pages': paginator.num_pages,
-                'total_recipients': paginator.count,
-                'has_next': page_obj.has_next(),
-                'has_previous': page_obj.has_previous(),
-            }
-        })
-
-@api_view(['GET'])
-@permission_classes([IsDashboardUser | IsAdminDashboardUser])
-def email_statistics(request, bulk_email_id):
-    """Get statistics for a bulk email campaign"""
-    
-    bulk_email = get_object_or_404(BulkEmail, id=bulk_email_id, sender=request.user)
-    
-    stats = DashboardEmailService.get_email_statistics(bulk_email_id)
-    
-    if stats:
-        return JsonResponse(stats)
-    else:
-        return JsonResponse({'error': 'Email statistics not found'}, status=404) 
+            'email': email_serializer.data,
+            'recipient': recipient_serializer.data if recipient else None
+        }) 

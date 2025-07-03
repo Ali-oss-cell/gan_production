@@ -1,6 +1,6 @@
 from django.urls import path
 
-from .background_views import GreatItems, BackGroundJobsUserProfileDetailView
+from .background_views import GreatItems, BackGroundJobsUserProfileDetailView, BackgroundUserSubscriptionStatusView, BackgroundUserRestrictionsView, BackgroundItemDetailView
 from .talent_profile_views import TalentUserProfileView, TalentMediaCreateView, TalentMediaDeleteView, SocialMediaLinksUpdateView
 from .band_views import BandListView, BandDetailView, BandCreateView, BandUpdateView, BandDeleteView, JoinBandView, LeaveBandView
 from .band_views import GenerateBandInvitationView, BandInvitationsListView, UseBandInvitationView
@@ -24,18 +24,23 @@ urlpatterns = [
     # Endpoints for background user profile (includes profile score)
     path('profile/background/', BackGroundJobsUserProfileDetailView.as_view(), name='background-profile-detail'),
     
+    # Background user subscription endpoints
+    path('profile/background/subscription-status/', BackgroundUserSubscriptionStatusView.as_view(), name='background-subscription-status'),
+    path('profile/background/restrictions/', BackgroundUserRestrictionsView.as_view(), name='background-restrictions'),
+    
     # Endpoint for managing talent specializations
     path('profile/specializations/', TalentSpecializationView.as_view(), name='talent-specializations'),
     
     # Background items endpoints
     path('profile/background/items/', GreatItems.as_view(), name='background-items-create'),
+    path('profile/background/items/<str:item_type>/<int:item_id>/', BackgroundItemDetailView.as_view(), name='background-item-detail'),
     
-    # Band endpoints (includes band scoring)
+    # Band endpoints (includes band scoring and subscription status)
     # Combined band endpoint (returns both list and details in one request)
     
     # Original separate endpoints (kept for backward compatibility)
     
-    #get_the_band_for_the_users (includes band score)
+    #get_the_band_for_the_users (includes band score and subscription status)
     path('bands/', BandListView.as_view(), name='band-list'),
 
     path('bands/<int:id>/', BandDetailView.as_view(), name='band-detail'),

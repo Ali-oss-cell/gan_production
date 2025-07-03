@@ -2,9 +2,12 @@ from rest_framework import generics, filters
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from django.urls import reverse
-from django.db.models import Q, F, ExpressionWrapper, FloatField
-from datetime import datetime, date
+from django.db.models import Q, F, ExpressionWrapper, FloatField, Count, Case, When, Value, IntegerField, CharField
+from django.db.models.functions import Coalesce, Concat
+from django.utils import timezone
+from datetime import datetime, date, timedelta
 import math
+from django.contrib.contenttypes.models import ContentType
 
 from users.permissions import IsDashboardUser, IsAdminDashboardUser
 
@@ -35,10 +38,22 @@ from .filters import (
     VehicleFilter, ArtisticMaterialFilter, MusicItemFilter, RareItemFilter
 )
 
+# Import shared media post model
+from .models import SharedMediaPost
+
 # Define a common mixin for all search views
 class SearchViewMixin:
     """Mixin with common attributes for all search views"""
     format_kwarg = 'format'
+    
+    def get_sharing_status(self, media):
+        """
+        Get sharing status for a media item using centralized utility.
+        Returns sharing information if the media is already shared.
+        Guarantees to always return a valid sharing status object.
+        """
+        from .utils import get_sharing_status
+        return get_sharing_status(media)
     
     def calculate_simple_relevance_score(self, item, query_params, field_mappings):
         """
@@ -74,6 +89,55 @@ class TalentUserProfileSearchView(SearchViewMixin, generics.ListAPIView):
     filterset_class = TalentUserProfileFilter
     ordering_fields = ['date_of_birth', 'created_at', 'city', 'country', 'account_type']
     permission_classes = [IsDashboardUser | IsAdminDashboardUser]
+    
+    def get_queryset(self):
+        """
+        Optimized queryset with annotations to reduce database queries
+        """
+        return TalentUserProfile.objects.select_related(
+            'user'
+        ).prefetch_related(
+            'media',
+            'visual_worker',
+            'expressive_worker', 
+            'hybrid_worker'
+        ).annotate(
+            # Annotate media counts to avoid N+1 queries
+            image_count=Count('media', filter=Q(media__media_type='image', media__is_test_video=False)),
+            video_count=Count('media', filter=Q(media__media_type='video', media__is_test_video=False)),
+            total_media=Count('media', filter=Q(media__is_test_video=False)),
+            # Annotate age calculation
+            age=Case(
+                When(
+                    date_of_birth__isnull=False,
+                    then=timezone.now().year - F('date_of_birth__year') - 
+                         Case(
+                             When(
+                                 Q(date_of_birth__month__gt=timezone.now().month) |
+                                 Q(date_of_birth__month=timezone.now().month, date_of_birth__day__gt=timezone.now().day),
+                                 then=Value(1)
+                             ),
+                             default=Value(0)
+                         )
+                ),
+                default=Value(None),
+                output_field=IntegerField()
+            ),
+            # Annotate specialization count
+            specialization_count=Case(
+                When(visual_worker__isnull=False, then=Value(1)),
+                default=Value(0),
+                output_field=IntegerField()
+            ) + Case(
+                When(expressive_worker__isnull=False, then=Value(1)),
+                default=Value(0),
+                output_field=IntegerField()
+            ) + Case(
+                When(hybrid_worker__isnull=False, then=Value(1)),
+                default=Value(0),
+                output_field=IntegerField()
+            )
+        )
     
     def calculate_relevance_score(self, queryset, filters):
         """
@@ -213,7 +277,7 @@ class TalentUserProfileSearchView(SearchViewMixin, generics.ListAPIView):
                     target_age = int(search_params['age'])
                     today = datetime.today()
                     # Calculate the date range for the target age
-                    start_date = date(today.year - target_age - 1, today.month, today.day) + datetime.timedelta(days=1)
+                    start_date = date(today.year - target_age - 1, today.month, today.day) + timedelta(days=1)
                     end_date = date(today.year - target_age, today.month, today.day)
                     filtered_queryset = filtered_queryset.filter(date_of_birth__gte=start_date, date_of_birth__lte=end_date)
                 except (ValueError, TypeError):
@@ -253,6 +317,11 @@ class TalentUserProfileSearchView(SearchViewMixin, generics.ListAPIView):
                     if include_media:
                         item['media_items'] = []
                         for media in page[i].media.all():
+                            # Get sharing status with guaranteed fallback
+                            sharing_status = self.get_sharing_status(media)
+                            if not sharing_status or not isinstance(sharing_status, dict):
+                                sharing_status = {'is_shared': False}
+                            
                             media_data = {
                                 'id': media.id,
                                 'name': media.name,
@@ -263,6 +332,7 @@ class TalentUserProfileSearchView(SearchViewMixin, generics.ListAPIView):
                                 'created_at': media.created_at,
                                 'is_test_video': media.is_test_video,
                                 'is_about_yourself_video': media.is_about_yourself_video,
+                                'sharing_status': sharing_status
                             }
                             item['media_items'].append(media_data)
                 
@@ -281,6 +351,11 @@ class TalentUserProfileSearchView(SearchViewMixin, generics.ListAPIView):
                 if include_media:
                     item['media_items'] = []
                     for media in queryset[i].media.all():
+                        # Get sharing status with guaranteed fallback
+                        sharing_status = self.get_sharing_status(media)
+                        if not sharing_status or not isinstance(sharing_status, dict):
+                            sharing_status = {'is_shared': False}
+                        
                         media_data = {
                             'id': media.id,
                             'name': media.name,
@@ -291,6 +366,7 @@ class TalentUserProfileSearchView(SearchViewMixin, generics.ListAPIView):
                             'created_at': media.created_at,
                             'is_test_video': media.is_test_video,
                             'is_about_yourself_video': media.is_about_yourself_video,
+                            'sharing_status': sharing_status
                         }
                         item['media_items'].append(media_data)
             
@@ -313,6 +389,11 @@ class TalentUserProfileSearchView(SearchViewMixin, generics.ListAPIView):
                     if include_media:
                         item['media_items'] = []
                         for media in page[i].media.all():
+                            # Get sharing status with guaranteed fallback
+                            sharing_status = self.get_sharing_status(media)
+                            if not sharing_status or not isinstance(sharing_status, dict):
+                                sharing_status = {'is_shared': False}
+                            
                             media_data = {
                                 'id': media.id,
                                 'name': media.name,
@@ -323,6 +404,7 @@ class TalentUserProfileSearchView(SearchViewMixin, generics.ListAPIView):
                                 'created_at': media.created_at,
                                 'is_test_video': media.is_test_video,
                                 'is_about_yourself_video': media.is_about_yourself_video,
+                                'sharing_status': sharing_status
                             }
                             item['media_items'].append(media_data)
                 return self.get_paginated_response(data)
@@ -337,6 +419,11 @@ class TalentUserProfileSearchView(SearchViewMixin, generics.ListAPIView):
                 if include_media:
                     item['media_items'] = []
                     for media in filtered_queryset[i].media.all():
+                        # Get sharing status with guaranteed fallback
+                        sharing_status = self.get_sharing_status(media)
+                        if not sharing_status or not isinstance(sharing_status, dict):
+                            sharing_status = {'is_shared': False}
+                        
                         media_data = {
                             'id': media.id,
                             'name': media.name,
@@ -347,12 +434,50 @@ class TalentUserProfileSearchView(SearchViewMixin, generics.ListAPIView):
                             'created_at': media.created_at,
                             'is_test_video': media.is_test_video,
                             'is_about_yourself_video': media.is_about_yourself_video,
+                            'sharing_status': sharing_status
                         }
                         item['media_items'].append(media_data)
             return Response(data)
 
 class VisualWorkerSearchView(SearchViewMixin, generics.ListAPIView):
-    queryset = VisualWorker.objects.select_related('profile').prefetch_related('profile__media')
+    def get_queryset(self):
+        """
+        Optimized queryset with annotations to reduce database queries
+        """
+        return VisualWorker.objects.select_related(
+            'profile', 'profile__user'
+        ).prefetch_related(
+            'profile__media'
+        ).annotate(
+            # Annotate media counts to avoid N+1 queries
+            image_count=Count('profile__media', filter=Q(profile__media__media_type='image', profile__media__is_test_video=False)),
+            video_count=Count('profile__media', filter=Q(profile__media__media_type='video', profile__media__is_test_video=False)),
+            total_media=Count('profile__media', filter=Q(profile__media__is_test_video=False)),
+            # Annotate profile completeness
+            profile_complete=F('profile__profile_complete'),
+            is_verified=F('profile__is_verified'),
+            account_type=F('profile__account_type'),
+            city=F('profile__city'),
+            country=F('profile__country'),
+            # Annotate age calculation
+            age=Case(
+                When(
+                    profile__date_of_birth__isnull=False,
+                    then=timezone.now().year - F('profile__date_of_birth__year') - 
+                         Case(
+                             When(
+                                 Q(profile__date_of_birth__month__gt=timezone.now().month) |
+                                 Q(profile__date_of_birth__month=timezone.now().month, profile__date_of_birth__day__gt=timezone.now().day),
+                                 then=Value(1)
+                             ),
+                             default=Value(0)
+                         )
+                ),
+                default=Value(None),
+                output_field=IntegerField()
+            )
+        )
+    
     serializer_class = VisualWorkerDashboardSerializer
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     filterset_class = VisualWorkerFilter
@@ -361,10 +486,11 @@ class VisualWorkerSearchView(SearchViewMixin, generics.ListAPIView):
     
     def calculate_profile_score(self, worker):
         """
-        Get the profile score from the associated talent profile's method.
+        Get the profile score from the associated talent profile's method with caching.
         """
+        from .utils import get_profile_score_cached
         profile = worker.profile
-        score_breakdown = profile.get_profile_score()
+        score_breakdown = get_profile_score_cached(profile)
         return score_breakdown['total']
     
     def calculate_relevance_score(self, queryset, filters):
@@ -471,12 +597,16 @@ class VisualWorkerSearchView(SearchViewMixin, generics.ListAPIView):
         return workers_with_scores
     
     def list(self, request, *args, **kwargs):
+        # Check if media should be included
+        include_media = request.query_params.get('include_media', '').lower() == 'true'
+        
         # First, apply filtering with the filter_queryset method
         queryset = self.filter_queryset(self.get_queryset())
         
-        # Apply additional custom filtering
+        # Apply additional strict filtering for all parameters
         query_params = self.request.query_params
         
+        # Apply strict filtering to all parameters
         if 'primary_category' in query_params and query_params['primary_category']:
             queryset = queryset.filter(primary_category=query_params['primary_category'])
         
@@ -497,6 +627,7 @@ class VisualWorkerSearchView(SearchViewMixin, generics.ListAPIView):
             except (ValueError, TypeError):
                 pass
         
+        # Location filters
         if 'city' in query_params and query_params['city']:
             queryset = queryset.filter(city__icontains=query_params['city'])
         
@@ -531,6 +662,29 @@ class VisualWorkerSearchView(SearchViewMixin, generics.ListAPIView):
                     item['relevance_score'] = workers_with_scores[i][1]
                     item['profile_score'] = self.calculate_profile_score(page[i])
                     item['profile_url'] = request.build_absolute_uri(reverse('dashboard:visual-worker-detail', args=[item['id']]))
+                    
+                    # Include media data if requested
+                    if include_media:
+                        item['media_items'] = []
+                        for media in page[i].profile.media.all():
+                            # Get sharing status with guaranteed fallback
+                            sharing_status = self.get_sharing_status(media)
+                            if not sharing_status or not isinstance(sharing_status, dict):
+                                sharing_status = {'is_shared': False}
+                            
+                            media_data = {
+                                'id': media.id,
+                                'name': media.name,
+                                'media_info': media.media_info,
+                                'media_type': media.media_type,
+                                'media_file': request.build_absolute_uri(media.media_file.url) if media.media_file else None,
+                                'thumbnail': request.build_absolute_uri(media.thumbnail.url) if media.thumbnail else None,
+                                'created_at': media.created_at,
+                                'is_test_video': media.is_test_video,
+                                'is_about_yourself_video': media.is_about_yourself_video,
+                                'sharing_status': sharing_status
+                            }
+                            item['media_items'].append(media_data)
                 
                 return self.get_paginated_response(data)
             
@@ -540,8 +694,31 @@ class VisualWorkerSearchView(SearchViewMixin, generics.ListAPIView):
             # Add relevance scores, profile scores, and profile URLs to the results
             for i, item in enumerate(data):
                 item['relevance_score'] = workers_with_scores[i][1]
-                item['profile_score'] = self.calculate_profile_score(queryset[i])
+                item['profile_score'] = self.calculate_profile_score(page[i])
                 item['profile_url'] = request.build_absolute_uri(reverse('dashboard:visual-worker-detail', args=[item['id']]))
+                
+                # Include media data if requested
+                if include_media:
+                    item['media_items'] = []
+                    for media in queryset[i].profile.media.all():
+                        # Get sharing status with guaranteed fallback
+                        sharing_status = self.get_sharing_status(media)
+                        if not sharing_status or not isinstance(sharing_status, dict):
+                            sharing_status = {'is_shared': False}
+                        
+                        media_data = {
+                            'id': media.id,
+                            'name': media.name,
+                            'media_info': media.media_info,
+                            'media_type': media.media_type,
+                            'media_file': request.build_absolute_uri(media.media_file.url) if media.media_file else None,
+                            'thumbnail': request.build_absolute_uri(media.thumbnail.url) if media.thumbnail else None,
+                            'created_at': media.created_at,
+                            'is_test_video': media.is_test_video,
+                            'is_about_yourself_video': media.is_about_yourself_video,
+                            'sharing_status': sharing_status
+                        }
+                        item['media_items'].append(media_data)
             
             return Response(data)
         else:
@@ -557,6 +734,30 @@ class VisualWorkerSearchView(SearchViewMixin, generics.ListAPIView):
                 for i, item in enumerate(data):
                     item['profile_score'] = self.calculate_profile_score(page[i])
                     item['profile_url'] = request.build_absolute_uri(reverse('dashboard:visual-worker-detail', args=[item['id']]))
+                    
+                    # Include media data if requested
+                    if include_media:
+                        item['media_items'] = []
+                        for media in page[i].profile.media.all():
+                            # Get sharing status with guaranteed fallback
+                            sharing_status = self.get_sharing_status(media)
+                            if not sharing_status or not isinstance(sharing_status, dict):
+                                sharing_status = {'is_shared': False}
+                            
+                            media_data = {
+                                'id': media.id,
+                                'name': media.name,
+                                'media_info': media.media_info,
+                                'media_type': media.media_type,
+                                'media_file': request.build_absolute_uri(media.media_file.url) if media.media_file else None,
+                                'thumbnail': request.build_absolute_uri(media.thumbnail.url) if media.thumbnail else None,
+                                'created_at': media.created_at,
+                                'is_test_video': media.is_test_video,
+                                'is_about_yourself_video': media.is_about_yourself_video,
+                                'sharing_status': sharing_status
+                            }
+                            item['media_items'].append(media_data)
+                
                 return self.get_paginated_response(data)
     
             serializer = self.get_serializer(queryset.order_by('-id'), many=True)
@@ -564,10 +765,71 @@ class VisualWorkerSearchView(SearchViewMixin, generics.ListAPIView):
             for i, item in enumerate(data):
                 item['profile_score'] = self.calculate_profile_score(queryset[i])
                 item['profile_url'] = request.build_absolute_uri(reverse('dashboard:visual-worker-detail', args=[item['id']]))
+                
+                # Include media data if requested
+                if include_media:
+                    item['media_items'] = []
+                    for media in queryset[i].profile.media.all():
+                        # Get sharing status with guaranteed fallback
+                        sharing_status = self.get_sharing_status(media)
+                        if not sharing_status or not isinstance(sharing_status, dict):
+                            sharing_status = {'is_shared': False}
+                        
+                        media_data = {
+                            'id': media.id,
+                            'name': media.name,
+                            'media_info': media.media_info,
+                            'media_type': media.media_type,
+                            'media_file': request.build_absolute_uri(media.media_file.url) if media.media_file else None,
+                            'thumbnail': request.build_absolute_uri(media.thumbnail.url) if media.thumbnail else None,
+                            'created_at': media.created_at,
+                            'is_test_video': media.is_test_video,
+                            'is_about_yourself_video': media.is_about_yourself_video,
+                            'sharing_status': sharing_status
+                        }
+                        item['media_items'].append(media_data)
+            
             return Response(data)
 
 class ExpressiveWorkerSearchView(SearchViewMixin, generics.ListAPIView):
-    queryset = ExpressiveWorker.objects.select_related('profile').prefetch_related('profile__media')
+    def get_queryset(self):
+        """
+        Optimized queryset with annotations to reduce database queries
+        """
+        return ExpressiveWorker.objects.select_related(
+            'profile', 'profile__user'
+        ).prefetch_related(
+            'profile__media'
+        ).annotate(
+            # Annotate media counts to avoid N+1 queries
+            image_count=Count('profile__media', filter=Q(profile__media__media_type='image', profile__media__is_test_video=False)),
+            video_count=Count('profile__media', filter=Q(profile__media__media_type='video', profile__media__is_test_video=False)),
+            total_media=Count('profile__media', filter=Q(profile__media__is_test_video=False)),
+            # Annotate profile completeness
+            profile_complete=F('profile__profile_complete'),
+            is_verified=F('profile__is_verified'),
+            account_type=F('profile__account_type'),
+            city=F('profile__city'),
+            country=F('profile__country'),
+            # Annotate age calculation
+            age=Case(
+                When(
+                    profile__date_of_birth__isnull=False,
+                    then=timezone.now().year - F('profile__date_of_birth__year') - 
+                         Case(
+                             When(
+                                 Q(profile__date_of_birth__month__gt=timezone.now().month) |
+                                 Q(profile__date_of_birth__month=timezone.now().month, profile__date_of_birth__day__gt=timezone.now().day),
+                                 then=Value(1)
+                             ),
+                             default=Value(0)
+                         )
+                ),
+                default=Value(None),
+                output_field=IntegerField()
+            )
+        )
+    
     serializer_class = ExpressiveWorkerDashboardSerializer
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     filterset_class = ExpressiveWorkerFilter
@@ -584,10 +846,11 @@ class ExpressiveWorkerSearchView(SearchViewMixin, generics.ListAPIView):
     
     def calculate_profile_score(self, worker):
         """
-        Get the profile score from the associated talent profile's method.
+        Get the profile score from the associated talent profile's method with caching.
         """
+        from .utils import get_profile_score_cached
         profile = worker.profile
-        score_breakdown = profile.get_profile_score()
+        score_breakdown = get_profile_score_cached(profile)
         return score_breakdown['total']
     
     def calculate_relevance_score(self, queryset, filters):
@@ -708,6 +971,9 @@ class ExpressiveWorkerSearchView(SearchViewMixin, generics.ListAPIView):
         return workers_with_scores
     
     def list(self, request, *args, **kwargs):
+        # Always include media items with sharing status
+        include_media = True
+        
         # First, apply filtering with the filter_queryset method
         queryset = self.filter_queryset(self.get_queryset())
         
@@ -797,24 +1063,56 @@ class ExpressiveWorkerSearchView(SearchViewMixin, generics.ListAPIView):
                     item['profile_score'] = self.calculate_profile_score(page[i])
                     item['profile_url'] = request.build_absolute_uri(reverse('dashboard:expressive-worker-detail', args=[item['id']]))
                 
+                    # Always include media data with sharing status
+                    item['media_items'] = []
+                    for media in page[i].profile.media.all():
+                        sharing_status = self.get_sharing_status(media)
+                        if not sharing_status or not isinstance(sharing_status, dict):
+                            sharing_status = {'is_shared': False}
+                        media_data = {
+                            'id': media.id,
+                            'name': media.name,
+                            'media_info': media.media_info,
+                            'media_type': media.media_type,
+                            'media_file': request.build_absolute_uri(media.media_file.url) if media.media_file else None,
+                            'thumbnail': request.build_absolute_uri(media.thumbnail.url) if media.thumbnail else None,
+                            'created_at': media.created_at,
+                            'is_test_video': media.is_test_video,
+                            'is_about_yourself_video': media.is_about_yourself_video,
+                            'sharing_status': sharing_status
+                        }
+                        item['media_items'].append(media_data)
                 return self.get_paginated_response(data)
             
             serializer = self.get_serializer(queryset, many=True)
             data = serializer.data
-            
-            # Add relevance scores, profile scores, and profile URLs to the results
             for i, item in enumerate(data):
                 item['relevance_score'] = workers_with_scores[i][1]
                 item['profile_score'] = self.calculate_profile_score(queryset[i])
                 item['profile_url'] = request.build_absolute_uri(reverse('dashboard:expressive-worker-detail', args=[item['id']]))
-            
+                # Always include media data with sharing status
+                item['media_items'] = []
+                for media in queryset[i].profile.media.all():
+                    sharing_status = self.get_sharing_status(media)
+                    if not sharing_status or not isinstance(sharing_status, dict):
+                        sharing_status = {'is_shared': False}
+                    media_data = {
+                        'id': media.id,
+                        'name': media.name,
+                        'media_info': media.media_info,
+                        'media_type': media.media_type,
+                        'media_file': request.build_absolute_uri(media.media_file.url) if media.media_file else None,
+                        'thumbnail': request.build_absolute_uri(media.thumbnail.url) if media.thumbnail else None,
+                        'created_at': media.created_at,
+                        'is_test_video': media.is_test_video,
+                        'is_about_yourself_video': media.is_about_yourself_video,
+                        'sharing_status': sharing_status
+                    }
+                    item['media_items'].append(media_data)
             return Response(data)
         else:
-            # No filters applied or no results after filtering
             if not queryset.exists():
                 return Response({"message": "No expressive workers match your search criteria."}, status=200)
-            
-            # Return results sorted by a default field
             page = self.paginate_queryset(queryset.order_by('-id'))
             if page is not None:
                 serializer = self.get_serializer(page, many=True)
@@ -822,17 +1120,91 @@ class ExpressiveWorkerSearchView(SearchViewMixin, generics.ListAPIView):
                 for i, item in enumerate(data):
                     item['profile_score'] = self.calculate_profile_score(page[i])
                     item['profile_url'] = request.build_absolute_uri(reverse('dashboard:expressive-worker-detail', args=[item['id']]))
+                    # Always include media data with sharing status
+                    item['media_items'] = []
+                    for media in page[i].profile.media.all():
+                        sharing_status = self.get_sharing_status(media)
+                        if not sharing_status or not isinstance(sharing_status, dict):
+                            sharing_status = {'is_shared': False}
+                        media_data = {
+                            'id': media.id,
+                            'name': media.name,
+                            'media_info': media.media_info,
+                            'media_type': media.media_type,
+                            'media_file': request.build_absolute_uri(media.media_file.url) if media.media_file else None,
+                            'thumbnail': request.build_absolute_uri(media.thumbnail.url) if media.thumbnail else None,
+                            'created_at': media.created_at,
+                            'is_test_video': media.is_test_video,
+                            'is_about_yourself_video': media.is_about_yourself_video,
+                            'sharing_status': sharing_status
+                        }
+                        item['media_items'].append(media_data)
                 return self.get_paginated_response(data)
-    
             serializer = self.get_serializer(queryset.order_by('-id'), many=True)
             data = serializer.data
             for i, item in enumerate(data):
                 item['profile_score'] = self.calculate_profile_score(queryset[i])
                 item['profile_url'] = request.build_absolute_uri(reverse('dashboard:expressive-worker-detail', args=[item['id']]))
+                # Always include media data with sharing status
+                item['media_items'] = []
+                for media in queryset[i].profile.media.all():
+                    sharing_status = self.get_sharing_status(media)
+                    if not sharing_status or not isinstance(sharing_status, dict):
+                        sharing_status = {'is_shared': False}
+                    media_data = {
+                        'id': media.id,
+                        'name': media.name,
+                        'media_info': media.media_info,
+                        'media_type': media.media_type,
+                        'media_file': request.build_absolute_uri(media.media_file.url) if media.media_file else None,
+                        'thumbnail': request.build_absolute_uri(media.thumbnail.url) if media.thumbnail else None,
+                        'created_at': media.created_at,
+                        'is_test_video': media.is_test_video,
+                        'is_about_yourself_video': media.is_about_yourself_video,
+                        'sharing_status': sharing_status
+                    }
+                    item['media_items'].append(media_data)
             return Response(data)
 
 class HybridWorkerSearchView(SearchViewMixin, generics.ListAPIView):
-    queryset = HybridWorker.objects.select_related('profile').prefetch_related('profile__media')
+    def get_queryset(self):
+        """
+        Optimized queryset with annotations to reduce database queries
+        """
+        return HybridWorker.objects.select_related(
+            'profile', 'profile__user'
+        ).prefetch_related(
+            'profile__media'
+        ).annotate(
+            # Annotate media counts to avoid N+1 queries
+            image_count=Count('profile__media', filter=Q(profile__media__media_type='image', profile__media__is_test_video=False)),
+            video_count=Count('profile__media', filter=Q(profile__media__media_type='video', profile__media__is_test_video=False)),
+            total_media=Count('profile__media', filter=Q(profile__media__is_test_video=False)),
+            # Annotate profile completeness
+            profile_complete=F('profile__profile_complete'),
+            is_verified=F('profile__is_verified'),
+            account_type=F('profile__account_type'),
+            city=F('profile__city'),
+            country=F('profile__country'),
+            # Annotate age calculation
+            age=Case(
+                When(
+                    profile__date_of_birth__isnull=False,
+                    then=timezone.now().year - F('profile__date_of_birth__year') - 
+                         Case(
+                             When(
+                                 Q(profile__date_of_birth__month__gt=timezone.now().month) |
+                                 Q(profile__date_of_birth__month=timezone.now().month, profile__date_of_birth__day__gt=timezone.now().day),
+                                 then=Value(1)
+                             ),
+                             default=Value(0)
+                         )
+                ),
+                default=Value(None),
+                output_field=IntegerField()
+            )
+        )
+    
     serializer_class = HybridWorkerDashboardSerializer
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     filterset_class = HybridWorkerFilter
@@ -841,10 +1213,11 @@ class HybridWorkerSearchView(SearchViewMixin, generics.ListAPIView):
     
     def calculate_profile_score(self, worker):
         """
-        Get the profile score from the associated talent profile's method.
+        Get the profile score from the associated talent profile's method with caching.
         """
+        from .utils import get_profile_score_cached
         profile = worker.profile
-        score_breakdown = profile.get_profile_score()
+        score_breakdown = get_profile_score_cached(profile)
         return score_breakdown['total']
     
     def calculate_relevance_score(self, queryset, filters):
@@ -1083,6 +1456,7 @@ class BackGroundJobsProfileSearchView(SearchViewMixin, generics.ListAPIView):
                 for i, item in enumerate(data):
                     item['relevance_score'] = profiles_with_scores[i][1]
                     item['profile_score'] = self.calculate_profile_score(page[i])
+                    item['profile_url'] = request.build_absolute_uri(reverse('dashboard:background-profile-detail', args=[item['id']]))
                 
                 return self.get_paginated_response(data)
             
@@ -1092,6 +1466,7 @@ class BackGroundJobsProfileSearchView(SearchViewMixin, generics.ListAPIView):
             for i, item in enumerate(data):
                 item['relevance_score'] = profiles_with_scores[i][1]
                 item['profile_score'] = self.calculate_profile_score(queryset[i])
+                item['profile_url'] = request.build_absolute_uri(reverse('dashboard:background-profile-detail', args=[item['id']]))
             
             return Response(data)
         else:
@@ -1101,12 +1476,14 @@ class BackGroundJobsProfileSearchView(SearchViewMixin, generics.ListAPIView):
                 data = serializer.data
                 for i, item in enumerate(data):
                     item['profile_score'] = self.calculate_profile_score(page[i])
+                    item['profile_url'] = request.build_absolute_uri(reverse('dashboard:background-profile-detail', args=[item['id']]))
                 return self.get_paginated_response(data)
     
             serializer = self.get_serializer(queryset.order_by('-id'), many=True)
             data = serializer.data
             for i, item in enumerate(data):
                 item['profile_score'] = self.calculate_profile_score(queryset[i])
+                item['profile_url'] = request.build_absolute_uri(reverse('dashboard:background-profile-detail', args=[item['id']]))
             return Response(data)
 
 class PropSearchView(SearchViewMixin, generics.ListAPIView):
@@ -1424,7 +1801,41 @@ class RareItemSearchView(SearchViewMixin, generics.ListAPIView):
     permission_classes = [IsDashboardUser | IsAdminDashboardUser]
 
 class BandSearchView(SearchViewMixin, generics.ListAPIView):
-    queryset = Band.objects.all().prefetch_related('members', 'media')
+    def get_queryset(self):
+        """
+        Optimized queryset with annotations to reduce database queries
+        """
+        return Band.objects.select_related(
+            'creator', 'creator__user'
+        ).prefetch_related(
+            'members', 'media', 'bandmembership'
+        ).annotate(
+            # Annotate member count to avoid N+1 queries
+            member_count=Count('bandmembership'),
+            admin_count=Count('bandmembership', filter=Q(bandmembership__role='admin')),
+            # Annotate media count
+            media_count=Count('media'),
+            # Annotate creator info
+            creator_email=F('creator__user__email'),
+            creator_name=Case(
+                When(
+                    creator__user__first_name__isnull=False,
+                    creator__user__last_name__isnull=False,
+                    then=Concat('creator__user__first_name', Value(' '), 'creator__user__last_name')
+                ),
+                When(
+                    creator__user__first_name__isnull=False,
+                    then='creator__user__first_name'
+                ),
+                When(
+                    creator__user__last_name__isnull=False,
+                    then='creator__user__last_name'
+                ),
+                default='creator__user__email',
+                output_field=CharField()
+            )
+        )
+    
     serializer_class = BandDashboardSerializer
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     filterset_class = BandFilter
@@ -1433,9 +1844,10 @@ class BandSearchView(SearchViewMixin, generics.ListAPIView):
     
     def calculate_profile_score(self, band):
         """
-        Get the profile score from the model's method.
+        Get the profile score from the band's method with caching.
         """
-        score_breakdown = band.get_profile_score()
+        from .utils import get_profile_score_cached
+        score_breakdown = get_profile_score_cached(band)
         return score_breakdown['total']
     
     def calculate_relevance_score(self, queryset, filters):

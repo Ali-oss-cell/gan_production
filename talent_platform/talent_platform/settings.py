@@ -23,15 +23,33 @@ MEDIA_ROOT = BASE_DIR / 'media'
 # DigitalOcean Spaces Configuration (S3-compatible)
 USE_SPACES = os.getenv('USE_SPACES', 'False').lower() == 'true'
 
-# Video processing settings
-MAX_VIDEO_PROCESSING_TASKS = 2  # Maximum concurrent video processing tasks
-VIDEO_PROCESSING_TIMEOUT = 400  # Maximum time in seconds for processing a video (reduced for 100MB limit)
+# AWS S3 Configuration
+USE_S3 = os.getenv('USE_S3', 'False').lower() == 'true'
 
 # Media file size limits
 MAX_VIDEO_SIZE = 100 * 1024 * 1024  # 100 MB maximum video size
 MAX_IMAGE_SIZE = 10 * 1024 * 1024   # 10 MB maximum image size
 
-if USE_SPACES:
+if USE_S3:
+    # AWS S3 settings
+    AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID', '')
+    AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY', '')
+    AWS_STORAGE_BUCKET_NAME = os.getenv('AWS_STORAGE_BUCKET_NAME', '')
+    AWS_S3_REGION_NAME = os.getenv('AWS_S3_REGION_NAME', 'us-east-1')
+    AWS_S3_CUSTOM_DOMAIN = os.getenv('AWS_S3_CUSTOM_DOMAIN', f'{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com')
+    AWS_DEFAULT_ACL = 'public-read'
+    AWS_S3_OBJECT_PARAMETERS = {
+        'CacheControl': 'max-age=86400',
+    }
+    AWS_LOCATION = 'media'
+    
+    # Use S3 storage backend for media files
+    DEFAULT_FILE_STORAGE = 'talent_platform.storage_backends.S3MediaStorage'
+    
+    # Public media URL
+    MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/{AWS_LOCATION}/'
+
+elif USE_SPACES:
     # S3/Spaces settings
     AWS_ACCESS_KEY_ID = os.getenv('SPACES_ACCESS_KEY', '')
     AWS_SECRET_ACCESS_KEY = os.getenv('SPACES_SECRET_KEY', '')
@@ -108,30 +126,41 @@ CORS_ORIGIN_ALLOW_ALL = True
 CORS_ALLOW_CREDENTIALS = True
 
 CORS_ALLOWED_ORIGINS = [
-    "http://192.168.0.106:3000",
+    "http://192.168.0.104:3000",
     "http://192.168.0.119:3000",  # React frontend IP:port
   # React frontend IP:port
     "http://192.168.1.6:3000",  # Your IP address
     "http://192.168.1.9:3000",
-    "http://192.168.1.14:3000",
-    "http://192.168.0.103:3000",
+    "http://192.168.0.107:3000",
+    "http://192.168.0.110:3000",
+    "http://192.168.72.187:3000",  # <-- your new backend IP
+    "https://96bd-149-34-246-34.ngrok-free.app",  # <-- your new ngrok domain
+    "https://f858-149-34-246-34.ngrok-free.app",  # <-- new ngrok domain
 ]
 
 CSRF_TRUSTED_ORIGINS = [
     "http://192.168.0.119:3000",
-    "http://192.168.0.106:3000",
-    "http://192.168.1.6:3000",
+    "http://192.168.72.187:3000",
+    "http://192.168.0.101:3000",
     "http://192.168.1.9:3000",
-    "http://192.168.0.103:3000",
+    "http://192.168.0.107:3000",
+    "http://192.168.0.104:3000",  # <-- your new backend IP
+    "https://96bd-149-34-246-34.ngrok-free.app",  # <-- your new ngrok domain
+    "https://f858-149-34-246-34.ngrok-free.app",  # <-- new ngrok domain
 ]
 
 ALLOWED_HOSTS = [
     'localhost',
+    '192.168.1.104',  # <-- your new backend IP
+    '192.168.0.113',
     '192.168.0.108',
-    '192.168.0.103',
-    '192.168.77.85',  # <-- your backend IP
-    '39c3-149-34-246-34.ngrok-free.app' # <-- add your ngrok domain here,
-
+    '192.168.0.104',
+    '192.168.0.110',  # <-- your backend IP
+    '192.168.0.107',  # <-- adding the missing IP address
+    '96bd-149-34-246-34.ngrok-free.app',
+    'f858-149-34-246-34.ngrok-free.app',  # <-- new ngrok domain
+    "192.168.72.187",  # <-- your new ngrok domain
+    "192.168.72.85",   # <-- adding the missing IP address
 ]
 # settings.py
 SECURE_CROSS_ORIGIN_OPENER_POLICY = 'unsafe-none'
@@ -160,12 +189,55 @@ WSGI_APPLICATION = 'talent_platform.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
-}
+# Check if DATABASE_URL is set (for deployment platforms)
+DATABASE_URL = os.getenv('DATABASE_URL')
+
+if DATABASE_URL:
+    # Parse DATABASE_URL for deployment platforms
+    try:
+        import dj_database_url
+        DATABASES = {
+            'default': dj_database_url.parse(DATABASE_URL)
+        }
+    except ImportError:
+        # Fallback to SQLite if dj-database-url is not installed
+        DATABASES = {
+            'default': {
+                'ENGINE': 'django.db.backends.sqlite3',
+                'NAME': BASE_DIR / 'db.sqlite3',
+            }
+        }
+else:
+    # Check for DigitalOcean database environment variables
+    DO_DB_HOST = os.getenv('DO_DB_HOST')
+    DO_DB_NAME = os.getenv('DO_DB_NAME')
+    DO_DB_USER = os.getenv('DO_DB_USER')
+    DO_DB_PASSWORD = os.getenv('DO_DB_PASSWORD')
+    DO_DB_PORT = os.getenv('DO_DB_PORT', '25060')
+    
+    if DO_DB_HOST and DO_DB_NAME and DO_DB_USER and DO_DB_PASSWORD:
+        # DigitalOcean managed database
+        DATABASES = {
+            'default': {
+                'ENGINE': 'django.db.backends.postgresql',
+                'NAME': DO_DB_NAME,
+                'USER': DO_DB_USER,
+                'PASSWORD': DO_DB_PASSWORD,
+                'HOST': DO_DB_HOST,
+                'PORT': DO_DB_PORT,
+                'OPTIONS': {
+                    'sslmode': 'require',
+                },
+            }
+        }
+    else:
+        # Local development database
+        DATABASES = {
+            'default': {
+                'ENGINE': 'django.db.backends.sqlite3',
+                'NAME': BASE_DIR / 'db.sqlite3',
+            }
+        }
 
 
 # Password validation
@@ -236,14 +308,14 @@ REST_FRAMEWORK = {
         'rest_framework.throttling.UserRateThrottle',
     ],
     'DEFAULT_THROTTLE_RATES': {
-        'anon': '30/hour',
-        'user': '100/hour',
-        'talent_user': '100/hour',
-        'background_user': '100/hour',
-        'dashboard_user': '500/hour',        # Increased from 200
-        'admin_dashboard_user': '2000/hour', # Increased from 300 (much higher for admins)
-        'payment_endpoints': '30/hour',
-        'restricted_country': '50/hour',
+        'anon': '60/hour',           # Increased from 30
+        'user': '300/hour',          # Increased from 100
+        'talent_user': '500/hour',   # Increased from 100
+        'background_user': '500/hour', # Increased from 100
+        'dashboard_user': '1000/hour', # Increased from 500
+        'admin_dashboard_user': '5000/hour', # Increased from 2000
+        'payment_endpoints': '60/hour', # Increased from 30
+        'restricted_country': '100/hour', # Increased from 50
     }
 }
 
@@ -289,3 +361,67 @@ STRIPE_FEATURED_PRICE_ID = os.getenv('STRIPE_FEATURED_PRICE_ID')
 STRIPE_CUSTOM_URL_PRICE_ID = os.getenv('STRIPE_CUSTOM_URL_PRICE_ID')
 STRIPE_BACKGROUND_JOBS_PRICE_ID = os.getenv('STRIPE_BACKGROUND_JOBS_PRICE_ID')
 STRIPE_BANDS_PRICE_ID = os.getenv('STRIPE_BANDS_PRICE_ID')
+
+# Logging Configuration
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
+            'style': '{',
+        },
+        'simple': {
+            'format': '{levelname} {message}',
+            'style': '{',
+        },
+        'detailed': {
+            'format': '[{asctime}] {levelname} {name} {funcName}:{lineno} - {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'detailed',
+            'level': 'DEBUG',
+        },
+        'file': {
+            'class': 'logging.FileHandler',
+            'filename': BASE_DIR / 'logs' / 'django.log',
+            'formatter': 'detailed',
+            'level': 'DEBUG',
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console', 'file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'profiles': {
+            'handlers': ['console', 'file'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+        'profiles.talent_specialization_views': {
+            'handlers': ['console', 'file'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+        'profiles.talent_specialization_serializers': {
+            'handlers': ['console', 'file'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
+}
+
+# Create logs directory if it doesn't exist
+import os
+logs_dir = BASE_DIR / 'logs'
+logs_dir.mkdir(exist_ok=True)

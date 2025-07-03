@@ -18,6 +18,7 @@ from .pricing_config import (
     PAYMENT_SETTINGS
 )
 from users.permissions import IsTalentUser, IsBackgroundUser
+from .utils import CountryDetectionService
 
 from .models import SubscriptionPlan, Subscription, PaymentTransaction
 from .serializers import (
@@ -83,7 +84,7 @@ class SubscriptionPlanViewSet(viewsets.ModelViewSet):
             
         elif hasattr(self.request.user, 'is_background') and self.request.user.is_background:
             # For background users, only show background jobs plan
-            queryset = queryset.filter(name='back_ground_jobs')
+            queryset = queryset.filter(name='background_jobs')
         
         # Filter by active status if specified
         active_only = self.request.query_params.get('active_only', None)
@@ -149,7 +150,7 @@ class SubscriptionPlanViewSet(viewsets.ModelViewSet):
             
             elif hasattr(request.user, 'is_background') and request.user.is_background:
                 # For background users, only allow background jobs plan
-                if plan.name != 'back_ground_jobs':
+                if plan.name != 'background_jobs':
                     return Response(
                         {'error': 'Background users can only subscribe to the Background Jobs plan'},
                         status=status.HTTP_400_BAD_REQUEST
@@ -246,14 +247,16 @@ class SubscriptionViewSet(viewsets.ModelViewSet):
         
         This action:
         1. Validates the plan_id and URLs
-        2. Creates a Stripe checkout session
-        3. Returns the session ID and URL for redirection
+        2. Automatically detects user's country for payment methods
+        3. Creates a Stripe checkout session with appropriate payment methods
+        4. Returns the session ID and URL for redirection
         
         Request body:
         {
             "plan_id": int,  # ID of the subscription plan
             "success_url": str,  # URL to redirect after successful payment
-            "cancel_url": str  # URL to redirect if payment is cancelled
+            "cancel_url": str,  # URL to redirect if payment is cancelled
+            "region_code": str  # Optional: Override detected region (default: auto-detect)
         }
         
         Returns:
@@ -265,14 +268,47 @@ class SubscriptionViewSet(viewsets.ModelViewSet):
                 plan = SubscriptionPlan.objects.get(id=serializer.validated_data['plan_id'])
                 success_url = serializer.validated_data.get('success_url')
                 cancel_url = serializer.validated_data.get('cancel_url')
-
+                
+                # Auto-detect user's country for payment methods
+                region_code = serializer.validated_data.get('region_code')
+                if not region_code:
+                    region_code = CountryDetectionService.get_user_country(request.user, request)
+                    print(f"Auto-detected country: {region_code} for user {request.user.id}")
+                
+                # Check payment eligibility based on country
+                eligibility = CountryDetectionService.check_user_payment_eligibility(request.user, region_code)
+                if not eligibility['eligible']:
+                    return Response({
+                        'error': 'Payment not available',
+                        'message': eligibility['message'],
+                        'country': eligibility['country'],
+                        'restricted': eligibility['restricted']
+                    }, status=status.HTTP_403_FORBIDDEN)
+                
+                # Save the country to user profile if it's a manual override
+                if serializer.validated_data.get('region_code'):
+                    save_success = CountryDetectionService.save_country_to_user_profile(request.user, region_code)
+                    if not save_success:
+                        return Response({
+                            'error': 'Country restriction',
+                            'message': f'Payment processing is not available for users from {eligibility["country"]}. Please contact support for assistance.',
+                            'country': eligibility['country'],
+                            'restricted': True
+                        }, status=status.HTTP_403_FORBIDDEN)
+                
                 session = StripePaymentService.create_subscription_checkout_session(
                     user=request.user,
                     plan=plan,
                     success_url=success_url,
-                    cancel_url=cancel_url
+                    cancel_url=cancel_url,
+                    region_code=region_code
                 )
-                return Response({'session_id': session.id, 'url': session.url})
+                return Response({
+                    'session_id': session.id, 
+                    'url': session.url,
+                    'detected_region': region_code,
+                    'payment_methods': StripePaymentService.get_payment_methods_for_region(region_code)
+                })
             except SubscriptionPlan.DoesNotExist:
                 return Response({'error': 'Invalid plan ID'}, status=status.HTTP_400_BAD_REQUEST)
             except Exception as e:
@@ -321,6 +357,62 @@ class SubscriptionViewSet(viewsets.ModelViewSet):
             return Response(status)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=False, methods=['get'])
+    def all_users_plan_end(self, request):
+        """
+        Get plan end dates for all users with active subscriptions.
+        This endpoint syncs data from Stripe to ensure current_period_end is populated.
+        """
+        from users.permissions import IsDashboardUser, IsAdminDashboardUser
+        from django.utils import timezone
+        
+        # Check if user has dashboard permissions
+        if not (IsDashboardUser().has_permission(request, None) or 
+                IsAdminDashboardUser().has_permission(request, None)):
+            return Response(
+                {'error': 'Dashboard access required'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Get all active subscriptions
+        subscriptions = Subscription.objects.filter(
+            is_active=True,
+            status='active'
+        ).select_related('user', 'plan')
+        
+        # Sync data from Stripe for each subscription
+        updated_subscriptions = []
+        for subscription in subscriptions:
+            try:
+                # Get fresh data from Stripe
+                stripe_sub = stripe.Subscription.retrieve(subscription.stripe_subscription_id)
+                
+                # Update local database with Stripe data
+                subscription.current_period_start = timezone.datetime.fromtimestamp(
+                    stripe_sub.current_period_start, tz=timezone.utc
+                )
+                subscription.current_period_end = timezone.datetime.fromtimestamp(
+                    stripe_sub.current_period_end, tz=timezone.utc
+                )
+                subscription.status = stripe_sub.status
+                subscription.save()
+                
+                # Serialize the updated subscription
+                serializer = self.get_serializer(subscription)
+                updated_subscriptions.append(serializer.data)
+                
+            except Exception as e:
+                # If Stripe sync fails, still include the subscription with available data
+                serializer = self.get_serializer(subscription)
+                data = serializer.data
+                data['sync_error'] = str(e)
+                updated_subscriptions.append(data)
+        
+        return Response({
+            'total_subscriptions': len(updated_subscriptions),
+            'subscriptions': updated_subscriptions
+        })
 
 class PaymentTransactionViewSet(viewsets.ModelViewSet):
     serializer_class = PaymentTransactionSerializer

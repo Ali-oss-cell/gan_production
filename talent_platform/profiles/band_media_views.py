@@ -13,6 +13,7 @@ from rest_framework.permissions import IsAuthenticated
 from users.permissions import IsTalentUser
 from .permissions import IsBandAdmin
 from .utils.file_validators import get_max_file_sizes
+from payments.models import Subscription
 
 
 class BandMediaView(APIView):

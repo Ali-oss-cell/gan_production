@@ -8,10 +8,15 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         # Create or update plans from pricing_config
         for plan_key, plan_data in SUBSCRIPTION_PLANS.items():
+            # Convert plan key to lowercase for database name
+            plan_name = plan_key.lower()
+            if plan_key == 'BACKGROUND_JOBS':
+                plan_name = 'background_jobs'
+                
             plan, created = SubscriptionPlan.objects.update_or_create(
-                name=plan_key.lower(),
+                name=plan_name,
                 defaults={
-                    'description': f"{plan_data['name']} Plan - {', '.join(plan_data['features'][:2])}...",
+                    'description': f"{plan_data['name']} Plan - {', '.join(plan_data['features'][:3])}...",
                     'price': plan_data['price'],
                     'stripe_price_id': plan_data['stripe_price_id'],
                     'features': plan_data['features'],
