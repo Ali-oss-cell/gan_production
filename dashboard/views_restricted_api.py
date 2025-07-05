@@ -4,7 +4,7 @@ from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from users.permissions import IsAdminDashboardUser, IsDashboardUser
 from payments.models_restrictions import RestrictedCountryUser
-from payments.serializers_restrictions import RestrictedCountryUserSerializer
+from .serializers import RestrictedCountryUserSerializer
 from payments.country_restrictions import RESTRICTED_COUNTRIES
 from users.models import BaseUser
 from profiles.models import TalentUserProfile, BackGroundJobsProfile

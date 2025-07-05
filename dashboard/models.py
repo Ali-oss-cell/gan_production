@@ -3,6 +3,8 @@ from django.conf import settings
 from users.models import BaseUser
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes.fields import GenericForeignKey
+from django.db.models.signals import post_save, post_delete
+from django.dispatch import receiver
 
 class BulkEmail(models.Model):
     """Model for tracking bulk email campaigns sent to talent"""
@@ -116,7 +118,7 @@ class SharedMediaPost(models.Model):
     
     class Meta:
         ordering = ['-shared_at']
-        unique_together = ['shared_by', 'content_type', 'object_id']  # Prevent duplicate shares by same user
+        unique_together = ['content_type', 'object_id']  # Prevent duplicate shares of same media by any admin
         
     def __str__(self):
         return f"Shared by {self.shared_by.email} at {self.shared_at}"
@@ -168,3 +170,19 @@ class SharedMediaPost(models.Model):
         if owner:
             return f"Originally by {owner.first_name} {owner.last_name} (@{owner.email})"
         return "Original creator unknown"
+
+@receiver([post_save, post_delete], sender=SharedMediaPost)
+def clear_sharing_status_cache(sender, instance, **kwargs):
+    """
+    Clear sharing status cache when SharedMediaPost is created, updated, or deleted.
+    This ensures the frontend gets consistent sharing status information.
+    """
+    try:
+        from .utils import clear_sharing_status_cache
+        clear_sharing_status_cache(
+            content_type=instance.content_type,
+            object_id=instance.object_id
+        )
+    except Exception as e:
+        # Log error but don't fail the operation
+        print(f"Error clearing sharing status cache: {e}")

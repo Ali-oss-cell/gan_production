@@ -4,10 +4,49 @@ from django.utils import timezone
 from .models import SubscriptionPlan, Subscription, PaymentTransaction
 from profiles.models import TalentUserProfile, BackGroundJobsProfile
 from users.models import BaseUser
+from .payment_methods_config import PAYMENT_METHODS_CONFIG, REGIONAL_PREFERENCES
+from django.utils.timezone import datetime as dj_timezone
+import pytz as py_timezone
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
 
 class StripePaymentService:
+    @staticmethod
+    def get_payment_methods_for_region(region_code: str = 'ae') -> list:
+        """
+        Get payment methods based on user's region
+        Default to UAE (ae) if no region specified
+        """
+        print(f"\n=== DEBUG: Payment Methods for Region {region_code} ===")
+        
+        # Get regional preferences
+        regional_methods = REGIONAL_PREFERENCES.get(region_code.lower(), REGIONAL_PREFERENCES['global'])
+        print(f"Regional methods from config: {regional_methods}")
+        
+        # Convert to Stripe payment method types
+        stripe_methods = []
+        for method in regional_methods:
+            print(f"Processing method: {method}")
+            if method in PAYMENT_METHODS_CONFIG:
+                stripe_type = PAYMENT_METHODS_CONFIG[method]['stripe_type']
+                print(f"  -> Stripe type: {stripe_type}")
+                if stripe_type not in stripe_methods:
+                    stripe_methods.append(stripe_type)
+                    print(f"  -> Added to stripe_methods: {stripe_type}")
+                else:
+                    print(f"  -> Already in stripe_methods: {stripe_type}")
+            else:
+                print(f"  -> WARNING: Method {method} not found in PAYMENT_METHODS_CONFIG")
+        
+        # Always include card as fallback
+        if 'card' not in stripe_methods:
+            stripe_methods.append('card')
+            print(f"Added card as fallback")
+            
+        print(f"Final stripe_methods: {stripe_methods}")
+        print("=== END DEBUG ===\n")
+        return stripe_methods
+
     @staticmethod
     def create_customer(user: BaseUser) -> str:
         """Create a Stripe customer for a user"""
@@ -30,7 +69,8 @@ class StripePaymentService:
         user: BaseUser,
         plan: SubscriptionPlan,
         success_url: str,
-        cancel_url: str
+        cancel_url: str,
+        region_code: str = 'ae'  # Default to UAE
     ) -> dict:
         """Create a Stripe checkout session for subscription"""
         try:
@@ -45,21 +85,46 @@ class StripePaymentService:
                 print(f"Created customer with ID: {customer_id}")
 
             print(f"Creating Stripe checkout session with plan ID: {plan.stripe_price_id}")
-            session = stripe.checkout.Session.create(
-                customer=user.stripe_customer_id,
-                payment_method_types=['card'],
-                line_items=[{
+            
+            # Get payment methods based on user's region
+            payment_method_types = StripePaymentService.get_payment_methods_for_region(region_code)
+            print(f"Payment methods for region {region_code}: {payment_method_types}")
+            
+            # Debug: Print the exact checkout session parameters
+            checkout_params = {
+                'customer': user.stripe_customer_id,
+                'payment_method_types': payment_method_types,
+                'line_items': [{
                     'price': plan.stripe_price_id,
                     'quantity': 1,
                 }],
-                mode='subscription',
-                success_url=success_url,
-                cancel_url=cancel_url,
-                metadata={
-                    'plan_id': str(plan.id),  # Ensure plan_id is a string
-                    'user_id': str(user.id)   # Ensure user_id is a string
-                }
-            )
+                'mode': 'subscription',
+                'success_url': success_url,
+                'cancel_url': cancel_url,
+                'metadata': {
+                    'plan_id': str(plan.id),
+                    'user_id': str(user.id)
+                },
+                'automatic_tax': {'enabled': True},
+                'currency': 'aed',
+                'customer_creation': 'always',
+                'allow_promotion_codes': True,
+                'payment_method_options': {
+                    'card': {
+                        'request_three_d_secure': 'automatic',
+                    }
+                },
+                'payment_method_collection': 'always',
+            }
+            
+            print(f"\n=== DEBUG: Stripe Checkout Session Parameters ===")
+            print(f"Payment method types: {checkout_params['payment_method_types']}")
+            print(f"Currency: {checkout_params['currency']}")
+            print(f"Customer ID: {checkout_params['customer']}")
+            print(f"Plan Price ID: {checkout_params['line_items'][0]['price']}")
+            print("=== END DEBUG ===\n")
+            
+            session = stripe.checkout.Session.create(**checkout_params)
             print(f"Created session with ID: {session.id}")
             return session
         except stripe.error.StripeError as e:
@@ -115,22 +180,28 @@ class StripePaymentService:
                             profile = TalentUserProfile.objects.get(user=user)
                             print(f"Current account type: {profile.account_type}")
                             
-                            # Map plan name to account type
-                            account_type = plan.name.lower()
-                            print(f"Updating account type to: {account_type}")
-                            
-                            # Validate account type
-                            valid_types = [choice[0] for choice in TalentUserProfile.ACCOUNT_TYPES]
-                            if account_type not in valid_types:
-                                print(f"Error: Invalid account type {account_type}. Valid types are: {valid_types}")
-                                raise ValueError(f"Invalid account type: {account_type}")
-                            
-                            profile.account_type = account_type
-                            profile.save()
-                            
-                            # Verify the update
-                            updated_profile = TalentUserProfile.objects.get(user=user)
-                            print(f"Updated account type: {updated_profile.account_type}")
+                            # Handle bands plan separately - it's an add-on, not a main account type
+                            if plan.name.lower() == 'bands':
+                                print("Bands plan detected - this is an add-on subscription, not changing account type")
+                                # Don't change the account type for bands plan
+                                # The user keeps their existing account type (platinum, gold, silver, free)
+                            else:
+                                # Map plan name to account type for main plans
+                                account_type = plan.name.lower()
+                                print(f"Updating account type to: {account_type}")
+                                
+                                # Validate account type
+                                valid_types = [choice[0] for choice in TalentUserProfile.ACCOUNT_TYPES]
+                                if account_type not in valid_types:
+                                    print(f"Error: Invalid account type {account_type}. Valid types are: {valid_types}")
+                                    raise ValueError(f"Invalid account type: {account_type}")
+                                
+                                profile.account_type = account_type
+                                profile.save()
+                                
+                                # Verify the update
+                                updated_profile = TalentUserProfile.objects.get(user=user)
+                                print(f"Updated account type: {updated_profile.account_type}")
                             
                         except TalentUserProfile.DoesNotExist:
                             print(f"Error: Talent profile not found for user {user.id}")
@@ -142,7 +213,8 @@ class StripePaymentService:
                             profile = BackGroundJobsProfile.objects.get(user=user)
                             print(f"Current account type: {profile.account_type}")
                             
-                            account_type = 'back_ground_jobs' if plan.name == 'back_ground_jobs' else 'free'
+                            # Background users should get 'back_ground_jobs' account type when they subscribe
+                            account_type = 'back_ground_jobs' if plan.name == 'background_jobs' else 'free'
                             print(f"Updating account type to: {account_type}")
                             
                             # Validate account type
@@ -174,19 +246,35 @@ class StripePaymentService:
                     print(f"Error updating profile: {str(e)}")
                     raise
                 
-            elif event.type == 'customer.subscription.updated':
+            elif event.type in ['customer.subscription.updated', 'customer.subscription.created']:
                 subscription = event.data.object
-                stripe_subscription = Subscription.objects.get(
-                    stripe_subscription_id=subscription.id
-                )
-                
-                if subscription.status == 'active':
-                    stripe_subscription.status = 'active'
-                elif subscription.status == 'canceled':
-                    stripe_subscription.status = 'canceled'
-                    stripe_subscription.end_date = timezone.now()
-                
+                try:
+                    stripe_subscription = Subscription.objects.get(
+                        stripe_subscription_id=subscription.id
+                    )
+                except Subscription.DoesNotExist:
+                    print(f"No local subscription found for Stripe ID {subscription.id}")
+                    return False
+                # Always sync these fields from Stripe
+                stripe_subscription.status = subscription.status
+                # Update current_period_start
+                if getattr(subscription, 'current_period_start', None):
+                    stripe_subscription.current_period_start = dj_timezone.datetime.fromtimestamp(
+                        subscription.current_period_start, tz=py_timezone.utc
+                    )
+                # Update current_period_end
+                if getattr(subscription, 'current_period_end', None):
+                    stripe_subscription.current_period_end = dj_timezone.datetime.fromtimestamp(
+                        subscription.current_period_end, tz=py_timezone.utc
+                    )
+                # Update cancel_at_period_end
+                if hasattr(subscription, 'cancel_at_period_end'):
+                    stripe_subscription.cancel_at_period_end = subscription.cancel_at_period_end
+                # Update end_date if canceled
+                if subscription.status == 'canceled':
+                    stripe_subscription.end_date = dj_timezone.now()
                 stripe_subscription.save()
+                print(f"Updated local subscription {stripe_subscription.id} from Stripe event.")
                 return True
                 
             elif event.type == 'customer.subscription.deleted':

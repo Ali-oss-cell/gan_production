@@ -29,6 +29,7 @@ urlpatterns = [
     
     # Profile detail endpoints for dashboard users
     path('profiles/talent/<int:pk>/', views.TalentProfileDetailView.as_view(), name='talent-profile-detail'),
+    path('profiles/background/<int:pk>/', views.BackGroundJobsProfileDetailView.as_view(), name='background-profile-detail'),
     path('profiles/visual/<int:pk>/', views.VisualWorkerDetailView.as_view(), name='visual-worker-detail'),
     path('profiles/expressive/<int:pk>/', views.ExpressiveWorkerDetailView.as_view(), name='expressive-worker-detail'),
     path('profiles/hybrid/<int:pk>/', views.HybridWorkerDetailView.as_view(), name='hybrid-worker-detail'),
@@ -46,10 +47,8 @@ urlpatterns = [
     path('restricted-users/', RestrictedUsersAPIView.as_view(), name='restricted-users-api'),
     
     # Email management URLs
-    path('email/send/', email_views.BulkEmailView.as_view(), name='send-bulk-email'),
-    path('email/send-draft/<int:bulk_email_id>/', email_views.SendDraftEmailView.as_view(), name='send-draft-email'),
-    path('email/list/', email_views.BulkEmailListView.as_view(), name='bulk-email-list'),
-    path('email/<int:pk>/', email_views.BulkEmailDetailView.as_view(), name='bulk-email-detail'),
-    path('email/<int:bulk_email_id>/recipients/', email_views.EmailRecipientsView.as_view(), name='email-recipients'),
-    path('email/<int:bulk_email_id>/statistics/', email_views.email_statistics, name='email-statistics'),
+    path('email/send/', email_views.SendEmailView.as_view(), name='send-email'),
+    path('send-email/', email_views.SendEmailView.as_view(), name='send-email-alt'),
+    path('email/list/', email_views.EmailListView.as_view(), name='email-list'),
+    path('email/<int:pk>/', email_views.EmailDetailView.as_view(), name='email-detail'),
 ]

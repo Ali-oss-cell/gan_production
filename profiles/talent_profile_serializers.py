@@ -8,14 +8,19 @@ from .utils.file_validators import validate_video_file, validate_image_file
 
 #to great media for talent profile
 class TalentMediaSerializer(serializers.ModelSerializer):
+    sharing_status = serializers.SerializerMethodField()
     media_type = serializers.CharField(read_only=True)
     media_file = serializers.FileField(required=True)
     media_info = serializers.CharField(required=False, allow_blank=True)
     name = serializers.CharField(required=False)
+    thumbnail = serializers.ImageField(read_only=True)
+    talent = serializers.PrimaryKeyRelatedField(queryset=TalentUserProfile.objects.all(), required=False)
     
     class Meta:
         model = TalentMedia
-        fields = ['id', 'talent', 'media_type', 'media_file', 'created_at', 'updated_at', 'name', 'media_info', 'is_test_video', 'test_video_number', 'is_about_yourself_video']
+        fields = ['id', 'talent', 'name', 'media_info', 'media_type', 'media_file', 'thumbnail', 
+                 'created_at', 'updated_at', 'is_test_video', 'test_video_number', 'is_about_yourself_video', 'sharing_status']
+        read_only_fields = ['id', 'created_at']
         
     def validate_media_file(self, value):
         # Determine file type
@@ -35,6 +40,11 @@ class TalentMediaSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(str(e))
 
         return value
+
+    def get_sharing_status(self, obj):
+        """Get sharing status using centralized utility"""
+        from dashboard.utils import get_sharing_status
+        return get_sharing_status(obj)
 
 
 

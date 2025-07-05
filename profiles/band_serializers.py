@@ -207,6 +207,27 @@ class BandCreateSerializer(serializers.ModelSerializer):
             'contact_email', 'contact_phone', 'location', 'website', 'band_type'
         ]
     
+    def validate(self, data):
+        """Validate that user has bands subscription for creating bands"""
+        user = self.context['request'].user
+        
+        # Check if user has bands subscription (required for creating bands)
+        from payments.models import Subscription
+        has_bands_subscription = Subscription.objects.filter(
+            user=user,
+            plan__name='bands',
+            is_active=True,
+            status='active'
+        ).exists()
+        
+        if not has_bands_subscription:
+            raise serializers.ValidationError(
+                "You need an active Bands subscription to create a band. "
+                "You can join existing bands for free, or subscribe to the Bands plan to create your own band."
+            )
+        
+        return data
+    
     def create(self, validated_data):
         # Get the user from the context
         user = self.context['request'].user

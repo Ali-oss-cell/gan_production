@@ -2,7 +2,41 @@ from django.conf import settings
 
 # List of countries with payment restrictions
 RESTRICTED_COUNTRIES = [
-    'Syria',  # Add other countries as needed
+    'Syria',           # Sanctions
+    'Iran',            # Sanctions
+    'North Korea',     # Sanctions
+    'Cuba',            # Sanctions
+    'Venezuela',       # Banking restrictions
+    'Sudan',           # Sanctions
+    'Myanmar',         # Banking restrictions
+    'Belarus',         # Sanctions
+    'Russia',          # Banking restrictions (partial)
+    'Crimea',          # Sanctions
+    'Donetsk',         # Sanctions
+    'Luhansk',         # Sanctions
+    'Afghanistan',     # Banking restrictions
+    'Yemen',           # Banking restrictions
+    'Libya',           # Banking restrictions
+    'Iraq',            # Banking restrictions (partial)
+    'Somalia',         # Banking restrictions
+    'Central African Republic',  # Banking restrictions
+    'Democratic Republic of the Congo',  # Banking restrictions
+    'South Sudan',     # Banking restrictions
+    'Eritrea',         # Banking restrictions
+    'Burundi',         # Banking restrictions
+    'Zimbabwe',        # Banking restrictions
+    'Mali',            # Banking restrictions
+    'Burkina Faso',    # Banking restrictions
+    'Niger',           # Banking restrictions
+    'Chad',            # Banking restrictions
+    'Guinea-Bissau',   # Banking restrictions
+    'Guinea',          # Banking restrictions
+    'Sierra Leone',    # Banking restrictions
+    'Liberia',         # Banking restrictions
+    'Comoros',         # Banking restrictions
+    'Madagascar',      # Banking restrictions
+    'Mauritania',      # Banking restrictions
+    'Western Sahara',  # Banking restrictions
 ]
 
 # Function to check if a country has payment restrictions

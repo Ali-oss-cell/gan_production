@@ -8,24 +8,30 @@ from users.models import BaseUser
 import datetime
 from .models import SharedMediaPost
 from django.contrib.contenttypes.models import ContentType
+from payments.models_restrictions import RestrictedCountryUser
+from .utils import get_sharing_status
 
 class UserBasicSerializer(serializers.ModelSerializer):
+    """Basic user serializer for restricted users view"""
     class Meta:
         model = BaseUser
-        fields = ['id', 'email', 'first_name', 'last_name']
+        fields = ['id', 'email', 'first_name', 'last_name', 'country', 'city']
 
 class TalentDashboardSerializer(serializers.ModelSerializer):
+    """Basic user serializer for restricted users view"""
     user = UserBasicSerializer(read_only=True)
     age = serializers.SerializerMethodField()
     specialization_types = serializers.SerializerMethodField()
     media_count = serializers.SerializerMethodField()
     profile_score = serializers.SerializerMethodField()
+    email = serializers.CharField(source='user.email', read_only=True)
     
     class Meta:
         model = TalentUserProfile
-        fields = ['id', 'user', 'gender', 'city', 'country', 'date_of_birth', 'age', 
+        fields = ['id', 'email', 'user', 'gender', 'city', 'country', 'date_of_birth', 'age', 
                  'profile_picture', 'is_verified', 'account_type', 'profile_complete',
                  'specialization_types', 'media_count', 'profile_score']
+        read_only_fields = ['id', 'email', 'user', 'is_verified', 'profile_complete', 'account_type']
     
     def get_age(self, obj):
         if obj.date_of_birth:
@@ -303,10 +309,12 @@ class BackGroundDashboardSerializer(serializers.ModelSerializer):
     age = serializers.SerializerMethodField()
     item_count = serializers.SerializerMethodField()
     profile_score = serializers.SerializerMethodField()
+    email = serializers.CharField(source='user.email', read_only=True)
     
     class Meta:
         model = BackGroundJobsProfile
-        fields = ['id', 'user', 'country', 'date_of_birth', 'age', 'gender', 'account_type', 'item_count', 'profile_score']
+        fields = ['id', 'email', 'user', 'country', 'date_of_birth', 'age', 'gender', 'account_type', 'item_count', 'profile_score']
+        read_only_fields = ['id', 'email', 'user', 'account_type']
     
     def get_age(self, obj):
         if obj.date_of_birth:
@@ -443,75 +451,123 @@ class BackgroundProfileBasicSerializer(serializers.ModelSerializer):
 
 class PropDashboardSerializer(serializers.ModelSerializer):
     owner = BackgroundProfileBasicSerializer(source='BackGroundJobsProfile', read_only=True)
+    sharing_status = serializers.SerializerMethodField()
+    email = serializers.CharField(source='BackGroundJobsProfile.user.email', read_only=True)
     
     class Meta:
         model = Prop
-        fields = ['id', 'name', 'description', 'price', 'genre', 'is_for_rent', 'is_for_sale',
-                 'material', 'used_in_movie', 'condition', 'created_at', 'updated_at', 'image', 'owner']
+        fields = ['id', 'email', 'name', 'description', 'price', 'genre', 'is_for_rent', 'is_for_sale',
+                 'material', 'used_in_movie', 'condition', 'created_at', 'updated_at', 'image', 'owner', 'sharing_status']
+        read_only_fields = ['id', 'email', 'owner', 'created_at', 'updated_at']
+    
+    def get_sharing_status(self, obj):
+        """Get sharing status information for the prop using centralized utility"""
+        return get_sharing_status(obj)
 
 class CostumeDashboardSerializer(serializers.ModelSerializer):
     owner = BackgroundProfileBasicSerializer(source='BackGroundJobsProfile', read_only=True)
+    sharing_status = serializers.SerializerMethodField()
+    email = serializers.CharField(source='BackGroundJobsProfile.user.email', read_only=True)
     
     class Meta:
         model = Costume
-        fields = ['id', 'name', 'description', 'price', 'genre', 'is_for_rent', 'is_for_sale',
-                 'size', 'worn_by', 'era', 'created_at', 'updated_at', 'image', 'owner']
+        fields = ['id', 'email', 'name', 'description', 'price', 'genre', 'is_for_rent', 'is_for_sale',
+                 'size', 'worn_by', 'era', 'created_at', 'updated_at', 'image', 'owner', 'sharing_status']
+        read_only_fields = ['id', 'email', 'owner', 'created_at', 'updated_at']
+    
+    def get_sharing_status(self, obj):
+        """Get sharing status information for the costume using centralized utility"""
+        return get_sharing_status(obj)
 
 class LocationDashboardSerializer(serializers.ModelSerializer):
     owner = BackgroundProfileBasicSerializer(source='BackGroundJobsProfile', read_only=True)
+    sharing_status = serializers.SerializerMethodField()
+    email = serializers.CharField(source='BackGroundJobsProfile.user.email', read_only=True)
     
     class Meta:
         model = Location
-        fields = ['id', 'name', 'description', 'price', 'genre', 'is_for_rent', 'is_for_sale',
-                 'address', 'capacity', 'is_indoor', 'created_at', 'updated_at', 'image', 'owner']
+        fields = ['id', 'email', 'name', 'description', 'price', 'genre', 'is_for_rent', 'is_for_sale',
+                 'address', 'capacity', 'is_indoor', 'created_at', 'updated_at', 'image', 'owner', 'sharing_status']
+        read_only_fields = ['id', 'email', 'owner', 'created_at', 'updated_at']
+    
+    def get_sharing_status(self, obj):
+        """Get sharing status information for the location using centralized utility"""
+        return get_sharing_status(obj)
 
 class MemorabilaDashboardSerializer(serializers.ModelSerializer):
     owner = BackgroundProfileBasicSerializer(source='BackGroundJobsProfile', read_only=True)
+    sharing_status = serializers.SerializerMethodField()
+    email = serializers.CharField(source='BackGroundJobsProfile.user.email', read_only=True)
     
     class Meta:
         model = Memorabilia
-        fields = ['id', 'name', 'description', 'price', 'genre', 'is_for_rent', 'is_for_sale',
-                 'signed_by', 'authenticity_certificate', 'created_at', 'updated_at', 'image', 'owner']
+        fields = ['id', 'email', 'name', 'description', 'price', 'genre', 'is_for_rent', 'is_for_sale',
+                 'signed_by', 'authenticity_certificate', 'created_at', 'updated_at', 'image', 'owner', 'sharing_status']
+        read_only_fields = ['id', 'email', 'owner', 'created_at', 'updated_at']
+    
+    def get_sharing_status(self, obj):
+        """Get sharing status information for the memorabilia using centralized utility"""
+        return get_sharing_status(obj)
 
 class VehicleDashboardSerializer(serializers.ModelSerializer):
     owner = BackgroundProfileBasicSerializer(source='BackGroundJobsProfile', read_only=True)
+    sharing_status = serializers.SerializerMethodField()
+    email = serializers.CharField(source='BackGroundJobsProfile.user.email', read_only=True)
     
     class Meta:
         model = Vehicle
-        fields = ['id', 'name', 'description', 'price', 'genre', 'is_for_rent', 'is_for_sale',
-                 'make', 'model', 'year', 'created_at', 'updated_at', 'image', 'owner']
+        fields = ['id', 'email', 'name', 'description', 'price', 'genre', 'is_for_rent', 'is_for_sale',
+                 'make', 'model', 'year', 'condition', 'created_at', 'updated_at', 'image', 'owner', 'sharing_status']
+        read_only_fields = ['id', 'email', 'owner', 'created_at', 'updated_at']
+    
+    def get_sharing_status(self, obj):
+        """Get sharing status information for the vehicle using centralized utility"""
+        return get_sharing_status(obj)
 
 class ArtisticMaterialDashboardSerializer(serializers.ModelSerializer):
     owner = BackgroundProfileBasicSerializer(source='BackGroundJobsProfile', read_only=True)
+    sharing_status = serializers.SerializerMethodField()
+    email = serializers.CharField(source='BackGroundJobsProfile.user.email', read_only=True)
     
     class Meta:
         model = ArtisticMaterial
-        fields = ['id', 'name', 'description', 'price', 'genre', 'is_for_rent', 'is_for_sale',
-                 'type', 'condition', 'created_at', 'updated_at', 'image', 'owner']
+        fields = ['id', 'email', 'name', 'description', 'price', 'genre', 'is_for_rent', 'is_for_sale',
+                 'type', 'condition', 'created_at', 'updated_at', 'image', 'owner', 'sharing_status']
+        read_only_fields = ['id', 'email', 'owner', 'created_at', 'updated_at']
+    
+    def get_sharing_status(self, obj):
+        """Get sharing status information for the artistic material using centralized utility"""
+        return get_sharing_status(obj)
 
 class MusicItemDashboardSerializer(serializers.ModelSerializer):
     owner = BackgroundProfileBasicSerializer(source='BackGroundJobsProfile', read_only=True)
+    sharing_status = serializers.SerializerMethodField()
+    email = serializers.CharField(source='BackGroundJobsProfile.user.email', read_only=True)
     
     class Meta:
         model = MusicItem
-        fields = ['id', 'name', 'description', 'price', 'genre', 'is_for_rent', 'is_for_sale',
-                 'instrument_type', 'used_by', 'created_at', 'updated_at', 'image', 'owner']
+        fields = ['id', 'email', 'name', 'description', 'price', 'genre', 'is_for_rent', 'is_for_sale',
+                 'instrument_type', 'condition', 'created_at', 'updated_at', 'image', 'owner', 'sharing_status']
+        read_only_fields = ['id', 'email', 'owner', 'created_at', 'updated_at']
+    
+    def get_sharing_status(self, obj):
+        """Get sharing status information for the music item using centralized utility"""
+        return get_sharing_status(obj)
 
 class RareItemDashboardSerializer(serializers.ModelSerializer):
-    owner_name = serializers.SerializerMethodField()
-    
-    def get_owner_name(self, obj):
-        if obj.BackGroundJobsProfile and hasattr(obj.BackGroundJobsProfile, 'user'):
-            user = obj.BackGroundJobsProfile.user
-            if user.first_name and user.last_name:
-                return f"{user.first_name} {user.last_name}"
-            return user.email
-        return "Unknown"
+    owner = BackgroundProfileBasicSerializer(source='BackGroundJobsProfile', read_only=True)
+    sharing_status = serializers.SerializerMethodField()
+    email = serializers.CharField(source='BackGroundJobsProfile.user.email', read_only=True)
     
     class Meta:
         model = RareItem
-        fields = ['id', 'name', 'description', 'price', 'is_for_rent', 'is_for_sale', 
-                  'provenance', 'is_one_of_a_kind', 'owner_name', 'image']
+        fields = ['id', 'email', 'name', 'description', 'price', 'genre', 'is_for_rent', 'is_for_sale',
+                 'provenance', 'is_one_of_a_kind', 'created_at', 'updated_at', 'image', 'owner', 'sharing_status']
+        read_only_fields = ['id', 'email', 'owner', 'created_at', 'updated_at']
+    
+    def get_sharing_status(self, obj):
+        """Get sharing status information for the rare item using centralized utility"""
+        return get_sharing_status(obj)
 
 class BandMemberDashboardSerializer(serializers.ModelSerializer):
     member_name = serializers.SerializerMethodField()
@@ -535,35 +591,39 @@ class BandMemberDashboardSerializer(serializers.ModelSerializer):
         fields = ['id', 'member_name', 'profile_id', 'role', 'position', 'date_joined']
 
 class BandMediaDashboardSerializer(serializers.ModelSerializer):
+    sharing_status = serializers.SerializerMethodField()
+    
     class Meta:
         model = BandMedia
-        fields = ['id', 'name', 'media_info', 'media_type', 'media_file', 'created_at']
+        fields = ['id', 'name', 'media_info', 'media_type', 'media_file', 'created_at', 'sharing_status']
+    
+    def get_sharing_status(self, obj):
+        """
+        Get sharing status for a band media item using centralized utility.
+        """
+        return get_sharing_status(obj)
 
 class BandDashboardSerializer(serializers.ModelSerializer):
     members = serializers.SerializerMethodField()
     creator_name = serializers.SerializerMethodField()
     creator_id = serializers.SerializerMethodField()
+    creator_email = serializers.CharField(source='creator.user.email', read_only=True)
     media = BandMediaDashboardSerializer(many=True, read_only=True)
     member_count = serializers.IntegerField(read_only=True)
     admin_count = serializers.IntegerField(read_only=True)
     profile_score = serializers.SerializerMethodField()
     
     def get_members(self, obj):
-        memberships = BandMembership.objects.filter(band=obj).select_related('talent_user', 'talent_user__user')
+        memberships = obj.members.all()
         return BandMemberDashboardSerializer(memberships, many=True).data
     
     def get_creator_name(self, obj):
-        if obj.creator and hasattr(obj.creator, 'user'):
-            user = obj.creator.user
-            if user.first_name and user.last_name:
-                return f"{user.first_name} {user.last_name}"
-            return user.email
-        return "Unknown Creator"
+        if obj.creator and obj.creator.user:
+            return f"{obj.creator.user.first_name} {obj.creator.user.last_name}".strip() or obj.creator.user.email
+        return "Unknown"
     
     def get_creator_id(self, obj):
-        if obj.creator:
-            return obj.creator.id
-        return None
+        return obj.creator.user.id if obj.creator and obj.creator.user else None
     
     def get_profile_score(self, obj):
         # Start with breakdown of score components
@@ -670,11 +730,11 @@ class BandDashboardSerializer(serializers.ModelSerializer):
     class Meta:
         model = Band
         fields = [
-            'id', 'name', 'description', 'band_type', 'profile_picture', 
-            'contact_email', 'contact_phone', 'location', 'website',
-            'member_count', 'admin_count', 'members', 'creator_name', 
-            'creator_id', 'media', 'created_at', 'updated_at', 'profile_score'
+            'id', 'creator_email', 'name', 'band_type', 'location', 'description',
+            'creator_name', 'creator_id', 'members', 'media', 'member_count', 'admin_count',
+            'created_at', 'updated_at', 'profile_score'
         ]
+        read_only_fields = ['id', 'creator_email', 'creator_name', 'creator_id', 'members', 'media', 'member_count', 'admin_count', 'created_at', 'updated_at']
 
 # Email-related serializers for bulk email functionality
 from .models import BulkEmail, EmailRecipient
@@ -691,6 +751,37 @@ class BulkEmailSerializer(serializers.ModelSerializer):
     
     def get_sender_name(self, obj):
         return f"{obj.sender.first_name} {obj.sender.last_name}".strip() or obj.sender.email
+
+class EmailListSerializer(serializers.ModelSerializer):
+    """Serializer for email list with recipient information"""
+    sender_name = serializers.SerializerMethodField()
+    recipient_email = serializers.SerializerMethodField()
+    recipient_name = serializers.SerializerMethodField()
+    recipient_status = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = BulkEmail
+        fields = ['id', 'sender', 'sender_name', 'subject', 'message', 'search_criteria',
+                 'status', 'total_recipients', 'emails_sent', 'emails_failed', 
+                 'created_at', 'sent_at', 'recipient_email', 'recipient_name', 'recipient_status']
+        read_only_fields = ['sender', 'total_recipients', 'emails_sent', 'emails_failed', 'sent_at']
+    
+    def get_sender_name(self, obj):
+        return f"{obj.sender.first_name} {obj.sender.last_name}".strip() or obj.sender.email
+    
+    def get_recipient_email(self, obj):
+        recipient = obj.recipients.first()
+        return recipient.user.email if recipient else None
+    
+    def get_recipient_name(self, obj):
+        recipient = obj.recipients.first()
+        if recipient:
+            return f"{recipient.user.first_name} {recipient.user.last_name}".strip() or recipient.user.email
+        return None
+    
+    def get_recipient_status(self, obj):
+        recipient = obj.recipients.first()
+        return recipient.status if recipient else None
 
 class EmailRecipientSerializer(serializers.ModelSerializer):
     user_name = serializers.SerializerMethodField()
@@ -789,16 +880,18 @@ class ShareMediaSerializer(serializers.Serializer):
             
         except ContentType.DoesNotExist:
             raise serializers.ValidationError("Invalid content type")
-        except model_class.DoesNotExist:
+        except Exception as e:
             raise serializers.ValidationError("Content not found")
         
         return data
     
     def create(self, validated_data):
         """Create a new shared media post"""
-        # Remove our custom fields
+        # Remove our custom fields and the original fields that we handle separately
         content_type_obj = validated_data.pop('content_type_obj')
         shared_object = validated_data.pop('shared_object')
+        validated_data.pop('content_type', None)  # Remove the original content_type field
+        validated_data.pop('object_id', None)     # Remove the original object_id field
         
         # Create the shared post
         shared_post = SharedMediaPost.objects.create(
@@ -828,3 +921,15 @@ class SharedMediaPostListSerializer(serializers.ModelSerializer):
     
     def get_attribution_text(self, obj):
         return obj.get_attribution_text() 
+
+class RestrictedCountryUserSerializer(serializers.ModelSerializer):
+    user = UserBasicSerializer(read_only=True)
+    last_updated_by = UserBasicSerializer(read_only=True)
+    
+    class Meta:
+        model = RestrictedCountryUser
+        fields = [
+            'id', 'user', 'country', 'account_type', 'is_approved', 
+            'notes', 'created_at', 'updated_at', 'last_updated_by'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at'] 

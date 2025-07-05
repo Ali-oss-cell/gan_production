@@ -14,6 +14,8 @@ from pathlib import Path
 import stripe
 from dotenv import load_dotenv
 
+# Load environment variables first
+load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -23,20 +25,38 @@ MEDIA_ROOT = BASE_DIR / 'media'
 # DigitalOcean Spaces Configuration (S3-compatible)
 USE_SPACES = os.getenv('USE_SPACES', 'False').lower() == 'true'
 
-# Video processing settings
-MAX_VIDEO_PROCESSING_TASKS = 2  # Maximum concurrent video processing tasks
-VIDEO_PROCESSING_TIMEOUT = 400  # Maximum time in seconds for processing a video (reduced for 100MB limit)
+# AWS S3 Configuration
+USE_S3 = os.getenv('USE_S3', 'False').lower() == 'true'
 
 # Media file size limits
 MAX_VIDEO_SIZE = 100 * 1024 * 1024  # 100 MB maximum video size
 MAX_IMAGE_SIZE = 10 * 1024 * 1024   # 10 MB maximum image size
 
-if USE_SPACES:
+if USE_S3:
+    # AWS S3 settings
+    AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID', '')
+    AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY', '')
+    AWS_STORAGE_BUCKET_NAME = os.getenv('AWS_STORAGE_BUCKET_NAME', '')
+    AWS_S3_REGION_NAME = os.getenv('AWS_S3_REGION_NAME', 'us-east-1')
+    AWS_S3_CUSTOM_DOMAIN = os.getenv('AWS_S3_CUSTOM_DOMAIN', f'{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com')
+    AWS_DEFAULT_ACL = 'public-read'
+    AWS_S3_OBJECT_PARAMETERS = {
+        'CacheControl': 'max-age=86400',
+    }
+    AWS_LOCATION = 'media'
+    
+    # Use S3 storage backend for media files
+    DEFAULT_FILE_STORAGE = 'talent_platform.storage_backends.S3MediaStorage'
+    
+    # Public media URL
+    MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/{AWS_LOCATION}/'
+
+elif USE_SPACES:
     # S3/Spaces settings
     AWS_ACCESS_KEY_ID = os.getenv('SPACES_ACCESS_KEY', '')
     AWS_SECRET_ACCESS_KEY = os.getenv('SPACES_SECRET_KEY', '')
     AWS_STORAGE_BUCKET_NAME = os.getenv('SPACES_BUCKET_NAME', '')
-    AWS_S3_ENDPOINT_URL = os.getenv('SPACES_ENDPOINT_URL', 'https://nyc3.digitaloceanspaces.com')
+    AWS_S3_ENDPOINT_URL = os.getenv('SPACES_ENDPOINT_URL', 'https://fra1.digitaloceanspaces.com')
     AWS_S3_OBJECT_PARAMETERS = {
         'CacheControl': 'max-age=86400',
     }
@@ -49,11 +69,6 @@ if USE_SPACES:
     # Public media URL
     MEDIA_URL = f'https://{AWS_STORAGE_BUCKET_NAME}.{AWS_S3_ENDPOINT_URL.split("://")[1]}/{AWS_LOCATION}/'
 
-
-# Quick-start development settings - unsuitable for production
-
-
-
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
@@ -61,7 +76,7 @@ if USE_SPACES:
 SECRET_KEY = os.getenv('SECRET_KEY', '7@aaku@q1$6&^xg6re*i&(_&@m69-#&^ql%sh^u9!96ljm#cq=')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
 
 #ALLOWED_HOSTS = []
 
@@ -104,37 +119,65 @@ MIDDLEWARE = [
     'payments.middleware.UserTypeThrottlingMiddleware',
 ]
 
-CORS_ORIGIN_ALLOW_ALL = True
+CORS_ORIGIN_ALLOW_ALL = os.getenv('CORS_ORIGIN_ALLOW_ALL', 'False').lower() == 'true'
 CORS_ALLOW_CREDENTIALS = True
 
-CORS_ALLOWED_ORIGINS = [
-    "http://192.168.0.106:3000",
-    "http://192.168.0.119:3000",  # React frontend IP:port
-  # React frontend IP:port
-    "http://192.168.1.6:3000",  # Your IP address
-    "http://192.168.1.9:3000",
-    "http://192.168.1.14:3000",
-    "http://192.168.0.103:3000",
-]
+# Development CORS settings (only used when DEBUG=True)
+if DEBUG:
+    CORS_ALLOWED_ORIGINS = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://192.168.0.104:3000",
+        "http://192.168.0.119:3000",
+        "http://192.168.1.6:3000",
+        "http://192.168.1.9:3000",
+        "http://192.168.0.107:3000",
+        "http://192.168.0.110:3000",
+        "http://192.168.72.187:3000",
+    ]
+    
+    CSRF_TRUSTED_ORIGINS = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://192.168.0.119:3000",
+        "http://192.168.72.187:3000",
+        "http://192.168.0.101:3000",
+        "http://192.168.1.9:3000",
+        "http://192.168.0.107:3000",
+        "http://192.168.0.104:3000",
+    ]
+    
+    ALLOWED_HOSTS = [
+        'localhost',
+        '127.0.0.1',
+        '192.168.1.104',
+        '192.168.0.113',
+        '192.168.0.108',
+        '192.168.0.104',
+        '192.168.0.110',
+        '192.168.0.107',
+        '192.168.72.187',
+        '192.168.72.85',
+    ]
+else:
+    # Production CORS settings
+    CORS_ALLOWED_ORIGINS = [
+        "https://gan7club.com",
+        "https://www.gan7club.com",
+        "https://app.gan7club.com",
+    ]
+    
+    CSRF_TRUSTED_ORIGINS = [
+        "https://gan7club.com",
+        "https://www.gan7club.com",
+        "https://api.gan7club.com",
+        "https://app.gan7club.com",
+    ]
+    
+    ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '').split(',')
 
-CSRF_TRUSTED_ORIGINS = [
-    "http://192.168.0.119:3000",
-    "http://192.168.0.106:3000",
-    "http://192.168.1.6:3000",
-    "http://192.168.1.9:3000",
-    "http://192.168.0.103:3000",
-]
-
-ALLOWED_HOSTS = [
-    'localhost',
-    '192.168.1.6',
-    '192.168.0.103',
-    '192.168.77.85',  # <-- your backend IP
-    '39c3-149-34-246-34.ngrok-free.app' # <-- add your ngrok domain here,
-
-]
 # settings.py
-SECURE_CROSS_ORIGIN_OPENER_POLICY = 'unsafe-none'
+SECURE_CROSS_ORIGIN_OPENER_POLICY = 'same-origin-allow-popups'
         
 ROOT_URLCONF = 'talent_platform.urls'
 
@@ -160,12 +203,55 @@ WSGI_APPLICATION = 'talent_platform.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
-}
+# Check if DATABASE_URL is set (for deployment platforms)
+DATABASE_URL = os.getenv('DATABASE_URL')
+
+if DATABASE_URL:
+    # Parse DATABASE_URL for deployment platforms
+    try:
+        import dj_database_url
+        DATABASES = {
+            'default': dj_database_url.parse(DATABASE_URL)
+        }
+    except ImportError:
+        # Fallback to SQLite if dj-database-url is not installed
+        DATABASES = {
+            'default': {
+                'ENGINE': 'django.db.backends.sqlite3',
+                'NAME': BASE_DIR / 'db.sqlite3',
+            }
+        }
+else:
+    # Check for DigitalOcean database environment variables
+    DO_DB_HOST = os.getenv('DO_DB_HOST')
+    DO_DB_NAME = os.getenv('DO_DB_NAME')
+    DO_DB_USER = os.getenv('DO_DB_USER')
+    DO_DB_PASSWORD = os.getenv('DO_DB_PASSWORD')
+    DO_DB_PORT = os.getenv('DO_DB_PORT', '25060')
+    
+    if DO_DB_HOST and DO_DB_NAME and DO_DB_USER and DO_DB_PASSWORD:
+        # DigitalOcean managed database
+        DATABASES = {
+            'default': {
+                'ENGINE': 'django.db.backends.postgresql',
+                'NAME': DO_DB_NAME,
+                'USER': DO_DB_USER,
+                'PASSWORD': DO_DB_PASSWORD,
+                'HOST': DO_DB_HOST,
+                'PORT': DO_DB_PORT,
+                'OPTIONS': {
+                    'sslmode': 'require',
+                },
+            }
+        }
+    else:
+        # Local development database
+        DATABASES = {
+            'default': {
+                'ENGINE': 'django.db.backends.sqlite3',
+                'NAME': BASE_DIR / 'db.sqlite3',
+            }
+        }
 
 
 # Password validation
@@ -202,29 +288,34 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
+STATIC_ROOT = os.getenv('STATIC_ROOT', BASE_DIR / 'staticfiles')
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# Load environment variables first
-load_dotenv()
-
-# Email Configuration for Development
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-DEFAULT_FROM_EMAIL = 'noreply@example.com'
-# Emails will be printed to console instead of being sent
+# Email Configuration
+if DEBUG:
+    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+    DEFAULT_FROM_EMAIL = 'noreply@example.com'
+else:
+    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+    EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.hostinger.com')
+    EMAIL_PORT = int(os.getenv('EMAIL_PORT', 587))
+    EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True').lower() == 'true'
+    EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
+    EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
+    DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@gan7club.com')
 
 # Security Settings
-SECURE_SSL_REDIRECT = False  # Set to True in production
-SESSION_COOKIE_SECURE = False  # Set to True in production
-CSRF_COOKIE_SECURE = False  # Set to True in production
-
-
-
-
+SECURE_SSL_REDIRECT = os.getenv('SECURE_SSL_REDIRECT', 'False').lower() == 'true'
+SESSION_COOKIE_SECURE = os.getenv('SESSION_COOKIE_SECURE', 'False').lower() == 'true'
+CSRF_COOKIE_SECURE = os.getenv('CSRF_COOKIE_SECURE', 'False').lower() == 'true'
+SECURE_BROWSER_XSS_FILTER = True
+SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = 'DENY'
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
@@ -236,14 +327,14 @@ REST_FRAMEWORK = {
         'rest_framework.throttling.UserRateThrottle',
     ],
     'DEFAULT_THROTTLE_RATES': {
-        'anon': '30/hour',
-        'user': '100/hour',
-        'talent_user': '100/hour',
-        'background_user': '100/hour',
-        'dashboard_user': '200/hour',
-        'admin_dashboard_user': '300/hour',
-        'payment_endpoints': '30/hour',
-        'restricted_country': '50/hour',
+        'anon': '60/hour',
+        'user': '300/hour',
+        'talent_user': '500/hour',
+        'background_user': '500/hour',
+        'dashboard_user': '1000/hour',
+        'admin_dashboard_user': '5000/hour',
+        'payment_endpoints': '60/hour',
+        'restricted_country': '100/hour',
     }
 }
 
@@ -251,26 +342,17 @@ REST_FRAMEWORK = {
 from datetime import timedelta
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),  # Access token validity
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),    # Refresh token validity
-    'ROTATE_REFRESH_TOKENS': True,                  # Rotate refresh tokens
-    'BLACKLIST_AFTER_ROTATION': True,               # Blacklist old tokens
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
+    'UPDATE_LAST_LOGIN': True,
 }
-
-
-
-from dotenv import load_dotenv
-
-# Load environment variables first
-load_dotenv()
 
 # Stripe Configuration
 STRIPE_PUBLIC_KEY = os.getenv('STRIPE_PUBLIC_KEY')
 STRIPE_SECRET_KEY = os.getenv('STRIPE_SECRET_KEY')
 STRIPE_WEBHOOK_SECRET = os.getenv('STRIPE_WEBHOOK_SECRET')
-
-
-
 
 # Add to settings.py
 STRIPE_PRICE_IDS = {
@@ -289,3 +371,91 @@ STRIPE_FEATURED_PRICE_ID = os.getenv('STRIPE_FEATURED_PRICE_ID')
 STRIPE_CUSTOM_URL_PRICE_ID = os.getenv('STRIPE_CUSTOM_URL_PRICE_ID')
 STRIPE_BACKGROUND_JOBS_PRICE_ID = os.getenv('STRIPE_BACKGROUND_JOBS_PRICE_ID')
 STRIPE_BANDS_PRICE_ID = os.getenv('STRIPE_BANDS_PRICE_ID')
+
+# Logging Configuration
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
+            'style': '{',
+        },
+        'simple': {
+            'format': '{levelname} {message}',
+            'style': '{',
+        },
+        'detailed': {
+            'format': '[{asctime}] {levelname} {name} {funcName}:{lineno} - {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'detailed',
+            'level': 'DEBUG' if DEBUG else 'INFO',
+        },
+        'file': {
+            'class': 'logging.FileHandler',
+            'filename': BASE_DIR / 'logs' / 'django.log',
+            'formatter': 'detailed',
+            'level': 'DEBUG' if DEBUG else 'INFO',
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console', 'file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'profiles': {
+            'handlers': ['console', 'file'],
+            'level': 'DEBUG' if DEBUG else 'INFO',
+            'propagate': False,
+        },
+        'profiles.talent_specialization_views': {
+            'handlers': ['console', 'file'],
+            'level': 'DEBUG' if DEBUG else 'INFO',
+            'propagate': False,
+        },
+        'profiles.talent_specialization_serializers': {
+            'handlers': ['console', 'file'],
+            'level': 'DEBUG' if DEBUG else 'INFO',
+            'propagate': False,
+        },
+        'payments': {
+            'handlers': ['console', 'file'],
+            'level': 'DEBUG' if DEBUG else 'INFO',
+            'propagate': False,
+        },
+        'users': {
+            'handlers': ['console', 'file'],
+            'level': 'DEBUG' if DEBUG else 'INFO',
+            'propagate': False,
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
+}
+
+# Create logs directory if it doesn't exist
+import os
+logs_dir = BASE_DIR / 'logs'
+logs_dir.mkdir(exist_ok=True)
+
+# Cache Configuration
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.db.DatabaseCache',
+        'LOCATION': 'django_cache',
+    }
+}
+
+# Session Configuration
+SESSION_ENGINE = 'django.contrib.sessions.backends.db'
+
+# Performance optimizations
+CONN_MAX_AGE = 60  # Database connection pooling

@@ -8,14 +8,12 @@ from .views import (
     PricingView,
     CreateCheckoutSessionView
 )
-from .views_restrictions import RestrictedCountryUserViewSet
 
 # Create a router and register our viewsets with it
 router = DefaultRouter()
 router.register(r'plans', SubscriptionPlanViewSet, basename='plan')
 router.register(r'subscriptions', SubscriptionViewSet, basename='subscription')
 router.register(r'transactions', PaymentTransactionViewSet, basename='transaction')
-router.register(r'restricted-users', RestrictedCountryUserViewSet, basename='restricted-user')
 
 # The API URLs are now determined automatically by the router
 urlpatterns = [

@@ -11,12 +11,13 @@ from django.urls import reverse
 from users.models import BaseUser
 from users.serializers import UnifiedUserSerializer
 from users.permissions import IsAdminDashboardUser, IsDashboardUser
-from profiles.models import TalentUserProfile, VisualWorker, ExpressiveWorker, HybridWorker, TalentMedia, Band
+from profiles.models import TalentUserProfile, VisualWorker, ExpressiveWorker, HybridWorker, TalentMedia, Band, BackGroundJobsProfile
 from .serializers import (
     TalentDashboardSerializer, VisualWorkerDashboardSerializer, 
     ExpressiveWorkerDashboardSerializer, HybridWorkerDashboardSerializer,
-    BandDashboardSerializer
+    BandDashboardSerializer, BackGroundDashboardSerializer
 )
+from .utils import get_sharing_status
 
 
 
@@ -116,26 +117,41 @@ class DashboardUserDetailView(APIView):
 # Profile Detail Views for Dashboard Users
 class TalentProfileDetailView(RetrieveAPIView):
     """View for dashboard users to see detailed talent profile information"""
-    queryset = TalentUserProfile.objects.all().prefetch_related('media')
+    queryset = TalentUserProfile.objects.select_related('user').prefetch_related('media')
     serializer_class = TalentDashboardSerializer
     permission_classes = [IsDashboardUser | IsAdminDashboardUser]
+    
+    def get_sharing_status(self, media):
+        """
+        Get sharing status for a media item using centralized utility.
+        """
+        return get_sharing_status(media)
     
     def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()
         serializer = self.get_serializer(instance)
         data = serializer.data
         
-        # Add all media items associated with this profile
+        # Add all media items associated with this profile with sharing status
         media_items = instance.media.all()
-        data['media_items'] = [{
-            'id': media.id,
-            'name': media.name,
-            'media_type': media.media_type,
-            'media_info': media.media_info,
-            'media_file': request.build_absolute_uri(media.media_file.url) if media.media_file else None,
-            'thumbnail': request.build_absolute_uri(media.thumbnail.url) if media.thumbnail else None,
-            'created_at': media.created_at,
-        } for media in media_items]
+        data['media_items'] = []
+        for media in media_items:
+            # Get sharing status using centralized utility
+            sharing_status = self.get_sharing_status(media)
+            
+            media_data = {
+                'id': media.id,
+                'name': media.name,
+                'media_type': media.media_type,
+                'media_info': media.media_info,
+                'media_file': request.build_absolute_uri(media.media_file.url) if media.media_file else None,
+                'thumbnail': request.build_absolute_uri(media.thumbnail.url) if media.thumbnail else None,
+                'created_at': media.created_at,
+                'is_test_video': media.is_test_video,
+                'is_about_yourself_video': media.is_about_yourself_video,
+                'sharing_status': sharing_status
+            }
+            data['media_items'].append(media_data)
         
         # Add specialization details
         if hasattr(instance, 'visual_worker'):
@@ -152,10 +168,13 @@ class TalentProfileDetailView(RetrieveAPIView):
         return Response(data)
 
 
-class VisualWorkerDetailView(RetrieveAPIView):
-    """View for dashboard users to see detailed visual worker profile information"""
-    queryset = VisualWorker.objects.select_related('profile').prefetch_related('profile__media')
-    serializer_class = VisualWorkerDashboardSerializer
+class BackGroundJobsProfileDetailView(RetrieveAPIView):
+    """View for dashboard users to see detailed background profile information"""
+    queryset = BackGroundJobsProfile.objects.select_related('user').prefetch_related(
+        'prop_items', 'costume_items', 'location_items', 'memorabilia_items',
+        'vehicle_items', 'artisticmaterial_items', 'musicitem_items', 'rareitem_items'
+    )
+    serializer_class = BackGroundDashboardSerializer
     permission_classes = [IsDashboardUser | IsAdminDashboardUser]
     
     def retrieve(self, request, *args, **kwargs):
@@ -163,17 +182,198 @@ class VisualWorkerDetailView(RetrieveAPIView):
         serializer = self.get_serializer(instance)
         data = serializer.data
         
-        # Add all media items associated with this profile
+        # Add all items associated with this background profile
+        data['items'] = {
+            'props': [],
+            'costumes': [],
+            'locations': [],
+            'memorabilia': [],
+            'vehicles': [],
+            'artistic_materials': [],
+            'music_items': [],
+            'rare_items': []
+        }
+        
+        # Add props
+        for prop in instance.prop_items.all():
+            prop_data = {
+                'id': prop.id,
+                'name': prop.name,
+                'description': prop.description,
+                'price': prop.price,
+                'material': prop.material,
+                'used_in_movie': prop.used_in_movie,
+                'condition': prop.condition,
+                'is_for_rent': prop.is_for_rent,
+                'is_for_sale': prop.is_for_sale,
+                'image': request.build_absolute_uri(prop.image.url) if prop.image else None,
+                'created_at': prop.created_at,
+                'updated_at': prop.updated_at
+            }
+            data['items']['props'].append(prop_data)
+        
+        # Add costumes
+        for costume in instance.costume_items.all():
+            costume_data = {
+                'id': costume.id,
+                'name': costume.name,
+                'description': costume.description,
+                'price': costume.price,
+                'size': costume.size,
+                'worn_by': costume.worn_by,
+                'era': costume.era,
+                'is_for_rent': costume.is_for_rent,
+                'is_for_sale': costume.is_for_sale,
+                'image': request.build_absolute_uri(costume.image.url) if costume.image else None,
+                'created_at': costume.created_at,
+                'updated_at': costume.updated_at
+            }
+            data['items']['costumes'].append(costume_data)
+        
+        # Add locations
+        for location in instance.location_items.all():
+            location_data = {
+                'id': location.id,
+                'name': location.name,
+                'description': location.description,
+                'price': location.price,
+                'address': location.address,
+                'capacity': location.capacity,
+                'is_indoor': location.is_indoor,
+                'is_for_rent': location.is_for_rent,
+                'is_for_sale': location.is_for_sale,
+                'image': request.build_absolute_uri(location.image.url) if location.image else None,
+                'created_at': location.created_at,
+                'updated_at': location.updated_at
+            }
+            data['items']['locations'].append(location_data)
+        
+        # Add memorabilia
+        for memorabilia in instance.memorabilia_items.all():
+            memorabilia_data = {
+                'id': memorabilia.id,
+                'name': memorabilia.name,
+                'description': memorabilia.description,
+                'price': memorabilia.price,
+                'signed_by': memorabilia.signed_by,
+                'authenticity_certificate': request.build_absolute_uri(memorabilia.authenticity_certificate.url) if memorabilia.authenticity_certificate else None,
+                'is_for_rent': memorabilia.is_for_rent,
+                'is_for_sale': memorabilia.is_for_sale,
+                'image': request.build_absolute_uri(memorabilia.image.url) if memorabilia.image else None,
+                'created_at': memorabilia.created_at,
+                'updated_at': memorabilia.updated_at
+            }
+            data['items']['memorabilia'].append(memorabilia_data)
+        
+        # Add vehicles
+        for vehicle in instance.vehicle_items.all():
+            vehicle_data = {
+                'id': vehicle.id,
+                'name': vehicle.name,
+                'description': vehicle.description,
+                'price': vehicle.price,
+                'make': vehicle.make,
+                'model': vehicle.model,
+                'year': vehicle.year,
+                'is_for_rent': vehicle.is_for_rent,
+                'is_for_sale': vehicle.is_for_sale,
+                'image': request.build_absolute_uri(vehicle.image.url) if vehicle.image else None,
+                'created_at': vehicle.created_at,
+                'updated_at': vehicle.updated_at
+            }
+            data['items']['vehicles'].append(vehicle_data)
+        
+        # Add artistic materials
+        for artistic_material in instance.artisticmaterial_items.all():
+            artistic_material_data = {
+                'id': artistic_material.id,
+                'name': artistic_material.name,
+                'description': artistic_material.description,
+                'price': artistic_material.price,
+                'type': artistic_material.type,
+                'condition': artistic_material.condition,
+                'is_for_rent': artistic_material.is_for_rent,
+                'is_for_sale': artistic_material.is_for_sale,
+                'image': request.build_absolute_uri(artistic_material.image.url) if artistic_material.image else None,
+                'created_at': artistic_material.created_at,
+                'updated_at': artistic_material.updated_at
+            }
+            data['items']['artistic_materials'].append(artistic_material_data)
+        
+        # Add music items
+        for music_item in instance.musicitem_items.all():
+            music_item_data = {
+                'id': music_item.id,
+                'name': music_item.name,
+                'description': music_item.description,
+                'price': music_item.price,
+                'instrument_type': music_item.instrument_type,
+                'used_by': music_item.used_by,
+                'is_for_rent': music_item.is_for_rent,
+                'is_for_sale': music_item.is_for_sale,
+                'image': request.build_absolute_uri(music_item.image.url) if music_item.image else None,
+                'created_at': music_item.created_at,
+                'updated_at': music_item.updated_at
+            }
+            data['items']['music_items'].append(music_item_data)
+        
+        # Add rare items
+        for rare_item in instance.rareitem_items.all():
+            rare_item_data = {
+                'id': rare_item.id,
+                'name': rare_item.name,
+                'description': rare_item.description,
+                'price': rare_item.price,
+                'provenance': rare_item.provenance,
+                'is_one_of_a_kind': rare_item.is_one_of_a_kind,
+                'is_for_rent': rare_item.is_for_rent,
+                'is_for_sale': rare_item.is_for_sale,
+                'image': request.build_absolute_uri(rare_item.image.url) if rare_item.image else None,
+                'created_at': rare_item.created_at,
+                'updated_at': rare_item.updated_at
+            }
+            data['items']['rare_items'].append(rare_item_data)
+        
+        return Response(data)
+
+
+class VisualWorkerDetailView(RetrieveAPIView):
+    """View for dashboard users to see detailed visual worker profile information"""
+    queryset = VisualWorker.objects.select_related('profile').prefetch_related('profile__media')
+    serializer_class = VisualWorkerDashboardSerializer
+    permission_classes = [IsDashboardUser | IsAdminDashboardUser]
+    
+    def get_sharing_status(self, media):
+        """
+        Get sharing status for a media item using centralized utility.
+        """
+        return get_sharing_status(media)
+    
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        data = serializer.data
+        
+        # Add all media items associated with this profile with sharing status
         media_items = instance.profile.media.all()
-        data['media_items'] = [{
-            'id': media.id,
-            'name': media.name,
-            'media_type': media.media_type,
-            'media_info': media.media_info,
-            'media_file': request.build_absolute_uri(media.media_file.url) if media.media_file else None,
-            'thumbnail': request.build_absolute_uri(media.thumbnail.url) if media.thumbnail else None,
-            'created_at': media.created_at,
-        } for media in media_items]
+        data['media_items'] = []
+        for media in media_items:
+            # Get sharing status using centralized utility
+            sharing_status = self.get_sharing_status(media)
+            
+            media_data = {
+                'id': media.id,
+                'name': media.name,
+                'media_type': media.media_type,
+                'media_info': media.media_info,
+                'media_file': request.build_absolute_uri(media.media_file.url) if media.media_file else None,
+                'thumbnail': request.build_absolute_uri(media.thumbnail.url) if media.thumbnail else None,
+                'created_at': media.created_at,
+                'is_test_video': media.is_test_video,
+                'is_about_yourself_video': media.is_about_yourself_video,
+                'sharing_status': sharing_status
+            }
+            data['media_items'].append(media_data)
         
         return Response(data)
 
@@ -184,22 +384,37 @@ class ExpressiveWorkerDetailView(RetrieveAPIView):
     serializer_class = ExpressiveWorkerDashboardSerializer
     permission_classes = [IsDashboardUser | IsAdminDashboardUser]
     
+    def get_sharing_status(self, media):
+        """
+        Get sharing status for a media item using centralized utility.
+        """
+        return get_sharing_status(media)
+    
     def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()
         serializer = self.get_serializer(instance)
         data = serializer.data
         
-        # Add all media items associated with this profile
+        # Add all media items associated with this profile with sharing status
         media_items = instance.profile.media.all()
-        data['media_items'] = [{
-            'id': media.id,
-            'name': media.name,
-            'media_type': media.media_type,
-            'media_info': media.media_info,
-            'media_file': request.build_absolute_uri(media.media_file.url) if media.media_file else None,
-            'thumbnail': request.build_absolute_uri(media.thumbnail.url) if media.thumbnail else None,
-            'created_at': media.created_at,
-        } for media in media_items]
+        data['media_items'] = []
+        for media in media_items:
+            # Get sharing status using centralized utility
+            sharing_status = self.get_sharing_status(media)
+            
+            media_data = {
+                'id': media.id,
+                'name': media.name,
+                'media_type': media.media_type,
+                'media_info': media.media_info,
+                'media_file': request.build_absolute_uri(media.media_file.url) if media.media_file else None,
+                'thumbnail': request.build_absolute_uri(media.thumbnail.url) if media.thumbnail else None,
+                'created_at': media.created_at,
+                'is_test_video': media.is_test_video,
+                'is_about_yourself_video': media.is_about_yourself_video,
+                'sharing_status': sharing_status
+            }
+            data['media_items'].append(media_data)
         
         return Response(data)
 

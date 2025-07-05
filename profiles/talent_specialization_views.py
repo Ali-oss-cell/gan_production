@@ -3,6 +3,10 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 import json
+import logging
+
+# Set up logger
+logger = logging.getLogger(__name__)
 
 from .models import (
     TalentUserProfile, VisualWorker, ExpressiveWorker, HybridWorker, TalentMedia
@@ -24,6 +28,11 @@ class TalentSpecializationView(APIView):
         Parse multipart form data into nested structure for the serializer.
         Handles both JSON data and file uploads.
         """
+        logger.info(f"Parsing multipart data for user {request.user.id}")
+        logger.info(f"Request content type: {request.content_type}")
+        logger.info(f"Request FILES keys: {list(request.FILES.keys())}")
+        logger.info(f"Request DATA keys: {list(request.data.keys())}")
+        
         data = {}
         
         # Parse JSON fields from form data
@@ -31,9 +40,11 @@ class TalentSpecializationView(APIView):
             if field in request.data:
                 try:
                     data[field] = json.loads(request.data[field])
-                except (json.JSONDecodeError, TypeError):
+                    logger.info(f"Parsed JSON field '{field}': {data[field]}")
+                except (json.JSONDecodeError, TypeError) as e:
                     # If it's not JSON, keep as is
                     data[field] = request.data[field]
+                    logger.info(f"Field '{field}' is not JSON, keeping as string: {data[field]}")
         
         # Handle file uploads - map files to the media_file fields
         if 'test_videos' in data and isinstance(data['test_videos'], list):
@@ -41,10 +52,21 @@ class TalentSpecializationView(APIView):
                 file_key = f'test_video_{i + 1}'
                 if file_key in request.FILES:
                     video_data['media_file'] = request.FILES[file_key]
+                    logger.info(f"Added test video file {file_key}")
         
-        if 'about_yourself_video' in data:
-            if 'about_video' in request.FILES:
-                data['about_yourself_video']['media_file'] = request.FILES['about_video']
+        # Handle about yourself video - frontend sends 'about_video' file
+        if 'about_video' in request.FILES:
+            # Create about_yourself_video structure if it doesn't exist
+            if 'about_yourself_video' not in data:
+                data['about_yourself_video'] = {
+                    'name': 'About Yourself',
+                    'media_info': 'Talk about yourself',
+                    'is_test_video': True,
+                    'is_about_yourself_video': True,
+                    'test_video_number': 5
+                }
+            data['about_yourself_video']['media_file'] = request.FILES['about_video']
+            logger.info("Added about yourself video file from 'about_video'")
 
         # Handle file uploads for test_images
         if 'test_images' in data and isinstance(data['test_images'], list):
@@ -52,6 +74,7 @@ class TalentSpecializationView(APIView):
                 file_key = f'test_image_{i + 1}' # Assuming files are named test_image_1, test_image_2, etc.
                 if file_key in request.FILES:
                     image_data['media_file'] = request.FILES[file_key]
+                    logger.info(f"Added test image file {file_key}")
 
         # Handle image uploads for each specialization
         for spec in ['visual_worker', 'expressive_worker', 'hybrid_worker']:
@@ -60,7 +83,9 @@ class TalentSpecializationView(APIView):
                     file_key = f"{spec}_{img_field}"
                     if file_key in request.FILES:
                         data[spec][img_field] = request.FILES[file_key]
+                        logger.info(f"Added {spec} {img_field} file")
         
+        logger.info(f"Final parsed data keys: {list(data.keys())}")
         return data
     
     def get(self, request):
@@ -98,20 +123,39 @@ class TalentSpecializationView(APIView):
     
     def post(self, request):
         """Create or update specializations for the talent user"""
+        logger.info(f"=== SPECIALIZATION POST REQUEST START ===")
+        logger.info(f"User ID: {request.user.id}")
+        logger.info(f"User Email: {request.user.email}")
+        logger.info(f"Content Type: {request.content_type}")
+        logger.info(f"Request Method: {request.method}")
+        
         try:
             profile = TalentUserProfile.objects.get(user=request.user)
+            logger.info(f"Found talent profile: {profile.id}")
             
             # Parse the request data (handles both JSON and multipart)
             if request.content_type and 'multipart/form-data' in request.content_type:
+                logger.info("Processing as multipart/form-data")
                 parsed_data = self.parse_multipart_data(request)
             else:
+                logger.info("Processing as JSON data")
                 parsed_data = request.data
+                logger.info(f"Raw request data: {parsed_data}")
+            
+            logger.info(f"Parsed data structure: {json.dumps(parsed_data, default=str, indent=2)}")
             
             serializer = TalentSpecializationSerializer(data=parsed_data)
+            logger.info("Created serializer instance")
+            
             if serializer.is_valid():
+                logger.info("SUCCESS: Serializer validation PASSED")
                 validated = serializer.validated_data
+                logger.info(f"Validated data keys: {list(validated.keys())}")
+                
                 # Update the profile with specializations
                 serializer.update(profile, validated)
+                logger.info("SUCCESS: Profile updated with specializations")
+                
                 # Handle test videos and about_yourself_video
                 expressive = validated.get('expressive_worker')
                 visual = validated.get('visual_worker')
@@ -119,9 +163,16 @@ class TalentSpecializationView(APIView):
                 test_videos = validated.get('test_videos', [])
                 about_yourself_video = validated.get('about_yourself_video', None)
                 
+                logger.info(f"Expressive worker data: {expressive}")
+                logger.info(f"Test videos count: {len(test_videos)}")
+                logger.info(f"About yourself video: {about_yourself_video is not None}")
+                
                 # Check if any specialization is being created/updated
                 has_specialization = any([expressive, visual, hybrid])
                 performer_type = expressive.get('performer_type') if expressive else None
+                
+                logger.info(f"Has specialization: {has_specialization}")
+                logger.info(f"Performer type: {performer_type}")
                 
                 errors = []
                 created_videos = []
@@ -129,7 +180,9 @@ class TalentSpecializationView(APIView):
                 if has_specialization:
                     # Save the 4 test videos (only for actor, comparse, host)
                     if performer_type in ['actor', 'comparse', 'host'] and test_videos:
-                        for vid in test_videos:
+                        logger.info(f"Processing {len(test_videos)} test videos for {performer_type}")
+                        for i, vid in enumerate(test_videos):
+                            logger.info(f"Processing test video {i+1}: {vid}")
                             vid_data = {
                                 'talent': profile.id,
                                 'media_file': vid['media_file'],
@@ -145,13 +198,17 @@ class TalentSpecializationView(APIView):
                                     media_type = 'video'
                                     media_serializer.save(media_type=media_type)
                                     created_videos.append(media_serializer.data)
+                                    logger.info(f"SUCCESS: Test video {i+1} saved successfully")
                                 except Exception as e:
+                                    logger.error(f"ERROR: Error saving test video {i+1}: {str(e)}")
                                     errors.append(str(e))
                             else:
+                                logger.error(f"ERROR: Test video {i+1} validation failed: {media_serializer.errors}")
                                 errors.append(media_serializer.errors)
                     
                     # Save the about_yourself_video (required for ALL specializations)
                     if about_yourself_video:
+                        logger.info("Processing about yourself video")
                         about_data = {
                             'talent': profile.id,
                             'media_file': about_yourself_video['media_file'],
@@ -167,13 +224,19 @@ class TalentSpecializationView(APIView):
                                 media_type = 'video'
                                 about_serializer.save(media_type=media_type)
                                 created_videos.append(about_serializer.data)
+                                logger.info("SUCCESS: About yourself video saved successfully")
                             except Exception as e:
+                                logger.error(f"ERROR: Error saving about yourself video: {str(e)}")
                                 errors.append(str(e))
                         else:
+                            logger.error(f"ERROR: About yourself video validation failed: {about_serializer.errors}")
                             errors.append(about_serializer.errors)
                 
                 if errors:
+                    logger.error(f"ERROR: Errors occurred during processing: {errors}")
                     return Response({'error': 'Some test videos failed to upload.', 'details': errors}, status=status.HTTP_400_BAD_REQUEST)
+                
+                logger.info("SUCCESS: Specialization update completed successfully")
                 return Response(
                     {
                         "message": "Specializations updated successfully.", 
@@ -184,12 +247,26 @@ class TalentSpecializationView(APIView):
                     status=status.HTTP_200_OK
                 )
             else:
+                logger.error("ERROR: Serializer validation FAILED")
+                logger.error(f"Validation errors: {json.dumps(serializer.errors, default=str, indent=2)}")
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         except TalentUserProfile.DoesNotExist:
+            logger.error(f"ERROR: Talent profile not found for user {request.user.id}")
             return Response(
                 {"error": "Talent profile not found."},
                 status=status.HTTP_404_NOT_FOUND
             )
+        except Exception as e:
+            logger.error(f"ERROR: Unexpected error in specialization POST: {str(e)}")
+            logger.error(f"Error type: {type(e)}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
+            return Response(
+                {"error": f"An unexpected error occurred: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+        finally:
+            logger.info("=== SPECIALIZATION POST REQUEST END ===")
     
     def delete(self, request):
         """Remove a specialization from a talent profile"""
@@ -290,7 +367,7 @@ class ReferenceDataView(APIView):
                 'body_types': getattr(HybridWorker, 'BODY_TYPES', []),
                 'fitness_levels': getattr(HybridWorker, 'FITNESS_LEVELS', []),
                 'risk_levels': getattr(HybridWorker, 'RISK_LEVELS', []),
-                'availability_choices': getattr(HybridWorker, 'AVAILABILITY_CHOICES', []),
+                'availability_choices': getattr(HybridWorker, 'AVAILABILITY_CHOICES', [])
             })
         
         else:

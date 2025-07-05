@@ -154,3 +154,43 @@ class ThrottlingAPITest(TestCase):
         # The 31st request should be throttled
         response = self.client.get('/api/payments/pricing/')
         self.assertEqual(response.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
+
+
+class AdminThrottlingTest(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        
+        # Create an admin dashboard user
+        self.admin_user = User.objects.create_user(
+            email='admin@example.com',
+            password='password123',
+            first_name='Admin',
+            last_name='User',
+            is_dashboard=True,
+            is_dashboard_admin=True
+        )
+    
+    def test_admin_rate_limit_increased(self):
+        """Test that admin users have much higher rate limits"""
+        self.client.force_authenticate(user=self.admin_user)
+        
+        # Admin users should be able to make 2000 requests per hour
+        # Let's test with a reasonable number (50 requests)
+        for i in range(50):
+            response = self.client.get('/api/dashboard/search/?profile_type=talent')
+            self.assertEqual(response.status_code, 200, f"Request {i+1} failed")
+        
+        # Check that we haven't hit the rate limit yet
+        response = self.client.get('/api/dashboard/search/?profile_type=talent')
+        self.assertEqual(response.status_code, 200)
+        
+        # Verify the rate limit headers show the higher limit
+        self.assertIn('X-RateLimit-Limit', response.headers)
+        self.assertIn('X-RateLimit-Remaining', response.headers)
+        
+        # The limit should be 2000 for admin users
+        limit = int(response.headers['X-RateLimit-Limit'])
+        remaining = int(response.headers['X-RateLimit-Remaining'])
+        
+        self.assertEqual(limit, 2000, "Admin rate limit should be 2000/hour")
+        self.assertGreater(remaining, 1900, "Should have most requests remaining")

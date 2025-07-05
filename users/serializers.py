@@ -2,6 +2,7 @@ from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from datetime import date
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+import os
 
 User = get_user_model()
 
@@ -120,7 +121,11 @@ class UnifiedUserSerializer(serializers.ModelSerializer):
         # Send verification email
         from django.core.mail import send_mail
         from django.conf import settings
-        verification_url = f"http://localhost:3000/verify-email?token={user.email_verification_token}"
+        
+        # Get the frontend URL from environment variables, fallback to localhost for development
+        frontend_url = os.getenv('FRONTEND_URL', 'http://localhost:3000')
+        verification_url = f"{frontend_url}/verify-email?token={user.email_verification_token}"
+        
         send_mail(
             'Verify your email address',
             f'Please click the following link to verify your email address: {verification_url}',

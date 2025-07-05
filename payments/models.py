@@ -12,7 +12,7 @@ class SubscriptionPlan(models.Model):
         ('silver', 'Silver'),
         ('gold', 'Gold'),
         ('platinum', 'Platinum'),
-        ('back_ground_jobs', 'Background Jobs'),
+        ('background_jobs', 'Background Jobs Professional'),
         ('bands', 'Bands'),
     ]
     
@@ -44,12 +44,12 @@ class SubscriptionPlan(models.Model):
     
     def is_for_background(self):
         """Check if this plan is for background users"""
-        return self.name == 'back_ground_jobs'
+        return self.name == 'background_jobs'
     
     def get_account_type(self):
         """Get the corresponding account type for this plan"""
-        if self.name == 'back_ground_jobs':
-            return 'back_ground_jobs'
+        if self.name == 'background_jobs':
+            return 'background_jobs'
         return self.name  # For talent plans, account type matches plan name
     
     def get_monthly_price(self):
@@ -70,7 +70,7 @@ class SubscriptionPlan(models.Model):
             )
         elif user_type == 'background':
             return cls.objects.filter(
-                name='back_ground_jobs',
+                name='background_jobs',
                 is_active=True
             )
         return cls.objects.none()
@@ -173,8 +173,25 @@ class PaymentTransaction(models.Model):
     
     PAYMENT_METHOD_CHOICES = [
         ('card', 'Credit/Debit Card'),
+        ('apple_pay', 'Apple Pay'),
+        ('google_pay', 'Google Pay'),
+        ('paypal', 'PayPal'),
         ('bank_transfer', 'Bank Transfer'),
-        ('other', 'Other'),
+        ('sepa_debit', 'SEPA Direct Debit'),
+        ('ideal', 'iDEAL'),
+        ('sofort', 'Sofort'),
+        ('bancontact', 'Bancontact'),
+        ('giropay', 'Giropay'),
+        ('eps', 'EPS'),
+        ('p24', 'Przelewy24'),
+        ('alipay', 'Alipay'),
+        ('wechat_pay', 'WeChat Pay'),
+        ('grabpay', 'GrabPay'),
+        ('afterpay', 'Afterpay'),
+        ('klarna', 'Klarna'),
+        ('affirm', 'Affirm'),
+        ('mada', 'Mada'),
+        ('unionpay', 'UnionPay'),
     ]
     
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='transactions')
@@ -213,7 +230,26 @@ class PaymentTransaction(models.Model):
         if self.payment_method == 'card':
             card = self.payment_method_details.get('card', {})
             return f"Card ending in {card.get('last4', '****')}"
-        return self.get_payment_method_display()
+        elif self.payment_method == 'apple_pay':
+            return "Apple Pay"
+        elif self.payment_method == 'google_pay':
+            return "Google Pay"
+        elif self.payment_method == 'paypal':
+            return "PayPal"
+        elif self.payment_method == 'bank_transfer':
+            bank = self.payment_method_details.get('bank_transfer', {})
+            return f"Bank Transfer - {bank.get('bank_name', 'Unknown Bank')}"
+        elif self.payment_method == 'sepa_debit':
+            sepa = self.payment_method_details.get('sepa_debit', {})
+            return f"SEPA Debit - {sepa.get('bank_code', '****')}"
+        elif self.payment_method in ['ideal', 'sofort', 'bancontact', 'giropay', 'eps', 'p24']:
+            return self.get_payment_method_display().title()
+        elif self.payment_method in ['alipay', 'wechat_pay', 'grabpay']:
+            return self.get_payment_method_display().title()
+        elif self.payment_method in ['afterpay', 'klarna', 'affirm']:
+            return self.get_payment_method_display().title()
+        else:
+            return self.get_payment_method_display()
     
     def get_billing_details_display(self):
         """Get formatted billing details"""
@@ -234,4 +270,100 @@ class PaymentTransaction(models.Model):
     def get_net_amount(self):
         """Get net amount after refunds"""
         return self.amount - self.refunded_amount
+
+class PaymentMethodSupport(models.Model):
+    """Model to track supported payment methods by region and currency"""
+    PAYMENT_METHOD_CHOICES = [
+        ('card', 'Credit/Debit Card'),
+        ('apple_pay', 'Apple Pay'),
+        ('google_pay', 'Google Pay'),
+        ('paypal', 'PayPal'),
+        ('bank_transfer', 'Bank Transfer'),
+        ('sepa_debit', 'SEPA Direct Debit'),
+        ('ideal', 'iDEAL'),
+        ('sofort', 'Sofort'),
+        ('bancontact', 'Bancontact'),
+        ('giropay', 'Giropay'),
+        ('eps', 'EPS'),
+        ('p24', 'Przelewy24'),
+        ('alipay', 'Alipay'),
+        ('wechat_pay', 'WeChat Pay'),
+        ('grabpay', 'GrabPay'),
+        ('afterpay', 'Afterpay'),
+        ('klarna', 'Klarna'),
+        ('affirm', 'Affirm'),
+        ('mada', 'Mada'),
+        ('unionpay', 'UnionPay'),
+    ]
+    
+    REGION_CHOICES = [
+        ('us', 'United States'),
+        ('eu', 'European Union'),
+        ('uk', 'United Kingdom'),
+        ('ca', 'Canada'),
+        ('au', 'Australia'),
+        ('sg', 'Singapore'),
+        ('my', 'Malaysia'),
+        ('ph', 'Philippines'),
+        ('th', 'Thailand'),
+        ('vn', 'Vietnam'),
+        ('id', 'Indonesia'),
+        ('cn', 'China'),
+        ('jp', 'Japan'),
+        ('kr', 'South Korea'),
+        ('in', 'India'),
+        ('br', 'Brazil'),
+        ('mx', 'Mexico'),
+        ('global', 'Global'),
+    ]
+    
+    payment_method = models.CharField(max_length=20, choices=PAYMENT_METHOD_CHOICES)
+    region = models.CharField(max_length=10, choices=REGION_CHOICES)
+    currency = models.CharField(max_length=3, default='USD')
+    is_active = models.BooleanField(default=True)
+    min_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    max_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    processing_fee = models.DecimalField(max_digits=5, decimal_places=4, default=0, help_text="Processing fee as percentage")
+    fixed_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0, help_text="Fixed processing fee")
+    stripe_payment_method_type = models.CharField(max_length=50, blank=True, null=True)
+    notes = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        unique_together = ['payment_method', 'region', 'currency']
+        ordering = ['region', 'payment_method']
+    
+    def __str__(self):
+        return f"{self.get_payment_method_display()} - {self.get_region_display()} ({self.currency})"
+    
+    @classmethod
+    def get_available_methods(cls, region, currency='USD', amount=None):
+        """Get available payment methods for a region and currency"""
+        queryset = cls.objects.filter(
+            region__in=[region, 'global'],
+            currency=currency,
+            is_active=True
+        )
+        
+        if amount:
+            queryset = queryset.filter(
+                models.Q(min_amount__isnull=True) | models.Q(min_amount__lte=amount),
+                models.Q(max_amount__isnull=True) | models.Q(max_amount__gte=amount)
+            )
+        
+        return queryset.values_list('payment_method', flat=True).distinct()
+    
+    def calculate_fee(self, amount):
+        """Calculate processing fee for a given amount"""
+        percentage_fee = (amount * self.processing_fee) / 100
+        return percentage_fee + self.fixed_fee
+    
+    def is_amount_supported(self, amount):
+        """Check if amount is within supported range"""
+        if self.min_amount and amount < self.min_amount:
+            return False
+        if self.max_amount and amount > self.max_amount:
+            return False
+        return True
 

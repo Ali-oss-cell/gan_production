@@ -61,19 +61,35 @@ class ShareMediaView(APIView):
     permission_classes = [IsAuthenticated, IsDashboardUser | IsAdminDashboardUser]
     
     def post(self, request):
+        # Log the incoming request
+        print("=== SHARE MEDIA REQUEST ===")
+        print(f"User: {request.user.id}")
+        print(f"Request data: {request.data}")
+        print(f"Request method: {request.method}")
+        print(f"Request headers: {dict(request.headers)}")
+        
         serializer = ShareMediaSerializer(data=request.data, context={'request': request})
         
         if serializer.is_valid():
+            print("✅ Serializer is valid")
             try:
                 # Get the content type and object
-                content_type = ContentType.objects.get(model=serializer.validated_data['content_type'])
-                media_object = content_type.get_object_for_this_type(id=serializer.validated_data['object_id'])
+                content_type_name = serializer.validated_data['content_type']
+                object_id = serializer.validated_data['object_id']
+                
+                print(f"Looking for content_type={content_type_name}, object_id={object_id}")
+                
+                # Fix: Split the content_type_name like the serializer does
+                app_label, model_name = content_type_name.split('.')
+                content_type = ContentType.objects.get(app_label=app_label, model=model_name.lower())
+                print(f"Found content_type: {content_type}")
+                
+                media_object = content_type.get_object_for_this_type(id=object_id)
+                print(f"Found media_object: {media_object}")
                 
                 # Create the shared post - we don't expose the original owner
-                shared_post = serializer.save(
-                    shared_by=request.user,
-                    content_type=content_type
-                )
+                shared_post = serializer.save()
+                print(f"Created shared_post: {shared_post.id}")
                 
                 response_serializer = SharedMediaPostSerializer(shared_post)
                 
@@ -82,19 +98,45 @@ class ShareMediaView(APIView):
                     'shared_post': response_serializer.data
                 }, status=status.HTTP_201_CREATED)
                 
-            except IntegrityError:
+            except IntegrityError as e:
+                print(f"❌ IntegrityError: {str(e)}")
+                # Check if this media is already shared by any admin
+                try:
+                    existing_share = SharedMediaPost.objects.get(
+                        content_type=content_type,
+                        object_id=object_id,
+                        is_active=True
+                    )
+                    return Response({
+                        'error': 'This media is already shared in the gallery',
+                        'existing_share_id': existing_share.id,
+                        'shared_by': {
+                            'id': existing_share.shared_by.id,
+                            'name': f"{existing_share.shared_by.first_name} {existing_share.shared_by.last_name}".strip() or existing_share.shared_by.email
+                        },
+                        'shared_at': existing_share.shared_at,
+                        'suggestion': 'You can contact the admin who shared it or wait for it to be removed'
+                    }, status=status.HTTP_400_BAD_REQUEST)
+                except SharedMediaPost.DoesNotExist:
+                    return Response({
+                        'error': 'Unable to share this media. Please try again.'
+                    }, status=status.HTTP_400_BAD_REQUEST)
+            except ContentType.DoesNotExist as e:
+                print(f"❌ ContentType.DoesNotExist: {str(e)}")
                 return Response({
-                    'error': 'You have already shared this media'
-                }, status=status.HTTP_400_BAD_REQUEST)
-            except ContentType.DoesNotExist:
-                return Response({
-                    'error': 'Invalid content type'
+                    'error': f'Invalid content type: {content_type_name}'
                 }, status=status.HTTP_400_BAD_REQUEST)
             except Exception as e:
+                print(f"❌ Unexpected error: {str(e)}")
+                print(f"Error type: {type(e)}")
+                import traceback
+                print(f"Traceback: {traceback.format_exc()}")
                 return Response({
-                    'error': f'Failed to share media: {str(e)}'
+                    'error': f'Failed to share media: {str(e)}',
+                    'details': 'Please check the server logs for more information'
                 }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        
+        else:
+            print(f"❌ Serializer errors: {serializer.errors}")
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -270,6 +312,59 @@ class MySharedMediaView(generics.ListAPIView):
             shared_by=self.request.user,
             is_active=True
         ).select_related('shared_by', 'content_type').order_by('-shared_at')
+
+
+class UpdateSharedMediaView(APIView):
+    """
+    API endpoint for dashboard users to update shared media posts.
+    Since only one admin can share each media, any admin can update any shared media.
+    
+    PUT /api/dashboard/shared-media/{id}/update/
+    
+    Request Body:
+    {
+        "caption": "Updated caption",
+        "category": "featured"
+    }
+    
+    Response:
+    {
+        "message": "Shared media updated successfully!",
+        "shared_post": {
+            "id": 1,
+            "caption": "Updated caption",
+            "category": "featured",
+            "shared_at": "2024-03-21T10:00:00Z"
+        }
+    }
+    """
+    permission_classes = [IsAuthenticated, IsDashboardUser | IsAdminDashboardUser]
+    
+    def put(self, request, pk):
+        try:
+            shared_post = SharedMediaPost.objects.get(
+                pk=pk, 
+                is_active=True
+            )
+        except SharedMediaPost.DoesNotExist:
+            return Response({
+                'error': 'Shared media not found'
+            }, status=status.HTTP_404_NOT_FOUND)
+        
+        # Update fields
+        if 'caption' in request.data:
+            shared_post.caption = request.data['caption']
+        if 'category' in request.data:
+            shared_post.category = request.data['category']
+        
+        shared_post.save()
+        
+        response_serializer = SharedMediaPostSerializer(shared_post)
+        
+        return Response({
+            'message': 'Shared media updated successfully!',
+            'shared_post': response_serializer.data
+        }, status=status.HTTP_200_OK)
 
 
 class SharedMediaStatsView(APIView):
