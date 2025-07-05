@@ -470,7 +470,7 @@ class TalentMedia(models.Model):
         Video thumbnail generation disabled - no FFmpeg available
         """
         print("Video thumbnail generation disabled - no FFmpeg available")
-            return None
+        return None
 
     def __str__(self):
         return f"{self.talent.user.email}'s {self.media_type} - {self.media_file.name}"
