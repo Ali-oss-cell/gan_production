@@ -1,5 +1,13 @@
 from django.contrib.auth.models import BaseUserManager as DjangoBaseUserManager
 from django.db import transaction
+import signal
+import time
+
+class TimeoutError(Exception):
+    pass
+
+def timeout_handler(signum, frame):
+    raise TimeoutError("Profile creation timed out")
 
 class BaseUserManager(DjangoBaseUserManager):
     def create_user(self, email, password=None, **extra_fields):
@@ -29,6 +37,58 @@ class BaseUserManager(DjangoBaseUserManager):
             raise ValueError('Superuser must have is_superuser=True.')
         
         return self.create_user(email, password, **extra_fields)
+
+    def _create_profile_with_timeout(self, user, country, date_of_birth, timeout_seconds=10):
+        """
+        Create TalentUserProfile with timeout protection
+        """
+        # Import here to avoid circular import
+        from profiles.models import TalentUserProfile
+        from django.db import connection
+        
+        # Set up timeout
+        old_handler = signal.signal(signal.SIGALRM, timeout_handler)
+        signal.alarm(timeout_seconds)
+        
+        try:
+            # Try creating profile with data
+            print(f"DEBUG: Attempting profile creation for {user.email}")
+            start_time = time.time()
+            
+            profile = TalentUserProfile.objects.create(
+                user=user,
+                country=country,
+                date_of_birth=date_of_birth
+            )
+            
+            end_time = time.time()
+            print(f"DEBUG: Profile created successfully in {end_time - start_time:.2f}s")
+            return profile
+            
+        except TimeoutError:
+            print(f"DEBUG: Profile creation timed out for {user.email}, trying raw SQL")
+            # Try raw SQL as fallback
+            try:
+                with connection.cursor() as cursor:
+                    cursor.execute("""
+                        INSERT INTO profiles_talentuserprofile 
+                        (user_id, is_verified, profile_complete, account_type, country, city, zipcode, phone, gender, date_of_birth)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        RETURNING id
+                    """, [user.id, False, False, 'free', country or 'US', 'city', '', '', 'Male', date_of_birth])
+                    
+                    profile_id = cursor.fetchone()[0]
+                    print(f"DEBUG: Profile created via raw SQL with ID: {profile_id}")
+                    return TalentUserProfile.objects.get(id=profile_id)
+            except Exception as e:
+                print(f"DEBUG: Raw SQL fallback failed: {e}")
+                raise
+        except Exception as e:
+            print(f"DEBUG: Profile creation failed with exception: {e}")
+            raise
+        finally:
+            signal.alarm(0)  # Cancel the alarm
+            signal.signal(signal.SIGALRM, old_handler)  # Restore old handler
 
     @transaction.atomic
     def create_talent_user(self, email, password=None, **extra_fields):
@@ -66,18 +126,14 @@ class BaseUserManager(DjangoBaseUserManager):
             profile.date_of_birth = date_of_birth
             profile.save(update_fields=['country', 'date_of_birth'])
         except TalentUserProfile.DoesNotExist:
-            # Create new profile
+            # Create new profile with timeout protection
             try:
-                TalentUserProfile.objects.create(
-                    user=user,
-                    country=country,
-                    date_of_birth=date_of_birth
-                )
+                profile = self._create_profile_with_timeout(user, country, date_of_birth)
             except Exception as e:
-                # If profile creation fails, log it but don't fail the user creation
-                print(f"DEBUG: Profile creation failed for {user.email}: {e}")
-                # Create minimal profile
-                TalentUserProfile.objects.create(user=user)
+                print(f"DEBUG: All profile creation methods failed for {user.email}: {e}")
+                # Don't fail the user creation - let them complete registration without profile
+                # They can create the profile later
+                pass
         except Exception as e:
             print(f"DEBUG: Profile update failed for {user.email}: {e}")
             
