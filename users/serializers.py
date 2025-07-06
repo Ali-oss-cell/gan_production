@@ -118,23 +118,26 @@ class UnifiedUserSerializer(serializers.ModelSerializer):
         user.email_verification_token_created = timezone.now()
         user.save()
 
-        # Send verification email - TEMPORARILY DISABLED FOR DEBUGGING
-        # from django.core.mail import send_mail
-        # from django.conf import settings
+        # Send verification email
+        from django.core.mail import send_mail
+        from django.conf import settings
         
-        # Get the frontend URL from environment variables, fallback to localhost for development
-        # frontend_url = os.getenv('FRONTEND_URL', 'http://localhost:3000')
-        # verification_url = f"{frontend_url}/verify-email?token={user.email_verification_token}"
-        
-        # send_mail(
-        #     'Verify your email address',
-        #     f'Please click the following link to verify your email address: {verification_url}',
-        #     settings.DEFAULT_FROM_EMAIL,
-        #     [user.email],
-        #     fail_silently=False,
-        # )
-        
-        print(f"DEBUG: User {user.email} registered successfully - email sending disabled")
+        try:
+            # Get the frontend URL from environment variables, fallback to localhost for development
+            frontend_url = os.getenv('FRONTEND_URL', 'http://localhost:3000')
+            verification_url = f"{frontend_url}/verify-email?token={user.email_verification_token}"
+            
+            send_mail(
+                'Verify your email address',
+                f'Please click the following link to verify your email address: {verification_url}',
+                settings.DEFAULT_FROM_EMAIL,
+                [user.email],
+                fail_silently=False,
+            )
+            print(f"DEBUG: Verification email sent to {user.email}")
+        except Exception as e:
+            print(f"DEBUG: Email sending failed for {user.email}: {e}")
+            # Don't fail registration if email sending fails
             
         return user
 
