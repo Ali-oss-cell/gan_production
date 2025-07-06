@@ -31,11 +31,36 @@ EMAIL_PORT = int(os.getenv('EMAIL_PORT', 587))
 EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True').lower() == 'true'
 EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
-DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@yourdomain.com')
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@gan7club.com')
 
 # Static Files
 STATIC_ROOT = os.getenv('STATIC_ROOT', '/home/root/talent-platform/staticfiles')
 MEDIA_ROOT = os.getenv('MEDIA_ROOT', '/home/root/talent-platform/media')
+
+# DigitalOcean Spaces Configuration (S3-compatible)
+USE_SPACES = os.getenv('USE_SPACES', 'True').lower() == 'true'
+
+if USE_SPACES:
+    # DigitalOcean Spaces settings
+    AWS_ACCESS_KEY_ID = os.getenv('SPACES_ACCESS_KEY')
+    AWS_SECRET_ACCESS_KEY = os.getenv('SPACES_SECRET_KEY')
+    AWS_STORAGE_BUCKET_NAME = os.getenv('SPACES_BUCKET_NAME')
+    AWS_S3_ENDPOINT_URL = os.getenv('SPACES_ENDPOINT_URL', 'https://fra1.digitaloceanspaces.com')
+    AWS_S3_OBJECT_PARAMETERS = {
+        'CacheControl': 'max-age=86400',
+    }
+    AWS_DEFAULT_ACL = 'public-read'
+    AWS_LOCATION = 'media'
+    AWS_QUERYSTRING_AUTH = False
+    
+    # Use custom storage backend for media files
+    DEFAULT_FILE_STORAGE = 'talent_platform.storage_backends.MediaStorage'
+    
+    # Public media URL
+    MEDIA_URL = f'https://{AWS_STORAGE_BUCKET_NAME}.{AWS_S3_ENDPOINT_URL.split("://")[1]}/{AWS_LOCATION}/'
+else:
+    # Local media storage
+    MEDIA_URL = '/media/'
 
 # Security Settings
 SECURE_SSL_REDIRECT = os.getenv('SECURE_SSL_REDIRECT', 'True').lower() == 'true'
@@ -49,6 +74,25 @@ X_FRAME_OPTIONS = os.getenv('X_FRAME_OPTIONS', 'DENY')
 SECURE_HSTS_SECONDS = 31536000  # 1 year
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
+
+# CORS Configuration for Production
+CORS_ORIGIN_ALLOW_ALL = False
+CORS_ALLOW_CREDENTIALS = True
+
+# Only allow production domains
+CORS_ALLOWED_ORIGINS = [
+    "https://gan7club.com",
+    "https://www.gan7club.com",
+    "https://app.gan7club.com",
+]
+
+# CSRF Trusted Origins for Production
+CSRF_TRUSTED_ORIGINS = [
+    "https://gan7club.com",
+    "https://www.gan7club.com",
+    "https://api.gan7club.com",
+    "https://app.gan7club.com",
+]
 
 # Logging Configuration
 LOGGING = {
@@ -111,7 +155,7 @@ LOGGING = {
 
 # Admin Email Configuration
 ADMINS = [
-    ('Admin Name', os.getenv('ADMIN_EMAIL', 'admin@yourdomain.com')),
+    ('Admin Name', os.getenv('ADMIN_EMAIL', 'admin@gan7club.com')),
 ]
 
 # Create logs directory
@@ -119,7 +163,7 @@ import os
 logs_dir = '/home/root/talent-platform/logs'
 os.makedirs(logs_dir, exist_ok=True)
 
-# Cache Configuration (Database-based for Railway compatibility)
+# Cache Configuration (Database-based for production)
 CACHES = {
     'default': {
         'BACKEND': 'django.core.cache.backends.db.DatabaseCache',
@@ -180,8 +224,7 @@ STRIPE_PRICE_IDS = {
 FILE_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10MB
 DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10MB
 
-# Media Files Configuration
-MEDIA_URL = '/media/'
+# Static Files Configuration
 STATIC_URL = '/static/'
 
 # Disable Django Debug Toolbar in production
@@ -193,4 +236,7 @@ if 'debug_toolbar.middleware.DebugToolbarMiddleware' in MIDDLEWARE:
     MIDDLEWARE.remove('debug_toolbar.middleware.DebugToolbarMiddleware')
 
 # Performance optimizations
-CONN_MAX_AGE = 60  # Database connection pooling 
+CONN_MAX_AGE = 60  # Database connection pooling
+
+# Security: Disable cross-origin opener policy for production
+SECURE_CROSS_ORIGIN_OPENER_POLICY = 'same-origin-allow-popups' 

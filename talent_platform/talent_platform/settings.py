@@ -14,6 +14,8 @@ from pathlib import Path
 import stripe
 from dotenv import load_dotenv
 
+# Load environment variables first
+load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -54,7 +56,7 @@ elif USE_SPACES:
     AWS_ACCESS_KEY_ID = os.getenv('SPACES_ACCESS_KEY', '')
     AWS_SECRET_ACCESS_KEY = os.getenv('SPACES_SECRET_KEY', '')
     AWS_STORAGE_BUCKET_NAME = os.getenv('SPACES_BUCKET_NAME', '')
-    AWS_S3_ENDPOINT_URL = os.getenv('SPACES_ENDPOINT_URL', 'https://nyc3.digitaloceanspaces.com')
+    AWS_S3_ENDPOINT_URL = os.getenv('SPACES_ENDPOINT_URL', 'https://fra1.digitaloceanspaces.com')
     AWS_S3_OBJECT_PARAMETERS = {
         'CacheControl': 'max-age=86400',
     }
@@ -67,11 +69,6 @@ elif USE_SPACES:
     # Public media URL
     MEDIA_URL = f'https://{AWS_STORAGE_BUCKET_NAME}.{AWS_S3_ENDPOINT_URL.split("://")[1]}/{AWS_LOCATION}/'
 
-
-# Quick-start development settings - unsuitable for production
-
-
-
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
@@ -79,7 +76,7 @@ elif USE_SPACES:
 SECRET_KEY = os.getenv('SECRET_KEY', '7@aaku@q1$6&^xg6re*i&(_&@m69-#&^ql%sh^u9!96ljm#cq=')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
 
 #ALLOWED_HOSTS = []
 
@@ -122,48 +119,65 @@ MIDDLEWARE = [
     'payments.middleware.UserTypeThrottlingMiddleware',
 ]
 
-CORS_ORIGIN_ALLOW_ALL = True
+CORS_ORIGIN_ALLOW_ALL = os.getenv('CORS_ORIGIN_ALLOW_ALL', 'False').lower() == 'true'
 CORS_ALLOW_CREDENTIALS = True
 
-CORS_ALLOWED_ORIGINS = [
-    "http://192.168.0.104:3000",
-    "http://192.168.0.119:3000",  # React frontend IP:port
-  # React frontend IP:port
-    "http://192.168.1.6:3000",  # Your IP address
-    "http://192.168.1.9:3000",
-    "http://192.168.0.107:3000",
-    "http://192.168.0.110:3000",
-    "http://192.168.72.187:3000",  # <-- your new backend IP
-    "https://96bd-149-34-246-34.ngrok-free.app",  # <-- your new ngrok domain
-    "https://f858-149-34-246-34.ngrok-free.app",  # <-- new ngrok domain
-]
+# Development CORS settings (only used when DEBUG=True)
+if DEBUG:
+    CORS_ALLOWED_ORIGINS = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://192.168.0.104:3000",
+        "http://192.168.0.119:3000",
+        "http://192.168.1.6:3000",
+        "http://192.168.1.9:3000",
+        "http://192.168.0.107:3000",
+        "http://192.168.0.110:3000",
+        "http://192.168.72.187:3000",
+    ]
+    
+    CSRF_TRUSTED_ORIGINS = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://192.168.0.119:3000",
+        "http://192.168.72.187:3000",
+        "http://192.168.0.101:3000",
+        "http://192.168.1.9:3000",
+        "http://192.168.0.107:3000",
+        "http://192.168.0.104:3000",
+    ]
+    
+    ALLOWED_HOSTS = [
+        'localhost',
+        '127.0.0.1',
+        '192.168.1.104',
+        '192.168.0.113',
+        '192.168.0.108',
+        '192.168.0.104',
+        '192.168.0.110',
+        '192.168.0.107',
+        '192.168.72.187',
+        '192.168.72.85',
+    ]
+else:
+    # Production CORS settings
+    CORS_ALLOWED_ORIGINS = [
+        "https://gan7club.com",
+        "https://www.gan7club.com",
+        "https://app.gan7club.com",
+    ]
+    
+    CSRF_TRUSTED_ORIGINS = [
+        "https://gan7club.com",
+        "https://www.gan7club.com",
+        "https://api.gan7club.com",
+        "https://app.gan7club.com",
+    ]
+    
+    ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '').split(',')
 
-CSRF_TRUSTED_ORIGINS = [
-    "http://192.168.0.119:3000",
-    "http://192.168.72.187:3000",
-    "http://192.168.0.101:3000",
-    "http://192.168.1.9:3000",
-    "http://192.168.0.107:3000",
-    "http://192.168.0.104:3000",  # <-- your new backend IP
-    "https://96bd-149-34-246-34.ngrok-free.app",  # <-- your new ngrok domain
-    "https://f858-149-34-246-34.ngrok-free.app",  # <-- new ngrok domain
-]
-
-ALLOWED_HOSTS = [
-    'localhost',
-    '192.168.1.104',  # <-- your new backend IP
-    '192.168.0.113',
-    '192.168.0.108',
-    '192.168.0.104',
-    '192.168.0.110',  # <-- your backend IP
-    '192.168.0.107',  # <-- adding the missing IP address
-    '96bd-149-34-246-34.ngrok-free.app',
-    'f858-149-34-246-34.ngrok-free.app',  # <-- new ngrok domain
-    "192.168.72.187",  # <-- your new ngrok domain
-    "192.168.72.85",   # <-- adding the missing IP address
-]
 # settings.py
-SECURE_CROSS_ORIGIN_OPENER_POLICY = 'unsafe-none'
+SECURE_CROSS_ORIGIN_OPENER_POLICY = 'same-origin-allow-popups'
         
 ROOT_URLCONF = 'talent_platform.urls'
 
@@ -274,29 +288,34 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
+STATIC_ROOT = os.getenv('STATIC_ROOT', BASE_DIR / 'staticfiles')
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# Load environment variables first
-load_dotenv()
-
-# Email Configuration for Development
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-DEFAULT_FROM_EMAIL = 'noreply@example.com'
-# Emails will be printed to console instead of being sent
+# Email Configuration
+if DEBUG:
+    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+    DEFAULT_FROM_EMAIL = 'noreply@example.com'
+else:
+    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+    EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.hostinger.com')
+    EMAIL_PORT = int(os.getenv('EMAIL_PORT', 587))
+    EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True').lower() == 'true'
+    EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
+    EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
+    DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@gan7club.com')
 
 # Security Settings
-SECURE_SSL_REDIRECT = False  # Set to True in production
-SESSION_COOKIE_SECURE = False  # Set to True in production
-CSRF_COOKIE_SECURE = False  # Set to True in production
-
-
-
-
+SECURE_SSL_REDIRECT = os.getenv('SECURE_SSL_REDIRECT', 'False').lower() == 'true'
+SESSION_COOKIE_SECURE = os.getenv('SESSION_COOKIE_SECURE', 'False').lower() == 'true'
+CSRF_COOKIE_SECURE = os.getenv('CSRF_COOKIE_SECURE', 'False').lower() == 'true'
+SECURE_BROWSER_XSS_FILTER = True
+SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = 'DENY'
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
@@ -308,14 +327,14 @@ REST_FRAMEWORK = {
         'rest_framework.throttling.UserRateThrottle',
     ],
     'DEFAULT_THROTTLE_RATES': {
-        'anon': '60/hour',           # Increased from 30
-        'user': '300/hour',          # Increased from 100
-        'talent_user': '500/hour',   # Increased from 100
-        'background_user': '500/hour', # Increased from 100
-        'dashboard_user': '1000/hour', # Increased from 500
-        'admin_dashboard_user': '5000/hour', # Increased from 2000
-        'payment_endpoints': '60/hour', # Increased from 30
-        'restricted_country': '100/hour', # Increased from 50
+        'anon': '60/hour',
+        'user': '300/hour',
+        'talent_user': '500/hour',
+        'background_user': '500/hour',
+        'dashboard_user': '1000/hour',
+        'admin_dashboard_user': '5000/hour',
+        'payment_endpoints': '60/hour',
+        'restricted_country': '100/hour',
     }
 }
 
@@ -323,26 +342,17 @@ REST_FRAMEWORK = {
 from datetime import timedelta
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),  # Access token validity
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),    # Refresh token validity
-    'ROTATE_REFRESH_TOKENS': True,                  # Rotate refresh tokens
-    'BLACKLIST_AFTER_ROTATION': True,               # Blacklist old tokens
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
+    'UPDATE_LAST_LOGIN': True,
 }
-
-
-
-from dotenv import load_dotenv
-
-# Load environment variables first
-load_dotenv()
 
 # Stripe Configuration
 STRIPE_PUBLIC_KEY = os.getenv('STRIPE_PUBLIC_KEY')
 STRIPE_SECRET_KEY = os.getenv('STRIPE_SECRET_KEY')
 STRIPE_WEBHOOK_SECRET = os.getenv('STRIPE_WEBHOOK_SECRET')
-
-
-
 
 # Add to settings.py
 STRIPE_PRICE_IDS = {
@@ -384,13 +394,13 @@ LOGGING = {
         'console': {
             'class': 'logging.StreamHandler',
             'formatter': 'detailed',
-            'level': 'DEBUG',
+            'level': 'DEBUG' if DEBUG else 'INFO',
         },
         'file': {
             'class': 'logging.FileHandler',
             'filename': BASE_DIR / 'logs' / 'django.log',
             'formatter': 'detailed',
-            'level': 'DEBUG',
+            'level': 'DEBUG' if DEBUG else 'INFO',
         },
     },
     'loggers': {
@@ -401,17 +411,27 @@ LOGGING = {
         },
         'profiles': {
             'handlers': ['console', 'file'],
-            'level': 'DEBUG',
+            'level': 'DEBUG' if DEBUG else 'INFO',
             'propagate': False,
         },
         'profiles.talent_specialization_views': {
             'handlers': ['console', 'file'],
-            'level': 'DEBUG',
+            'level': 'DEBUG' if DEBUG else 'INFO',
             'propagate': False,
         },
         'profiles.talent_specialization_serializers': {
             'handlers': ['console', 'file'],
-            'level': 'DEBUG',
+            'level': 'DEBUG' if DEBUG else 'INFO',
+            'propagate': False,
+        },
+        'payments': {
+            'handlers': ['console', 'file'],
+            'level': 'DEBUG' if DEBUG else 'INFO',
+            'propagate': False,
+        },
+        'users': {
+            'handlers': ['console', 'file'],
+            'level': 'DEBUG' if DEBUG else 'INFO',
             'propagate': False,
         },
     },
@@ -425,3 +445,17 @@ LOGGING = {
 import os
 logs_dir = BASE_DIR / 'logs'
 logs_dir.mkdir(exist_ok=True)
+
+# Cache Configuration
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.db.DatabaseCache',
+        'LOCATION': 'django_cache',
+    }
+}
+
+# Session Configuration
+SESSION_ENGINE = 'django.contrib.sessions.backends.db'
+
+# Performance optimizations
+CONN_MAX_AGE = 60  # Database connection pooling

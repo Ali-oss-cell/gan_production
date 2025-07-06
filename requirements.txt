@@ -10,8 +10,9 @@ django-storages==1.14.2
 boto3==1.29.3
 gunicorn==21.2.0
 whitenoise==6.6.0
-django-environ==0.11.2
+django-environ==0.11.2 
 djangorestframework-simplejwt==5.4.0
 django-disposable-email-checker==2.0.4
 django-filter==24.1
-dj-database-url==2.1.0 
+dj-database-url==2.1.0
+pytz==2024.1 
