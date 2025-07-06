@@ -30,14 +30,11 @@ class BaseUserManager(DjangoBaseUserManager):
         
         return self.create_user(email, password, **extra_fields)
 
-
-
-
     @transaction.atomic
     def create_talent_user(self, email, password=None, **extra_fields):
         gender = extra_fields.pop('gender', 'Prefer not to say')
-        country = extra_fields.pop('country', 'country')  # Add this line
-        date_of_birth = extra_fields.pop('date_of_birth', None)  # Add this line
+        country = extra_fields.pop('country', 'country')
+        date_of_birth = extra_fields.pop('date_of_birth', None)
         
         try:
             # Check if user exists
@@ -57,8 +54,10 @@ class BaseUserManager(DjangoBaseUserManager):
                 **extra_fields
             )
         
-        # Create or update profile with better error handling
+        # Import here to avoid circular import
         from profiles.models import TalentUserProfile
+        
+        # Create or update profile with better error handling
         try:
             # Try to get existing profile first
             profile = TalentUserProfile.objects.get(user=user)
@@ -87,8 +86,8 @@ class BaseUserManager(DjangoBaseUserManager):
     @transaction.atomic
     def create_background_user(self, email, password=None, **extra_fields):
         gender = extra_fields.pop('gender', 'Prefer not to say')
-        country = extra_fields.pop('country', 'country')  # Add this
-        date_of_birth = extra_fields.pop('date_of_birth', None)  # Add this
+        country = extra_fields.pop('country', 'country')
+        date_of_birth = extra_fields.pop('date_of_birth', None)
         
         try:
             # Check if user exists
@@ -108,8 +107,10 @@ class BaseUserManager(DjangoBaseUserManager):
                 **extra_fields
             )
         
-        # Create or update background profile with better error handling
+        # Import here to avoid circular import
         from profiles.models import BackGroundJobsProfile
+        
+        # Create or update background profile with better error handling
         try:
             # Try to get existing profile first
             profile = BackGroundJobsProfile.objects.get(user=user)

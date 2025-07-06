@@ -35,8 +35,6 @@ class UnifiedUserSerializer(serializers.ModelSerializer):
             'date_of_birth': {'write_only': True}
         }
     
-    
-  # Raises ValidationError if email is disposable        return value
     def validate(self, data):
         # Validate required fields
         required_fields = [
