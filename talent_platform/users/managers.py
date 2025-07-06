@@ -38,57 +38,78 @@ class BaseUserManager(DjangoBaseUserManager):
         
         return self.create_user(email, password, **extra_fields)
 
-    def _create_profile_with_timeout(self, user, country, date_of_birth, timeout_seconds=10):
+    def _create_profile_with_raw_sql(self, user, country, date_of_birth):
         """
-        Create TalentUserProfile with timeout protection
+        Create TalentUserProfile using raw SQL to bypass Django ORM issues
         """
-        # Import here to avoid circular import
-        from profiles.models import TalentUserProfile
         from django.db import connection
         
-        # Set up timeout
-        old_handler = signal.signal(signal.SIGALRM, timeout_handler)
-        signal.alarm(timeout_seconds)
+        print(f"DEBUG: Creating profile via raw SQL for {user.email}")
+        start_time = time.time()
         
         try:
-            # Try creating profile with data
-            print(f"DEBUG: Attempting profile creation for {user.email}")
-            start_time = time.time()
-            
-            profile = TalentUserProfile.objects.create(
-                user=user,
-                country=country,
-                date_of_birth=date_of_birth
-            )
-            
-            end_time = time.time()
-            print(f"DEBUG: Profile created successfully in {end_time - start_time:.2f}s")
-            return profile
-            
-        except TimeoutError:
-            print(f"DEBUG: Profile creation timed out for {user.email}, trying raw SQL")
-            # Try raw SQL as fallback
-            try:
-                with connection.cursor() as cursor:
-                    cursor.execute("""
-                        INSERT INTO profiles_talentuserprofile 
-                        (user_id, is_verified, profile_complete, account_type, country, city, zipcode, phone, gender, date_of_birth)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                        RETURNING id
-                    """, [user.id, False, False, 'free', country or 'US', 'city', '', '', 'Male', date_of_birth])
-                    
-                    profile_id = cursor.fetchone()[0]
-                    print(f"DEBUG: Profile created via raw SQL with ID: {profile_id}")
-                    return TalentUserProfile.objects.get(id=profile_id)
-            except Exception as e:
-                print(f"DEBUG: Raw SQL fallback failed: {e}")
-                raise
+            with connection.cursor() as cursor:
+                cursor.execute("""
+                    INSERT INTO profiles_talentuserprofile 
+                    (user_id, is_verified, profile_complete, account_type, country, city, zipcode, phone, gender, date_of_birth)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    RETURNING id
+                """, [user.id, False, False, 'free', country or 'US', 'city', '', '', 'Male', date_of_birth])
+                
+                profile_id = cursor.fetchone()[0]
+                end_time = time.time()
+                print(f"DEBUG: Profile created via raw SQL in {end_time - start_time:.2f}s with ID: {profile_id}")
+                
+                # Return the profile instance
+                from profiles.models import TalentUserProfile
+                return TalentUserProfile.objects.get(id=profile_id)
+                
         except Exception as e:
-            print(f"DEBUG: Profile creation failed with exception: {e}")
+            end_time = time.time()
+            print(f"DEBUG: Raw SQL profile creation failed after {end_time - start_time:.2f}s: {e}")
             raise
-        finally:
-            signal.alarm(0)  # Cancel the alarm
-            signal.signal(signal.SIGALRM, old_handler)  # Restore old handler
+
+    def _create_profile_with_timeout(self, user, country, date_of_birth, timeout_seconds=5):
+        """
+        Create TalentUserProfile with timeout protection - but try raw SQL first
+        """
+        # Try raw SQL first since it's faster and bypasses Django ORM issues
+        print(f"DEBUG: Attempting raw SQL profile creation for {user.email}")
+        try:
+            return self._create_profile_with_raw_sql(user, country, date_of_birth)
+        except Exception as e:
+            print(f"DEBUG: Raw SQL failed, trying Django ORM with timeout: {e}")
+            
+            # Import here to avoid circular import
+            from profiles.models import TalentUserProfile
+            
+            # Only use timeout as last resort
+            old_handler = signal.signal(signal.SIGALRM, timeout_handler)
+            signal.alarm(timeout_seconds)
+            
+            try:
+                print(f"DEBUG: Attempting Django ORM profile creation for {user.email}")
+                start_time = time.time()
+                
+                profile = TalentUserProfile.objects.create(
+                    user=user,
+                    country=country,
+                    date_of_birth=date_of_birth
+                )
+                
+                end_time = time.time()
+                print(f"DEBUG: Django ORM profile created in {end_time - start_time:.2f}s")
+                return profile
+                
+            except TimeoutError:
+                print(f"DEBUG: Django ORM profile creation timed out for {user.email}")
+                raise Exception("Profile creation timed out")
+            except Exception as e:
+                print(f"DEBUG: Django ORM profile creation failed: {e}")
+                raise
+            finally:
+                signal.alarm(0)  # Cancel the alarm
+                signal.signal(signal.SIGALRM, old_handler)  # Restore old handler
 
     @transaction.atomic
     def create_talent_user(self, email, password=None, **extra_fields):
@@ -126,13 +147,15 @@ class BaseUserManager(DjangoBaseUserManager):
             profile.date_of_birth = date_of_birth
             profile.save(update_fields=['country', 'date_of_birth'])
         except TalentUserProfile.DoesNotExist:
-            # Create new profile with timeout protection
+            # Create new profile - use raw SQL first
             try:
                 profile = self._create_profile_with_timeout(user, country, date_of_birth)
+                print(f"DEBUG: Profile successfully created for {user.email}")
             except Exception as e:
                 print(f"DEBUG: All profile creation methods failed for {user.email}: {e}")
                 # Don't fail the user creation - let them complete registration without profile
                 # They can create the profile later
+                print(f"DEBUG: User {user.email} created successfully without profile")
                 pass
         except Exception as e:
             print(f"DEBUG: Profile update failed for {user.email}: {e}")
