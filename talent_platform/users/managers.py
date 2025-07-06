@@ -57,15 +57,31 @@ class BaseUserManager(DjangoBaseUserManager):
                 **extra_fields
             )
         
-        # Update profile with additional fields
+        # Create or update profile with better error handling
         from profiles.models import TalentUserProfile
-        TalentUserProfile.objects.update_or_create(
-            user=user,
-            defaults={
-                'country': country,  # Add this
-                'date_of_birth': date_of_birth  # Add this
-            }
-        )
+        try:
+            # Try to get existing profile first
+            profile = TalentUserProfile.objects.get(user=user)
+            # Update existing profile
+            profile.country = country
+            profile.date_of_birth = date_of_birth
+            profile.save(update_fields=['country', 'date_of_birth'])
+        except TalentUserProfile.DoesNotExist:
+            # Create new profile
+            try:
+                TalentUserProfile.objects.create(
+                    user=user,
+                    country=country,
+                    date_of_birth=date_of_birth
+                )
+            except Exception as e:
+                # If profile creation fails, log it but don't fail the user creation
+                print(f"DEBUG: Profile creation failed for {user.email}: {e}")
+                # Create minimal profile
+                TalentUserProfile.objects.create(user=user)
+        except Exception as e:
+            print(f"DEBUG: Profile update failed for {user.email}: {e}")
+            
         return user
 
     @transaction.atomic
@@ -92,15 +108,31 @@ class BaseUserManager(DjangoBaseUserManager):
                 **extra_fields
             )
         
-        # Update background profile
+        # Create or update background profile with better error handling
         from profiles.models import BackGroundJobsProfile
-        BackGroundJobsProfile.objects.update_or_create(
-            user=user,
-            defaults={
-                'country': country,  # Add this
-                'date_of_birth': date_of_birth  # Add this
-            }
-        )
+        try:
+            # Try to get existing profile first
+            profile = BackGroundJobsProfile.objects.get(user=user)
+            # Update existing profile
+            profile.country = country
+            profile.date_of_birth = date_of_birth
+            profile.save(update_fields=['country', 'date_of_birth'])
+        except BackGroundJobsProfile.DoesNotExist:
+            # Create new profile
+            try:
+                BackGroundJobsProfile.objects.create(
+                    user=user,
+                    country=country,
+                    date_of_birth=date_of_birth
+                )
+            except Exception as e:
+                # If profile creation fails, log it but don't fail the user creation
+                print(f"DEBUG: Background profile creation failed for {user.email}: {e}")
+                # Create minimal profile
+                BackGroundJobsProfile.objects.create(user=user)
+        except Exception as e:
+            print(f"DEBUG: Background profile update failed for {user.email}: {e}")
+            
         return user
         
     @transaction.atomic
