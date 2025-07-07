@@ -34,8 +34,8 @@ EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@gan7club.com')
 
 # Static Files
-STATIC_ROOT = os.getenv('STATIC_ROOT', '/home/root/talent-platform/staticfiles')
-MEDIA_ROOT = os.getenv('MEDIA_ROOT', '/home/root/talent-platform/media')
+STATIC_ROOT = os.getenv('STATIC_ROOT', '/var/www/gan7club/staticfiles')
+MEDIA_ROOT = os.getenv('MEDIA_ROOT', '/var/www/gan7club/media')
 
 # DigitalOcean Spaces Configuration (S3-compatible)
 USE_SPACES = os.getenv('USE_SPACES', 'True').lower() == 'true'
@@ -112,7 +112,7 @@ LOGGING = {
         'file': {
             'level': 'INFO',
             'class': 'logging.FileHandler',
-            'filename': '/home/root/talent-platform/logs/django.log',
+            'filename': '/var/www/gan7club/logs/django.log',
             'formatter': 'verbose',
         },
         'mail_admins': {
@@ -160,7 +160,7 @@ ADMINS = [
 
 # Create logs directory
 import os
-logs_dir = '/home/root/talent-platform/logs'
+logs_dir = '/var/www/gan7club/logs'
 os.makedirs(logs_dir, exist_ok=True)
 
 # Cache Configuration (Database-based for production)

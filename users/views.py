@@ -11,28 +11,63 @@ from datetime import timedelta
 from django.shortcuts import get_object_or_404
 from .models import BaseUser
 from .permissions import IsAdminDashboardUser
-import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 class UserRegistrationView(APIView):
     """
-    Unified registration endpoint for both Talent and Background users
+    Unified registration endpoint for all user types with improved error handling
     """
     def post(self, request):
-        serializer = UnifiedUserSerializer(data=request.data)
-        if serializer.is_valid():
+        try:
+            logger.info(f"Registration attempt for email: {request.data.get('email', 'unknown')}")
+            
+            # Validate request data
+            serializer = UnifiedUserSerializer(data=request.data)
+            
+            if not serializer.is_valid():
+                logger.warning(f"Registration validation failed: {serializer.errors}")
+                return Response({
+                    'success': False,
+                    'message': 'Registration validation failed',
+                    'errors': serializer.errors
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Create user
             user = serializer.save()
-            return Response({
+            
+            # Prepare success response
+            response_data = {
+                'success': True,
                 'message': 'User registered successfully',
-                'email': user.email,
-                'roles': {
-                    'is_talent': user.is_talent,
-                    'is_background': user.is_background
+                'user': {
+                    'email': user.email,
+                    'first_name': user.first_name,
+                    'last_name': user.last_name,
+                    'roles': {
+                        'is_talent': user.is_talent,
+                        'is_background': user.is_background,
+                        'is_dashboard': user.is_dashboard,
+                        'is_dashboard_admin': user.is_dashboard_admin
+                    }
+                },
+                'email_verification': {
+                    'required': True,
+                    'message': 'Please check your email for verification link'
                 }
-            }, status=status.HTTP_201_CREATED)
-        return Response({
-            'message': 'Registration failed',
-            'errors': serializer.errors
-        }, status=status.HTTP_400_BAD_REQUEST)
+            }
+            
+            logger.info(f"User registration successful for {user.email}")
+            return Response(response_data, status=status.HTTP_201_CREATED)
+            
+        except Exception as e:
+            logger.error(f"Registration failed with exception: {str(e)}")
+            return Response({
+                'success': False,
+                'message': 'Registration failed due to server error',
+                'error': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class BaseLoginView(TokenObtainPairView):
     def get_user(self, request):
@@ -41,36 +76,43 @@ class BaseLoginView(TokenObtainPairView):
         return serializer.user
 
     def post(self, request, *args, **kwargs):
-        response = super().post(request, *args, **kwargs)
-        
-        # Get the user from the validated data
-        user = self.get_user(request)
-        
-        # Include email verification status in response
-        response.data['email_verified'] = user.email_verified
-        if not user.email_verified:
-            response.data['message'] = 'Your email is not verified. You can still use your account, but we recommend verifying your email for enhanced security.'
-            # Get the frontend URL from environment variables, fallback to localhost for development
-            frontend_url = os.getenv('FRONTEND_URL', 'http://localhost:3000')
-            response.data['verification_url'] = f"{frontend_url}/verify-email?token={user.email_verification_token}"
-        
-        # Set secure cookies
-        response.set_cookie(
-            key='access_token',
-            value=response.data['access'],
-            httponly=True,
-            samesite='Lax',
-            secure=True
-        )
-        response.set_cookie(
-            key='refresh_token',
-            value=response.data['refresh'],
-            httponly=True,
-            samesite='Lax',
-            secure=True
-        )
-        
-        return response
+        try:
+            response = super().post(request, *args, **kwargs)
+            
+            # Get the user from the validated data
+            user = self.get_user(request)
+            
+            # Include email verification status in response
+            response.data['email_verified'] = user.email_verified
+            if not user.email_verified:
+                response.data['message'] = 'Your email is not verified. You can still use your account, but we recommend verifying your email for enhanced security.'
+                response.data['verification_url'] = f"http://localhost:3000/verify-email?token={user.email_verification_token}"
+            
+            # Set secure cookies
+            response.set_cookie(
+                key='access_token',
+                value=response.data['access'],
+                httponly=True,
+                samesite='Lax',
+                secure=True
+            )
+            response.set_cookie(
+                key='refresh_token',
+                value=response.data['refresh'],
+                httponly=True,
+                samesite='Lax',
+                secure=True
+            )
+            
+            return response
+            
+        except Exception as e:
+            logger.error(f"Login failed: {str(e)}")
+            return Response({
+                'success': False,
+                'message': 'Login failed',
+                'error': str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
 
 class TalentLoginView(BaseLoginView):
     """
@@ -240,11 +282,7 @@ class VerifyEmailView(APIView):
 
             from django.core.mail import send_mail
             from django.conf import settings
-            
-            # Get the frontend URL from environment variables, fallback to localhost for development
-            frontend_url = os.getenv('FRONTEND_URL', 'http://localhost:3000')
-            verification_url = f"{frontend_url}/verify-email?token={user.email_verification_token}"
-            
+            verification_url = f"http://localhost:3000/verify-email?token={user.email_verification_token}"
             send_mail(
                 'New email verification link',
                 f'Your previous verification link has expired. Please use this new link to verify your email address: {verification_url}',

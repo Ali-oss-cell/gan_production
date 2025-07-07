@@ -449,8 +449,8 @@ logs_dir.mkdir(exist_ok=True)
 # Cache Configuration
 CACHES = {
     'default': {
-        'BACKEND': 'django.core.cache.backends.db.DatabaseCache',
-        'LOCATION': 'django_cache',
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'unique-snowflake',
     }
 }
 
@@ -459,3 +459,16 @@ SESSION_ENGINE = 'django.contrib.sessions.backends.db'
 
 # Performance optimizations
 CONN_MAX_AGE = 60  # Database connection pooling
+
+# Celery Configuration (optional)
+CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', 'redis://localhost:6379/0')
+CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND', 'redis://localhost:6379/0')
+CELERY_ACCEPT_CONTENT = ['application/json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = TIME_ZONE
+CELERY_TASK_ALWAYS_EAGER = os.getenv('CELERY_TASK_ALWAYS_EAGER', 'False').lower() == 'true'
+
+# Email Settings - Enhanced
+EMAIL_TIMEOUT = 30  # 30 seconds timeout for email sending
+EMAIL_BACKEND_FALLBACK = 'django.core.mail.backends.console.EmailBackend'

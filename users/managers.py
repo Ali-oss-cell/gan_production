@@ -1,5 +1,8 @@
 from django.contrib.auth.models import BaseUserManager as DjangoBaseUserManager
 from django.db import transaction
+import logging
+
+logger = logging.getLogger(__name__)
 
 class BaseUserManager(DjangoBaseUserManager):
     def create_user(self, email, password=None, **extra_fields):
@@ -30,153 +33,208 @@ class BaseUserManager(DjangoBaseUserManager):
         
         return self.create_user(email, password, **extra_fields)
 
-
-
-
-    @transaction.atomic
     def create_talent_user(self, email, password=None, **extra_fields):
-        gender = extra_fields.pop('gender', 'Prefer not to say')
-        country = extra_fields.pop('country', 'country')  # Add this line
-        date_of_birth = extra_fields.pop('date_of_birth', None)  # Add this line
-        
+        """
+        Create a talent user with simplified logic
+        """
         try:
-            # Check if user exists
-            user = self.get(email=email)
-            # Update existing user
-            if not user.is_talent:
-                user.is_talent = True
-                user.gender = gender
-                user.save(update_fields=['is_talent', 'gender'])
-        except self.model.DoesNotExist:
-            # Create new user with profile fields
+            # Extract profile fields
+            gender = extra_fields.pop('gender', 'Prefer not to say')
+            country = extra_fields.pop('country', '')
+            date_of_birth = extra_fields.pop('date_of_birth', None)
+            
+            # Check if user already exists
+            if self.filter(email=email).exists():
+                existing_user = self.get(email=email)
+                if not existing_user.is_talent:
+                    existing_user.is_talent = True
+                    existing_user.gender = gender
+                    existing_user.country = country
+                    existing_user.date_of_birth = date_of_birth
+                    existing_user.save()
+                    logger.info(f"Updated existing user {email} to talent")
+                return existing_user
+            
+            # Create new user
             user = self.create_user(
                 email=email,
                 password=password,
                 is_talent=True,
                 gender=gender,
+                country=country,
+                date_of_birth=date_of_birth,
                 **extra_fields
             )
-        
-        # Create or update profile with better error handling
-        from profiles.models import TalentUserProfile
-        try:
-            # Try to get existing profile first
-            profile = TalentUserProfile.objects.get(user=user)
-            # Update existing profile
-            profile.country = country
-            profile.date_of_birth = date_of_birth
-            profile.save(update_fields=['country', 'date_of_birth'])
-        except TalentUserProfile.DoesNotExist:
-            # Create new profile
-            try:
-                TalentUserProfile.objects.create(
-                    user=user,
-                    country=country,
-                    date_of_birth=date_of_birth
-                )
-            except Exception as e:
-                # If profile creation fails, log it but don't fail the user creation
-                print(f"DEBUG: Profile creation failed for {user.email}: {e}")
-                # Create minimal profile
-                TalentUserProfile.objects.create(user=user)
-        except Exception as e:
-            print(f"DEBUG: Profile update failed for {user.email}: {e}")
             
-        return user
+            # Create profile separately with error handling
+            self._create_talent_profile(user, country, date_of_birth)
+            
+            logger.info(f"Created new talent user {email}")
+            return user
+            
+        except Exception as e:
+            logger.error(f"Error creating talent user {email}: {str(e)}")
+            raise
 
-    @transaction.atomic
     def create_background_user(self, email, password=None, **extra_fields):
-        gender = extra_fields.pop('gender', 'Prefer not to say')
-        country = extra_fields.pop('country', 'country')  # Add this
-        date_of_birth = extra_fields.pop('date_of_birth', None)  # Add this
-        
+        """
+        Create a background user with simplified logic
+        """
         try:
-            # Check if user exists
-            user = self.get(email=email)
-            # Update existing user
-            if not user.is_background:
-                user.is_background = True
-                user.gender = gender
-                user.save(update_fields=['is_background', 'gender'])
-        except self.model.DoesNotExist:
-            # Create new user with profile fields
+            # Extract profile fields
+            gender = extra_fields.pop('gender', 'Prefer not to say')
+            country = extra_fields.pop('country', '')
+            date_of_birth = extra_fields.pop('date_of_birth', None)
+            
+            # Check if user already exists
+            if self.filter(email=email).exists():
+                existing_user = self.get(email=email)
+                if not existing_user.is_background:
+                    existing_user.is_background = True
+                    existing_user.gender = gender
+                    existing_user.country = country
+                    existing_user.date_of_birth = date_of_birth
+                    existing_user.save()
+                    logger.info(f"Updated existing user {email} to background")
+                return existing_user
+            
+            # Create new user
             user = self.create_user(
                 email=email,
                 password=password,
                 is_background=True,
                 gender=gender,
+                country=country,
+                date_of_birth=date_of_birth,
                 **extra_fields
             )
-        
-        # Create or update background profile with better error handling
-        from profiles.models import BackGroundJobsProfile
-        try:
-            # Try to get existing profile first
-            profile = BackGroundJobsProfile.objects.get(user=user)
-            # Update existing profile
-            profile.country = country
-            profile.date_of_birth = date_of_birth
-            profile.save(update_fields=['country', 'date_of_birth'])
-        except BackGroundJobsProfile.DoesNotExist:
-            # Create new profile
-            try:
-                BackGroundJobsProfile.objects.create(
-                    user=user,
-                    country=country,
-                    date_of_birth=date_of_birth
-                )
-            except Exception as e:
-                # If profile creation fails, log it but don't fail the user creation
-                print(f"DEBUG: Background profile creation failed for {user.email}: {e}")
-                # Create minimal profile
-                BackGroundJobsProfile.objects.create(user=user)
-        except Exception as e:
-            print(f"DEBUG: Background profile update failed for {user.email}: {e}")
             
-        return user
-        
-    @transaction.atomic
+            # Create profile separately with error handling
+            self._create_background_profile(user, country, date_of_birth)
+            
+            logger.info(f"Created new background user {email}")
+            return user
+            
+        except Exception as e:
+            logger.error(f"Error creating background user {email}: {str(e)}")
+            raise
+
     def create_dashboard_user(self, email, password=None, **extra_fields):
-        gender = extra_fields.pop('gender', 'Prefer not to say')
-        country = extra_fields.pop('country', 'country')
-        date_of_birth = extra_fields.pop('date_of_birth', None)
+        """
+        Create a dashboard user with simplified logic
+        """
         try:
-            user = self.get(email=email)
-            if not user.is_dashboard:
-                user.is_dashboard = True
-                user.is_dashboard_admin = False
-                user.gender = gender
-                user.save(update_fields=['is_dashboard', 'is_dashboard_admin', 'gender'])
-        except self.model.DoesNotExist:
+            # Extract profile fields
+            gender = extra_fields.pop('gender', 'Prefer not to say')
+            country = extra_fields.pop('country', '')
+            date_of_birth = extra_fields.pop('date_of_birth', None)
+            
+            # Check if user already exists
+            if self.filter(email=email).exists():
+                existing_user = self.get(email=email)
+                if not existing_user.is_dashboard:
+                    existing_user.is_dashboard = True
+                    existing_user.is_dashboard_admin = False
+                    existing_user.gender = gender
+                    existing_user.country = country
+                    existing_user.date_of_birth = date_of_birth
+                    existing_user.save()
+                    logger.info(f"Updated existing user {email} to dashboard")
+                return existing_user
+            
+            # Create new user
             user = self.create_user(
                 email=email,
                 password=password,
                 is_dashboard=True,
                 is_dashboard_admin=False,
                 gender=gender,
+                country=country,
+                date_of_birth=date_of_birth,
                 **extra_fields
             )
-        return user
-        
-    @transaction.atomic
+            
+            logger.info(f"Created new dashboard user {email}")
+            return user
+            
+        except Exception as e:
+            logger.error(f"Error creating dashboard user {email}: {str(e)}")
+            raise
+
     def create_admin_dashboard_user(self, email, password=None, **extra_fields):
-        gender = extra_fields.pop('gender', 'Prefer not to say')
-        country = extra_fields.pop('country', 'country')
-        date_of_birth = extra_fields.pop('date_of_birth', None)
+        """
+        Create an admin dashboard user with simplified logic
+        """
         try:
-            user = self.get(email=email)
-            if not user.is_dashboard or not user.is_dashboard_admin:
-                user.is_dashboard = True
-                user.is_dashboard_admin = True
-                user.gender = gender
-                user.save(update_fields=['is_dashboard', 'is_dashboard_admin', 'gender'])
-        except self.model.DoesNotExist:
+            # Extract profile fields
+            gender = extra_fields.pop('gender', 'Prefer not to say')
+            country = extra_fields.pop('country', '')
+            date_of_birth = extra_fields.pop('date_of_birth', None)
+            
+            # Check if user already exists
+            if self.filter(email=email).exists():
+                existing_user = self.get(email=email)
+                if not existing_user.is_dashboard or not existing_user.is_dashboard_admin:
+                    existing_user.is_dashboard = True
+                    existing_user.is_dashboard_admin = True
+                    existing_user.gender = gender
+                    existing_user.country = country
+                    existing_user.date_of_birth = date_of_birth
+                    existing_user.save()
+                    logger.info(f"Updated existing user {email} to admin dashboard")
+                return existing_user
+            
+            # Create new user
             user = self.create_user(
                 email=email,
                 password=password,
                 is_dashboard=True,
                 is_dashboard_admin=True,
                 gender=gender,
+                country=country,
+                date_of_birth=date_of_birth,
                 **extra_fields
             )
-        return user
+            
+            logger.info(f"Created new admin dashboard user {email}")
+            return user
+            
+        except Exception as e:
+            logger.error(f"Error creating admin dashboard user {email}: {str(e)}")
+            raise
+
+    def _create_talent_profile(self, user, country, date_of_birth):
+        """
+        Create talent profile with error handling
+        """
+        try:
+            from profiles.models import TalentUserProfile
+            TalentUserProfile.objects.get_or_create(
+                user=user,
+                defaults={
+                    'country': country or '',
+                    'date_of_birth': date_of_birth
+                }
+            )
+            logger.info(f"Created talent profile for user {user.email}")
+        except Exception as e:
+            logger.warning(f"Failed to create talent profile for {user.email}: {str(e)}")
+            # Don't raise exception - user creation should succeed even if profile fails
+
+    def _create_background_profile(self, user, country, date_of_birth):
+        """
+        Create background profile with error handling
+        """
+        try:
+            from profiles.models import BackGroundJobsProfile
+            BackGroundJobsProfile.objects.get_or_create(
+                user=user,
+                defaults={
+                    'country': country or '',
+                    'date_of_birth': date_of_birth
+                }
+            )
+            logger.info(f"Created background profile for user {user.email}")
+        except Exception as e:
+            logger.warning(f"Failed to create background profile for {user.email}: {str(e)}")
+            # Don't raise exception - user creation should succeed even if profile fails

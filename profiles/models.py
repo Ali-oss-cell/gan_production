@@ -530,7 +530,8 @@ class Item(models.Model):
         BackGroundJobsProfile,
         on_delete=models.CASCADE,
         related_name='%(class)s_items',  # Dynamically generates unique related_name
-    null=True,blank=True)
+        null=True, blank=True
+    )
     name = models.CharField(max_length=255, db_index=True)
     description = models.TextField(blank=True, null=True)
     price = models.DecimalField(max_digits=10, decimal_places=2, null=False, db_index=True)
