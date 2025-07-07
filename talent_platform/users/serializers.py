@@ -3,6 +3,9 @@ from django.contrib.auth import get_user_model
 from datetime import date
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 User = get_user_model()
 
@@ -12,6 +15,58 @@ DISPOSABLE_EMAIL_DOMAINS = {
     '10minutemail.com', 'throwawaymail.com', 'tempmail.com',
     'fakeinbox.com', 'trashmail.com', 'maildrop.cc'
 }
+
+def send_verification_email_sync(user_email, verification_url):
+    """
+    Synchronous email sending function with error handling
+    """
+    try:
+        from django.core.mail import send_mail
+        from django.conf import settings
+        
+        send_mail(
+            'Verify your email address',
+            f'Please click the following link to verify your email address: {verification_url}',
+            settings.DEFAULT_FROM_EMAIL,
+            [user_email],
+            fail_silently=False,
+        )
+        logger.info(f"Verification email sent to {user_email}")
+        return True
+    except Exception as e:
+        logger.error(f"Email sending failed for {user_email}: {str(e)}")
+        return False
+
+def send_verification_email_async(user_email, verification_url):
+    """
+    Asynchronous email sending with Celery fallback
+    """
+    try:
+        # Try to use Celery if available
+        from celery import current_app
+        if current_app.control.inspect().active():
+            send_verification_email_task.delay(user_email, verification_url)
+            logger.info(f"Queued verification email for {user_email}")
+            return True
+    except Exception as e:
+        logger.warning(f"Celery not available, falling back to sync email: {str(e)}")
+    
+    # Fallback to synchronous sending
+    return send_verification_email_sync(user_email, verification_url)
+
+# Celery task (optional - only works if Celery is configured)
+try:
+    from celery import shared_task
+    
+    @shared_task
+    def send_verification_email_task(user_email, verification_url):
+        """
+        Celery task for sending verification emails
+        """
+        return send_verification_email_sync(user_email, verification_url)
+        
+except ImportError:
+    logger.warning("Celery not installed, email sending will be synchronous")
 
 class UnifiedUserSerializer(serializers.ModelSerializer):
     role = serializers.ChoiceField(
@@ -36,108 +91,155 @@ class UnifiedUserSerializer(serializers.ModelSerializer):
         }
     
     def validate(self, data):
-        # Validate required fields
-        required_fields = [
-            'country', 
-            'date_of_birth', 'gender', 'role'
-        ]
-        for field in required_fields:
-            if not data.get(field):
-                raise serializers.ValidationError(
-                    {field: "This field is required."}
-                )
+        """
+        Validate all required fields and business rules
+        """
+        try:
+            # Validate required fields
+            required_fields = ['country', 'date_of_birth', 'gender', 'role']
+            for field in required_fields:
+                if not data.get(field):
+                    raise serializers.ValidationError(
+                        {field: "This field is required."}
+                    )
 
-        # Age validation
-        dob = data['date_of_birth']
-        today = date.today()
-        age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
-        if age < 18:
-            raise serializers.ValidationError({
-                'date_of_birth': 'You must be at least 18 years old.'
-            })
+            # Age validation
+            dob = data['date_of_birth']
+            today = date.today()
+            age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+            if age < 18:
+                raise serializers.ValidationError({
+                    'date_of_birth': 'You must be at least 18 years old.'
+                })
 
-        return data
+            # Email uniqueness check (simplified)
+            email = data.get('email')
+            if email and User.objects.filter(email=email).exists():
+                raise serializers.ValidationError({
+                    'email': 'A user with this email already exists.'
+                })
+
+            return data
+            
+        except Exception as e:
+            logger.error(f"Validation error: {str(e)}")
+            raise
 
     def validate_email(self, value):
-        domain = value.split('@')[-1].lower()
-        if domain in DISPOSABLE_EMAIL_DOMAINS:
-            raise serializers.ValidationError("Disposable email addresses are not allowed.")
-        return value
+        """
+        Validate email format and check against disposable domains
+        """
+        try:
+            domain = value.split('@')[-1].lower()
+            if domain in DISPOSABLE_EMAIL_DOMAINS:
+                raise serializers.ValidationError("Disposable email addresses are not allowed.")
+            return value
+        except Exception as e:
+            logger.error(f"Email validation error: {str(e)}")
+            raise
 
     def create(self, validated_data):
-        role = validated_data.pop('role')
-        gender = validated_data.pop('gender')
-
-        if role == 'talent':
-            user = User.objects.create_talent_user(
-                email=validated_data['email'],
-                password=validated_data['password'],
-                first_name=validated_data['first_name'],
-                last_name=validated_data['last_name'],
-                country=validated_data['country'],
-                date_of_birth=validated_data['date_of_birth'],
-                gender=gender
-            )
-        elif role == 'background':
-            user = User.objects.create_background_user(
-                email=validated_data['email'],
-                password=validated_data['password'],
-                first_name=validated_data['first_name'],
-                last_name=validated_data['last_name'],
-                country=validated_data['country'],
-                date_of_birth=validated_data['date_of_birth'],
-                gender=gender
-            )
-        elif role == 'dashboard':
-            user = User.objects.create_dashboard_user(
-                email=validated_data['email'],
-                password=validated_data['password'],
-                first_name=validated_data['first_name'],
-                last_name=validated_data['last_name'],
-                country=validated_data['country'],
-                date_of_birth=validated_data['date_of_birth'],
-                gender=gender
-            )
-        elif role == 'admin_dashboard':
-            user = User.objects.create_admin_dashboard_user(
-                email=validated_data['email'],
-                password=validated_data['password'],
-                first_name=validated_data['first_name'],
-                last_name=validated_data['last_name'],
-                country=validated_data['country'],
-                date_of_birth=validated_data['date_of_birth'],
-                gender=gender
-            )
-        
-        # Generate verification token
-        import secrets
-        from django.utils import timezone
-        user.email_verification_token = secrets.token_urlsafe(32)
-        user.email_verification_token_created = timezone.now()
-        user.save()
-
-        # Send verification email
-        from django.core.mail import send_mail
-        from django.conf import settings
-        
+        """
+        Create user with simplified logic and better error handling
+        """
         try:
-            # Get the frontend URL from environment variables, fallback to localhost for development
+            role = validated_data.pop('role')
+            gender = validated_data.pop('gender')
+            
+            # Create user based on role
+            if role == 'talent':
+                user = User.objects.create_talent_user(
+                    email=validated_data['email'],
+                    password=validated_data['password'],
+                    first_name=validated_data['first_name'],
+                    last_name=validated_data['last_name'],
+                    country=validated_data['country'],
+                    date_of_birth=validated_data['date_of_birth'],
+                    gender=gender
+                )
+            elif role == 'background':
+                user = User.objects.create_background_user(
+                    email=validated_data['email'],
+                    password=validated_data['password'],
+                    first_name=validated_data['first_name'],
+                    last_name=validated_data['last_name'],
+                    country=validated_data['country'],
+                    date_of_birth=validated_data['date_of_birth'],
+                    gender=gender
+                )
+            elif role == 'dashboard':
+                user = User.objects.create_dashboard_user(
+                    email=validated_data['email'],
+                    password=validated_data['password'],
+                    first_name=validated_data['first_name'],
+                    last_name=validated_data['last_name'],
+                    country=validated_data['country'],
+                    date_of_birth=validated_data['date_of_birth'],
+                    gender=gender
+                )
+            elif role == 'admin_dashboard':
+                user = User.objects.create_admin_dashboard_user(
+                    email=validated_data['email'],
+                    password=validated_data['password'],
+                    first_name=validated_data['first_name'],
+                    last_name=validated_data['last_name'],
+                    country=validated_data['country'],
+                    date_of_birth=validated_data['date_of_birth'],
+                    gender=gender
+                )
+            else:
+                raise serializers.ValidationError({'role': 'Invalid role specified.'})
+            
+            # Generate verification token
+            self._generate_verification_token(user)
+            
+            # Send verification email (with fallback handling)
+            self._send_verification_email(user)
+            
+            logger.info(f"Successfully created user {user.email} with role {role}")
+            return user
+            
+        except Exception as e:
+            logger.error(f"User creation failed: {str(e)}")
+            raise serializers.ValidationError({'detail': f'User creation failed: {str(e)}'})
+
+    def _generate_verification_token(self, user):
+        """
+        Generate email verification token
+        """
+        try:
+            import secrets
+            from django.utils import timezone
+            
+            user.email_verification_token = secrets.token_urlsafe(32)
+            user.email_verification_token_created = timezone.now()
+            user.save(update_fields=['email_verification_token', 'email_verification_token_created'])
+            
+            logger.info(f"Generated verification token for {user.email}")
+            
+        except Exception as e:
+            logger.error(f"Failed to generate verification token for {user.email}: {str(e)}")
+            # Don't raise exception - user creation should succeed even if token generation fails
+
+    def _send_verification_email(self, user):
+        """
+        Send verification email with fallback handling
+        """
+        try:
             frontend_url = os.getenv('FRONTEND_URL', 'http://localhost:3000')
             verification_url = f"{frontend_url}/verify-email?token={user.email_verification_token}"
             
-            send_mail(
-                'Verify your email address',
-                f'Please click the following link to verify your email address: {verification_url}',
-                settings.DEFAULT_FROM_EMAIL,
-                [user.email],
-                fail_silently=False,
-            )
-            print(f"DEBUG: Verification email sent to {user.email}")
-        except Exception as e:
-            print(f"DEBUG: Email sending failed for {user.email}: {e}")
-            # Don't fail registration if email sending fails
+            # Try async first, fallback to sync
+            success = send_verification_email_async(user.email, verification_url)
             
-        return user
+            if success:
+                logger.info(f"Verification email sent for {user.email}")
+            else:
+                logger.warning(f"Failed to send verification email for {user.email}")
+                
+        except Exception as e:
+            logger.error(f"Email sending process failed for {user.email}: {str(e)}")
+            # Don't raise exception - user creation should succeed even if email fails
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):

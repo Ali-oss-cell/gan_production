@@ -1,18 +1,44 @@
+# Core Django
 Django==5.1.6
 djangorestframework==3.15.2
-django-cors-headers==4.7.0
+djangorestframework_simplejwt==5.4.0
+
+# Database
 psycopg2-binary==2.9.9
+dj-database-url==2.1.0
+
+# CORS and Security
+django-cors-headers==4.7.0
+django-environ==0.11.2
+
+# Authentication and Email
+django-disposable-email-checker==2.0.4
 python-dotenv==1.0.1
-stripe==11.6.0
+
+# Media and File Processing
 Pillow==11.1.0
 django-imagekit==4.1.0
+
+# Storage (AWS S3/DigitalOcean Spaces)
 django-storages==1.14.2
-boto3==1.29.3
+boto3>=1.29.0
+botocore>=1.32.0
+
+# Background Tasks
+celery==5.3.4
+redis==5.0.1
+
+# Payments
+stripe==11.6.0
+
+# Filtering and Utilities
+django-filter==24.1
+pytz==2024.1
+
+# Production Server
 gunicorn==21.2.0
 whitenoise==6.6.0
-django-environ==0.11.2 
-djangorestframework-simplejwt==5.4.0
-django-disposable-email-checker==2.0.4
-django-filter==24.1
-dj-database-url==2.1.0
-pytz==2024.1 
+
+# Additional utilities
+requests>=2.32.0
+urllib3>=1.26.0,<2.1.0 
