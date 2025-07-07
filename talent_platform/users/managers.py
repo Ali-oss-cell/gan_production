@@ -39,7 +39,7 @@ class BaseUserManager(DjangoBaseUserManager):
         """
         try:
             # Extract profile fields
-        gender = extra_fields.pop('gender', 'Prefer not to say')
+            gender = extra_fields.pop('gender', 'Prefer not to say')
             country = extra_fields.pop('country', '')
             date_of_birth = extra_fields.pop('date_of_birth', None)
             
@@ -70,7 +70,7 @@ class BaseUserManager(DjangoBaseUserManager):
             self._create_talent_profile(user, country, date_of_birth)
             
             logger.info(f"Created new talent user {email}")
-        return user
+            return user
 
         except Exception as e:
             logger.error(f"Error creating talent user {email}: {str(e)}")
@@ -82,7 +82,7 @@ class BaseUserManager(DjangoBaseUserManager):
         """
         try:
             # Extract profile fields
-        gender = extra_fields.pop('gender', 'Prefer not to say')
+            gender = extra_fields.pop('gender', 'Prefer not to say')
             country = extra_fields.pop('country', '')
             date_of_birth = extra_fields.pop('date_of_birth', None)
             
@@ -113,7 +113,7 @@ class BaseUserManager(DjangoBaseUserManager):
             self._create_background_profile(user, country, date_of_birth)
             
             logger.info(f"Created new background user {email}")
-        return user
+            return user
         
         except Exception as e:
             logger.error(f"Error creating background user {email}: {str(e)}")
@@ -125,9 +125,9 @@ class BaseUserManager(DjangoBaseUserManager):
         """
         try:
             # Extract profile fields
-        gender = extra_fields.pop('gender', 'Prefer not to say')
+            gender = extra_fields.pop('gender', 'Prefer not to say')
             country = extra_fields.pop('country', '')
-        date_of_birth = extra_fields.pop('date_of_birth', None)
+            date_of_birth = extra_fields.pop('date_of_birth', None)
             
             # Check if user already exists
             if self.filter(email=email).exists():
@@ -155,7 +155,7 @@ class BaseUserManager(DjangoBaseUserManager):
             )
             
             logger.info(f"Created new dashboard user {email}")
-        return user
+            return user
         
         except Exception as e:
             logger.error(f"Error creating dashboard user {email}: {str(e)}")
@@ -167,9 +167,9 @@ class BaseUserManager(DjangoBaseUserManager):
         """
         try:
             # Extract profile fields
-        gender = extra_fields.pop('gender', 'Prefer not to say')
+            gender = extra_fields.pop('gender', 'Prefer not to say')
             country = extra_fields.pop('country', '')
-        date_of_birth = extra_fields.pop('date_of_birth', None)
+            date_of_birth = extra_fields.pop('date_of_birth', None)
             
             # Check if user already exists
             if self.filter(email=email).exists():
@@ -197,8 +197,8 @@ class BaseUserManager(DjangoBaseUserManager):
             )
             
             logger.info(f"Created new admin dashboard user {email}")
-        return user
-            
+            return user
+        
         except Exception as e:
             logger.error(f"Error creating admin dashboard user {email}: {str(e)}")
             raise
