@@ -327,14 +327,14 @@ REST_FRAMEWORK = {
         'rest_framework.throttling.UserRateThrottle',
     ],
     'DEFAULT_THROTTLE_RATES': {
-        'anon': '60/hour',
-        'user': '300/hour',
-        'talent_user': '500/hour',
-        'background_user': '500/hour',
-        'dashboard_user': '1000/hour',
-        'admin_dashboard_user': '5000/hour',
-        'payment_endpoints': '60/hour',
-        'restricted_country': '100/hour',
+        'anon': '120/hour',              # Increased from 60
+        'user': '600/hour',              # Increased from 300
+        'talent_user': '1000/hour',      # Increased from 500
+        'background_user': '1000/hour',  # Increased from 500
+        'dashboard_user': '2000/hour',   # Increased from 1000
+        'admin_dashboard_user': '10000/hour', # Increased from 5000
+        'payment_endpoints': '120/hour', # Increased from 60
+        'restricted_country': '200/hour', # Increased from 100
     }
 }
 

@@ -56,8 +56,11 @@ if USE_SPACES:
     # Use custom storage backend for media files
     DEFAULT_FILE_STORAGE = 'talent_platform.storage_backends.MediaStorage'
     
-    # Public media URL
-    MEDIA_URL = f'https://{AWS_STORAGE_BUCKET_NAME}.{AWS_S3_ENDPOINT_URL.split("://")[1]}/{AWS_LOCATION}/'
+    # Public media URL - Use CDN for better performance
+    # Origin: https://ganspace.fra1.digitaloceanspaces.com
+    # CDN: https://ganspace.fra1.cdn.digitaloceanspaces.com
+    # Custom CDN: https://cdn.gan7club.com (if configured)
+    MEDIA_URL = os.getenv('SPACES_CDN_URL', f'https://{AWS_STORAGE_BUCKET_NAME}.fra1.cdn.digitaloceanspaces.com/{AWS_LOCATION}/')
 else:
     # Local media storage
     MEDIA_URL = '/media/'
