@@ -54,12 +54,13 @@ if USE_SPACES:
     AWS_QUERYSTRING_AUTH = False
     
     # Custom CDN domain configuration
-    SPACES_CDN_URL = os.getenv('SPACES_CDN_URL', f'https://{AWS_STORAGE_BUCKET_NAME}.fra1.cdn.digitaloceanspaces.com/{AWS_LOCATION}/')
-    # Extract domain from CDN URL for storage backend
-    if SPACES_CDN_URL.startswith('https://cdn.gan7club.com'):
+    SPACES_CDN_URL = os.getenv('SPACES_CDN_URL', '')
+    if SPACES_CDN_URL and SPACES_CDN_URL.startswith('https://cdn.gan7club.com'):
         AWS_S3_CUSTOM_DOMAIN = 'cdn.gan7club.com'
+        MEDIA_URL = SPACES_CDN_URL
     else:
         AWS_S3_CUSTOM_DOMAIN = None
+        MEDIA_URL = f'https://{AWS_STORAGE_BUCKET_NAME}.fra1.cdn.digitaloceanspaces.com/{AWS_LOCATION}/'
     
     # Use custom storage backend for media files
     DEFAULT_FILE_STORAGE = 'talent_platform.storage_backends.MediaStorage'
