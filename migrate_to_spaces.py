@@ -14,10 +14,10 @@ project_dir = Path(__file__).resolve().parent / 'talent_platform'
 sys.path.insert(0, str(project_dir))
 
 # Set up Django environment
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'talent_platform.settings_production')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'talent_platform.settings')
 django.setup()
 
-from talent_platform.profiles.models import TalentMedia
+from profiles.models import TalentMedia
 from django.conf import settings
 
 def migrate_media_to_spaces():

@@ -17,7 +17,7 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'talent_platform.settings_produc
 django.setup()
 
 from django.conf import settings
-from talent_platform.profiles.models import (
+from profiles.models import (
     TalentMedia, TalentUserProfile, Band, BandMedia, 
     VisualWorker, ExpressiveWorker, HybridWorker,
     Prop, Costume, Location, Memorabilia, Vehicle, 
