@@ -1,0 +1,720 @@
+{
+  "info": {
+    "name": "Users App - All Endpoints",
+    "description": "Complete collection for all users app endpoints with valid test data",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "https://api.gan7club.com/api",
+      "type": "string"
+    },
+    {
+      "key": "access_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "refresh_token",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. User Registration",
+      "item": [
+        {
+          "name": "Register Talent User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/register/",
+              "host": ["{{base_url}}"],
+              "path": ["register", ""]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"talent1@example.com\",\n  \"password\": \"TalentPass123!\",\n  \"first_name\": \"John\",\n  \"last_name\": \"Doe\",\n  \"role\": \"talent\",\n  \"country\": \"USA\",\n  \"date_of_birth\": \"1990-05-15\",\n  \"gender\": \"Male\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Register Background User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/register/",
+              "host": ["{{base_url}}"],
+              "path": ["register", ""]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"background1@example.com\",\n  \"password\": \"BackgroundPass123!\",\n  \"first_name\": \"Jane\",\n  \"last_name\": \"Smith\",\n  \"role\": \"background\",\n  \"country\": \"Canada\",\n  \"date_of_birth\": \"1988-12-20\",\n  \"gender\": \"Female\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Register Dashboard User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/register/",
+              "host": ["{{base_url}}"],
+              "path": ["register", ""]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"dashboard1@example.com\",\n  \"password\": \"DashboardPass123!\",\n  \"first_name\": \"Mike\",\n  \"last_name\": \"Johnson\",\n  \"role\": \"dashboard\",\n  \"country\": \"UK\",\n  \"date_of_birth\": \"1985-03-10\",\n  \"gender\": \"Male\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Register Admin Dashboard User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/register/",
+              "host": ["{{base_url}}"],
+              "path": ["register", ""]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin1@example.com\",\n  \"password\": \"AdminPass123!\",\n  \"first_name\": \"Sarah\",\n  \"last_name\": \"Wilson\",\n  \"role\": \"admin_dashboard\",\n  \"country\": \"Australia\",\n  \"date_of_birth\": \"1982-07-25\",\n  \"gender\": \"Female\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Register User - Invalid Data (Age < 18)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/register/",
+              "host": ["{{base_url}}"],
+              "path": ["register", ""]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"underage@example.com\",\n  \"password\": \"TestPass123!\",\n  \"first_name\": \"Under\",\n  \"last_name\": \"Age\",\n  \"role\": \"talent\",\n  \"country\": \"USA\",\n  \"date_of_birth\": \"2010-01-01\",\n  \"gender\": \"Other\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Register User - Duplicate Email",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/register/",
+              "host": ["{{base_url}}"],
+              "path": ["register", ""]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"talent1@example.com\",\n  \"password\": \"DuplicatePass123!\",\n  \"first_name\": \"Duplicate\",\n  \"last_name\": \"User\",\n  \"role\": \"talent\",\n  \"country\": \"USA\",\n  \"date_of_birth\": \"1995-01-01\",\n  \"gender\": \"Male\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. User Login",
+      "item": [
+        {
+          "name": "Talent Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/login/talent/",
+              "host": ["{{base_url}}"],
+              "path": ["login", "talent", ""]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"talent1@example.com\",\n  \"password\": \"TalentPass123!\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.environment.set('access_token', responseJson.access);",
+                  "    pm.environment.set('refresh_token', responseJson.refresh);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Background Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/login/background/",
+              "host": ["{{base_url}}"],
+              "path": ["login", "background", ""]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"background1@example.com\",\n  \"password\": \"BackgroundPass123!\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.environment.set('access_token', responseJson.access);",
+                  "    pm.environment.set('refresh_token', responseJson.refresh);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Dashboard Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/login/",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "login", ""]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"dashboard1@example.com\",\n  \"password\": \"DashboardPass123!\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.environment.set('access_token', responseJson.access);",
+                  "    pm.environment.set('refresh_token', responseJson.refresh);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin Dashboard Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/login/?admin_login=true",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "login", ""],
+              "query": [
+                {
+                  "key": "admin_login",
+                  "value": "true"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin1@example.com\",\n  \"password\": \"AdminPass123!\",\n  \"admin_login\": \"true\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.environment.set('access_token', responseJson.access);",
+                  "    pm.environment.set('refresh_token', responseJson.refresh);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login - Invalid Credentials",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/login/talent/",
+              "host": ["{{base_url}}"],
+              "path": ["login", "talent", ""]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"talent1@example.com\",\n  \"password\": \"WrongPassword123!\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Login - Wrong Role (Background user trying talent login)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/login/talent/",
+              "host": ["{{base_url}}"],
+              "path": ["login", "talent", ""]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"background1@example.com\",\n  \"password\": \"BackgroundPass123!\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. JWT Token Management",
+      "item": [
+        {
+          "name": "Get JWT Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/token/",
+              "host": ["{{base_url}}"],
+              "path": ["token", ""]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"talent1@example.com\",\n  \"password\": \"TalentPass123!\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.environment.set('access_token', responseJson.access);",
+                  "    pm.environment.set('refresh_token', responseJson.refresh);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Refresh JWT Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/token/refresh/",
+              "host": ["{{base_url}}"],
+              "path": ["token", "refresh", ""]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh\": \"{{refresh_token}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.environment.set('access_token', responseJson.access);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4. Email Verification",
+      "item": [
+        {
+          "name": "Verify Email",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/verify-email/?token=sample_verification_token",
+              "host": ["{{base_url}}"],
+              "path": ["verify-email", ""],
+              "query": [
+                {
+                  "key": "token",
+                  "value": "sample_verification_token",
+                  "description": "Replace with actual token from email"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Dashboard User Management (Admin Only)",
+      "item": [
+        {
+          "name": "List All Dashboard Users",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/dashboard/users/",
+              "host": ["{{base_url}}"],
+              "path": ["dashboard", "users", ""]
+            }
+          }
+        },
+        {
+          "name": "List Dashboard Users (Exclude Admins)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/dashboard/users/?exclude_admins=true",
+              "host": ["{{base_url}}"],
+              "path": ["dashboard", "users", ""],
+              "query": [
+                {
+                  "key": "exclude_admins",
+                  "value": "true"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Dashboard User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/dashboard/users/",
+              "host": ["{{base_url}}"],
+              "path": ["dashboard", "users", ""]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"newdashboard@example.com\",\n  \"password\": \"NewDashPass123!\",\n  \"first_name\": \"New\",\n  \"last_name\": \"Dashboard\",\n  \"role\": \"dashboard\",\n  \"country\": \"Germany\",\n  \"date_of_birth\": \"1990-01-01\",\n  \"gender\": \"Other\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Dashboard User Details",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/dashboard/users/1/",
+              "host": ["{{base_url}}"],
+              "path": ["dashboard", "users", "1", ""]
+            }
+          }
+        },
+        {
+          "name": "Delete Dashboard User",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/dashboard/users/1/",
+              "host": ["{{base_url}}"],
+              "path": ["dashboard", "users", "1", ""]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Test Data Variations",
+      "item": [
+        {
+          "name": "Register User - All Gender Options",
+          "item": [
+            {
+              "name": "Register User - Gender: Male",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/register/",
+                  "host": ["{{base_url}}"],
+                  "path": ["register", ""]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"male@example.com\",\n  \"password\": \"TestPass123!\",\n  \"first_name\": \"Male\",\n  \"last_name\": \"User\",\n  \"role\": \"talent\",\n  \"country\": \"France\",\n  \"date_of_birth\": \"1992-06-15\",\n  \"gender\": \"Male\"\n}"
+                }
+              }
+            },
+            {
+              "name": "Register User - Gender: Female",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/register/",
+                  "host": ["{{base_url}}"],
+                  "path": ["register", ""]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"female@example.com\",\n  \"password\": \"TestPass123!\",\n  \"first_name\": \"Female\",\n  \"last_name\": \"User\",\n  \"role\": \"talent\",\n  \"country\": \"Spain\",\n  \"date_of_birth\": \"1993-08-22\",\n  \"gender\": \"Female\"\n}"
+                }
+              }
+            },
+            {
+              "name": "Register User - Gender: Other",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/register/",
+                  "host": ["{{base_url}}"],
+                  "path": ["register", ""]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"other@example.com\",\n  \"password\": \"TestPass123!\",\n  \"first_name\": \"Other\",\n  \"last_name\": \"User\",\n  \"role\": \"talent\",\n  \"country\": \"Italy\",\n  \"date_of_birth\": \"1991-11-30\",\n  \"gender\": \"Other\"\n}"
+                }
+              }
+            },
+            {
+              "name": "Register User - Gender: Prefer not to say",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/register/",
+                  "host": ["{{base_url}}"],
+                  "path": ["register", ""]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"private@example.com\",\n  \"password\": \"TestPass123!\",\n  \"first_name\": \"Private\",\n  \"last_name\": \"User\",\n  \"role\": \"talent\",\n  \"country\": \"Netherlands\",\n  \"date_of_birth\": \"1989-04-18\",\n  \"gender\": \"Prefer not to say\"\n}"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Register User - International Countries",
+          "item": [
+            {
+              "name": "Register User - Japan",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/register/",
+                  "host": ["{{base_url}}"],
+                  "path": ["register", ""]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"japan@example.com\",\n  \"password\": \"TestPass123!\",\n  \"first_name\": \"Hiroshi\",\n  \"last_name\": \"Tanaka\",\n  \"role\": \"talent\",\n  \"country\": \"Japan\",\n  \"date_of_birth\": \"1987-02-14\",\n  \"gender\": \"Male\"\n}"
+                }
+              }
+            },
+            {
+              "name": "Register User - Brazil",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/register/",
+                  "host": ["{{base_url}}"],
+                  "path": ["register", ""]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"brazil@example.com\",\n  \"password\": \"TestPass123!\",\n  \"first_name\": \"Maria\",\n  \"last_name\": \"Silva\",\n  \"role\": \"background\",\n  \"country\": \"Brazil\",\n  \"date_of_birth\": \"1994-09-05\",\n  \"gender\": \"Female\"\n}"
+                }
+              }
+            },
+            {
+              "name": "Register User - India",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/register/",
+                  "host": ["{{base_url}}"],
+                  "path": ["register", ""]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"india@example.com\",\n  \"password\": \"TestPass123!\",\n  \"first_name\": \"Raj\",\n  \"last_name\": \"Patel\",\n  \"role\": \"talent\",\n  \"country\": \"India\",\n  \"date_of_birth\": \"1990-12-03\",\n  \"gender\": \"Male\"\n}"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+} 

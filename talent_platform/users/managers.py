@@ -198,7 +198,7 @@ class BaseUserManager(DjangoBaseUserManager):
             
             logger.info(f"Created new admin dashboard user {email}")
             return user
-        
+            
         except Exception as e:
             logger.error(f"Error creating admin dashboard user {email}: {str(e)}")
             raise

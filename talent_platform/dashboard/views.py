@@ -18,6 +18,7 @@ from .serializers import (
     BandDashboardSerializer, BackGroundDashboardSerializer
 )
 from .utils import get_sharing_status
+from profiles.utils.media_url_helper import get_media_url, get_thumbnail_url
 
 
 
@@ -144,8 +145,8 @@ class TalentProfileDetailView(RetrieveAPIView):
                 'name': media.name,
                 'media_type': media.media_type,
                 'media_info': media.media_info,
-                'media_file': request.build_absolute_uri(media.media_file.url) if media.media_file else None,
-                'thumbnail': request.build_absolute_uri(media.thumbnail.url) if media.thumbnail else None,
+                'media_file': get_media_url(request, media.media_file),
+                'thumbnail': get_thumbnail_url(request, media.thumbnail),
                 'created_at': media.created_at,
                 'is_test_video': media.is_test_video,
                 'is_about_yourself_video': media.is_about_yourself_video,
@@ -407,8 +408,8 @@ class ExpressiveWorkerDetailView(RetrieveAPIView):
                 'name': media.name,
                 'media_type': media.media_type,
                 'media_info': media.media_info,
-                'media_file': request.build_absolute_uri(media.media_file.url) if media.media_file else None,
-                'thumbnail': request.build_absolute_uri(media.thumbnail.url) if media.thumbnail else None,
+                'media_file': get_media_url(request, media.media_file),
+                'thumbnail': get_thumbnail_url(request, media.thumbnail),
                 'created_at': media.created_at,
                 'is_test_video': media.is_test_video,
                 'is_about_yourself_video': media.is_about_yourself_video,
@@ -437,8 +438,8 @@ class HybridWorkerDetailView(RetrieveAPIView):
             'name': media.name,
             'media_type': media.media_type,
             'media_info': media.media_info,
-            'media_file': request.build_absolute_uri(media.media_file.url) if media.media_file else None,
-            'thumbnail': request.build_absolute_uri(media.thumbnail.url) if media.thumbnail else None,
+            'media_file': get_media_url(request, media.media_file),
+            'thumbnail': get_thumbnail_url(request, media.thumbnail),
             'created_at': media.created_at,
         } for media in media_items]
         
@@ -463,7 +464,7 @@ class BandDetailView(RetrieveAPIView):
             'name': media.name,
             'media_type': media.media_type,
             'media_info': media.media_info,
-            'media_file': request.build_absolute_uri(media.media_file.url) if media.media_file else None,
+            'media_file': get_media_url(request, media.media_file),
             'created_at': media.created_at,
         } for media in media_items]
         

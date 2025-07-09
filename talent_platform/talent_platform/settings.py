@@ -63,11 +63,17 @@ elif USE_SPACES:
     AWS_DEFAULT_ACL = 'public-read'
     AWS_LOCATION = 'media'
     
+    # Custom CDN domain configuration
+    SPACES_CDN_URL = os.getenv('SPACES_CDN_URL', '')
+    if SPACES_CDN_URL and SPACES_CDN_URL.startswith('https://cdn.gan7club.com'):
+        AWS_S3_CUSTOM_DOMAIN = 'cdn.gan7club.com'
+        MEDIA_URL = SPACES_CDN_URL
+    else:
+        AWS_S3_CUSTOM_DOMAIN = None
+        MEDIA_URL = f'https://{AWS_STORAGE_BUCKET_NAME}.{AWS_S3_ENDPOINT_URL.split("://")[1]}/{AWS_LOCATION}/'
+    
     # Use custom storage backend for media files
     DEFAULT_FILE_STORAGE = 'talent_platform.storage_backends.MediaStorage'
-    
-    # Public media URL
-    MEDIA_URL = f'https://{AWS_STORAGE_BUCKET_NAME}.{AWS_S3_ENDPOINT_URL.split("://")[1]}/{AWS_LOCATION}/'
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/

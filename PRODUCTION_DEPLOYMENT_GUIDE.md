@@ -168,13 +168,6 @@ server {
         add_header Cache-Control "public, immutable";
     }
 
-    # Media Files (if not using DigitalOcean Spaces)
-    location /media/ {
-        alias /home/root/talent-platform/media/;
-        expires 1y;
-        add_header Cache-Control "public";
-    }
-
     # Django Application
     location / {
         proxy_pass http://unix:/home/root/talent-platform/talent_platform/gunicorn.sock;
