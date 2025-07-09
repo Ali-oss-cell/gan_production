@@ -122,8 +122,8 @@ CORS_ALLOW_HEADERS = os.getenv('CORS_ALLOWED_HEADERS', '').split(',') if os.gete
     'x-requested-with',
 ]
 
-# CSRF Trusted Origins for Production
-CSRF_TRUSTED_ORIGINS = [
+# CSRF Trusted Origins for Production - from environment variables
+CSRF_TRUSTED_ORIGINS = os.getenv('CSRF_TRUSTED_ORIGINS', '').split(',') if os.getenv('CSRF_TRUSTED_ORIGINS') else [
     "https://gan7club.com",
     "https://www.gan7club.com",
     "https://api.gan7club.com",
