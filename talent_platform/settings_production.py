@@ -88,15 +88,38 @@ SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
 
 # CORS Configuration for Production
-CORS_ORIGIN_ALLOW_ALL = False
-CORS_ALLOW_CREDENTIALS = True
+CORS_ORIGIN_ALLOW_ALL = os.getenv('CORS_ORIGIN_ALLOW_ALL', 'False').lower() == 'true'
+CORS_ALLOW_CREDENTIALS = os.getenv('CORS_ALLOW_CREDENTIALS', 'True').lower() == 'true'
 
-# Only allow production domains
-CORS_ALLOWED_ORIGINS = [
+# CORS allowed origins - from environment variables
+CORS_ALLOWED_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS', '').split(',') if os.getenv('CORS_ALLOWED_ORIGINS') else [
     "https://gan7club.com",
-    "https://www.gan7club.com",
+    "https://www.gan7club.com", 
+    "https://api.gan7club.com",
     "https://app.gan7club.com",
-    "https://cdn.gan7club.com",  # Allow CDN domain for media access
+    "https://cdn.gan7club.com",
+]
+
+# Additional CORS settings - from environment variables
+CORS_ALLOW_METHODS = os.getenv('CORS_ALLOWED_METHODS', '').split(',') if os.getenv('CORS_ALLOWED_METHODS') else [
+    'DELETE',
+    'GET',
+    'OPTIONS',
+    'PATCH',
+    'POST',
+    'PUT',
+]
+
+CORS_ALLOW_HEADERS = os.getenv('CORS_ALLOWED_HEADERS', '').split(',') if os.getenv('CORS_ALLOWED_HEADERS') else [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
 ]
 
 # CSRF Trusted Origins for Production
