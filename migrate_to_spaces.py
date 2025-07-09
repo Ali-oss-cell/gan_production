@@ -36,7 +36,7 @@ def migrate_media_to_spaces():
                 print(f"Processing: {media.media_file.name}")
                 
                 # Check if file exists locally
-                local_path = media.media_file.path
+                local_path = os.path.join(settings.MEDIA_ROOT, media.media_file.name)
                 if os.path.exists(local_path):
                     # Read the file content
                     with open(local_path, 'rb') as f:
