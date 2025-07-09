@@ -88,17 +88,11 @@ SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
 
 # CORS Configuration for Production
-CORS_ORIGIN_ALLOW_ALL = False
-CORS_ALLOW_CREDENTIALS = True
+CORS_ORIGIN_ALLOW_ALL = os.getenv('CORS_ORIGIN_ALLOW_ALL', 'False').lower() == 'true'
+CORS_ALLOW_CREDENTIALS = os.getenv('CORS_ALLOW_CREDENTIALS', 'True').lower() == 'true'
 
-# Only allow production domains
-CORS_ALLOWED_ORIGINS = [
-    "https://gan7club.com",
-    "https://www.gan7club.com",
-    "https://api.gan7club.com",
-    "https://app.gan7club.com",
-    "https://cdn.gan7club.com",  # Allow CDN domain for media access
-]
+# CORS allowed origins from environment
+CORS_ALLOWED_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS', 'https://gan7club.com,https://www.gan7club.com,https://api.gan7club.com').split(',')
 
 # Additional CORS settings
 CORS_ALLOW_METHODS = [
