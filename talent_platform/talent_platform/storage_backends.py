@@ -14,6 +14,16 @@ class MediaStorage(S3Boto3Storage):
     # Use custom domain if configured
     custom_domain = getattr(settings, 'AWS_S3_CUSTOM_DOMAIN', None)
     
+    # Ensure proper S3 configuration for Spaces
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Force the endpoint URL for Spaces
+        self.endpoint_url = getattr(settings, 'AWS_S3_ENDPOINT_URL', None)
+        # Ensure bucket name is set
+        self.bucket_name = getattr(settings, 'AWS_STORAGE_BUCKET_NAME', None)
+        # Set region for Spaces
+        self.region_name = 'fra1'
+    
     # Specific configuration for video files
     def get_object_parameters(self, name):
         params = super().get_object_parameters(name)
@@ -31,8 +41,9 @@ class MediaStorage(S3Boto3Storage):
             # Use custom domain with proper path structure
             return f"https://{self.custom_domain}/{self.location}/{name}"
         else:
-            # Fall back to default S3 URL generation
-            return super().url(name)
+            # Use default Spaces CDN URL
+            bucket_name = getattr(settings, 'AWS_STORAGE_BUCKET_NAME', '')
+            return f"https://{bucket_name}.fra1.cdn.digitaloceanspaces.com/{self.location}/{name}"
 
 
 class S3MediaStorage(S3Boto3Storage):

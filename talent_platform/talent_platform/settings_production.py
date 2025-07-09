@@ -60,16 +60,11 @@ if USE_SPACES:
         MEDIA_URL = SPACES_CDN_URL
     else:
         AWS_S3_CUSTOM_DOMAIN = None
+        # Use default CDN URL for Spaces
         MEDIA_URL = f'https://{AWS_STORAGE_BUCKET_NAME}.fra1.cdn.digitaloceanspaces.com/{AWS_LOCATION}/'
     
     # Use custom storage backend for media files
     DEFAULT_FILE_STORAGE = 'talent_platform.storage_backends.MediaStorage'
-    
-    # Public media URL - Use CDN for better performance
-    # Origin: https://ganspace.fra1.digitaloceanspaces.com
-    # CDN: https://ganspace.fra1.cdn.digitaloceanspaces.com
-    # Custom CDN: https://cdn.gan7club.com (if configured)
-    MEDIA_URL = SPACES_CDN_URL
 else:
     # Local media storage
     MEDIA_URL = '/media/'
