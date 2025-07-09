@@ -53,6 +53,14 @@ if USE_SPACES:
     AWS_LOCATION = 'media'
     AWS_QUERYSTRING_AUTH = False
     
+    # Custom CDN domain configuration
+    SPACES_CDN_URL = os.getenv('SPACES_CDN_URL', f'https://{AWS_STORAGE_BUCKET_NAME}.fra1.cdn.digitaloceanspaces.com/{AWS_LOCATION}/')
+    # Extract domain from CDN URL for storage backend
+    if SPACES_CDN_URL.startswith('https://cdn.gan7club.com'):
+        AWS_S3_CUSTOM_DOMAIN = 'cdn.gan7club.com'
+    else:
+        AWS_S3_CUSTOM_DOMAIN = None
+    
     # Use custom storage backend for media files
     DEFAULT_FILE_STORAGE = 'talent_platform.storage_backends.MediaStorage'
     
@@ -60,7 +68,7 @@ if USE_SPACES:
     # Origin: https://ganspace.fra1.digitaloceanspaces.com
     # CDN: https://ganspace.fra1.cdn.digitaloceanspaces.com
     # Custom CDN: https://cdn.gan7club.com (if configured)
-    MEDIA_URL = os.getenv('SPACES_CDN_URL', f'https://{AWS_STORAGE_BUCKET_NAME}.fra1.cdn.digitaloceanspaces.com/{AWS_LOCATION}/')
+    MEDIA_URL = SPACES_CDN_URL
 else:
     # Local media storage
     MEDIA_URL = '/media/'
@@ -87,6 +95,7 @@ CORS_ALLOWED_ORIGINS = [
     "https://gan7club.com",
     "https://www.gan7club.com",
     "https://app.gan7club.com",
+    "https://cdn.gan7club.com",  # Allow CDN domain for media access
 ]
 
 # CSRF Trusted Origins for Production
