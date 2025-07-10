@@ -65,9 +65,29 @@ if USE_SPACES:
     
     # Use custom storage backend for media files
     DEFAULT_FILE_STORAGE = 'talent_platform.storage_backends.MediaStorage'
+    
+    # Configure STORAGES setting for Django 4.2+
+    STORAGES = {
+        'default': {
+            'BACKEND': 'talent_platform.storage_backends.MediaStorage',
+        },
+        'staticfiles': {
+            'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage',
+        },
+    }
 else:
     # Local media storage
     MEDIA_URL = '/media/'
+    
+    # Configure STORAGES setting for local development
+    STORAGES = {
+        'default': {
+            'BACKEND': 'django.core.files.storage.FileSystemStorage',
+        },
+        'staticfiles': {
+            'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage',
+        },
+    }
 
 # Security Settings
 SECURE_SSL_REDIRECT = os.getenv('SECURE_SSL_REDIRECT', 'True').lower() == 'true'
