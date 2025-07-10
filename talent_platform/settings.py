@@ -126,7 +126,29 @@ MIDDLEWARE = [
 ]
 
 CORS_ORIGIN_ALLOW_ALL = os.getenv('CORS_ORIGIN_ALLOW_ALL', 'False').lower() == 'true'
-CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_CREDENTIALS = os.getenv('CORS_ALLOW_CREDENTIALS', 'True').lower() == 'true'
+
+# CORS methods and headers - from environment variables
+CORS_ALLOW_METHODS = os.getenv('CORS_ALLOWED_METHODS', '').split(',') if os.getenv('CORS_ALLOWED_METHODS') else [
+    'DELETE',
+    'GET',
+    'OPTIONS',
+    'PATCH',
+    'POST',
+    'PUT',
+]
+
+CORS_ALLOW_HEADERS = os.getenv('CORS_ALLOWED_HEADERS', '').split(',') if os.getenv('CORS_ALLOWED_HEADERS') else [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+]
 
 # Development CORS settings (only used when DEBUG=True)
 if DEBUG:
@@ -166,14 +188,16 @@ if DEBUG:
         '192.168.72.85',
     ]
 else:
-    # Production CORS settings
-    CORS_ALLOWED_ORIGINS = [
+    # Production CORS settings - from environment variables
+    CORS_ALLOWED_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS', '').split(',') if os.getenv('CORS_ALLOWED_ORIGINS') else [
         "https://gan7club.com",
         "https://www.gan7club.com",
+        "https://api.gan7club.com",
         "https://app.gan7club.com",
+        "https://cdn.gan7club.com",
     ]
     
-    CSRF_TRUSTED_ORIGINS = [
+    CSRF_TRUSTED_ORIGINS = os.getenv('CSRF_TRUSTED_ORIGINS', '').split(',') if os.getenv('CSRF_TRUSTED_ORIGINS') else [
         "https://gan7club.com",
         "https://www.gan7club.com",
         "https://api.gan7club.com",

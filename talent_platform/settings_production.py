@@ -60,19 +60,34 @@ if USE_SPACES:
         MEDIA_URL = SPACES_CDN_URL
     else:
         AWS_S3_CUSTOM_DOMAIN = None
+        # Use default CDN URL for Spaces
         MEDIA_URL = f'https://{AWS_STORAGE_BUCKET_NAME}.fra1.cdn.digitaloceanspaces.com/{AWS_LOCATION}/'
     
     # Use custom storage backend for media files
     DEFAULT_FILE_STORAGE = 'talent_platform.storage_backends.MediaStorage'
     
-    # Public media URL - Use CDN for better performance
-    # Origin: https://ganspace.fra1.digitaloceanspaces.com
-    # CDN: https://ganspace.fra1.cdn.digitaloceanspaces.com
-    # Custom CDN: https://cdn.gan7club.com (if configured)
-    MEDIA_URL = SPACES_CDN_URL
+    # Configure STORAGES setting for Django 4.2+
+    STORAGES = {
+        'default': {
+            'BACKEND': 'talent_platform.storage_backends.MediaStorage',
+        },
+        'staticfiles': {
+            'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage',
+        },
+    }
 else:
     # Local media storage
     MEDIA_URL = '/media/'
+    
+    # Configure STORAGES setting for local development
+    STORAGES = {
+        'default': {
+            'BACKEND': 'django.core.files.storage.FileSystemStorage',
+        },
+        'staticfiles': {
+            'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage',
+        },
+    }
 
 # Security Settings
 SECURE_SSL_REDIRECT = os.getenv('SECURE_SSL_REDIRECT', 'True').lower() == 'true'
@@ -122,8 +137,8 @@ CORS_ALLOW_HEADERS = os.getenv('CORS_ALLOWED_HEADERS', '').split(',') if os.gete
     'x-requested-with',
 ]
 
-# CSRF Trusted Origins for Production
-CSRF_TRUSTED_ORIGINS = [
+# CSRF Trusted Origins for Production - from environment variables
+CSRF_TRUSTED_ORIGINS = os.getenv('CSRF_TRUSTED_ORIGINS', '').split(',') if os.getenv('CSRF_TRUSTED_ORIGINS') else [
     "https://gan7club.com",
     "https://www.gan7club.com",
     "https://api.gan7club.com",
