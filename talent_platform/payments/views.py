@@ -550,13 +550,28 @@ class CreateCheckoutSessionView(APIView):
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-            if plan_id not in SUBSCRIPTION_PLANS:
+            # Handle both string keys and numeric IDs
+            plan = None
+            if isinstance(plan_id, int):
+                # Convert numeric ID to plan key
+                plan_mapping = {
+                    1: 'SILVER',
+                    2: 'GOLD', 
+                    3: 'PLATINUM',
+                    4: 'BANDS',
+                    5: 'BACKGROUND_JOBS'
+                }
+                plan_key = plan_mapping.get(plan_id)
+                if plan_key and plan_key in SUBSCRIPTION_PLANS:
+                    plan = SUBSCRIPTION_PLANS[plan_key]
+            elif isinstance(plan_id, str) and plan_id in SUBSCRIPTION_PLANS:
+                plan = SUBSCRIPTION_PLANS[plan_id]
+
+            if not plan:
                 return Response(
-                    {'error': 'Invalid plan ID'},
+                    {'error': f'Invalid plan ID: {plan_id}. Valid IDs are: 1 (Silver), 2 (Gold), 3 (Platinum), 4 (Bands), 5 (Background Jobs)'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
-
-            plan = SUBSCRIPTION_PLANS[plan_id]
             
             # Create Stripe checkout session
             stripe.api_key = settings.STRIPE_SECRET_KEY
@@ -564,16 +579,7 @@ class CreateCheckoutSessionView(APIView):
             session = stripe.checkout.Session.create(
                 payment_method_types=['card'],
                 line_items=[{
-                    'price_data': {
-                        'currency': 'usd',
-                        'product_data': {
-                            'name': plan['name'],
-                        },
-                        'unit_amount': int(plan['price'] * 100),  # Convert to cents
-                        'recurring': {
-                            'interval': 'year'
-                        }
-                    },
+                    'price': plan['stripe_price_id'],  # Use existing Stripe price ID
                     'quantity': 1,
                 }],
                 mode='subscription',
