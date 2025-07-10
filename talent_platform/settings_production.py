@@ -2,7 +2,8 @@ import os
 from .settings import *
 from dotenv import load_dotenv
 
-load_dotenv()
+# Load .env file from the correct path
+load_dotenv('/var/www/gan7club/.env')
 
 # Security Settings
 DEBUG = False
