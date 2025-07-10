@@ -564,16 +564,7 @@ class CreateCheckoutSessionView(APIView):
             session = stripe.checkout.Session.create(
                 payment_method_types=['card'],
                 line_items=[{
-                    'price_data': {
-                        'currency': 'usd',
-                        'product_data': {
-                            'name': plan['name'],
-                        },
-                        'unit_amount': int(plan['price'] * 100),  # Convert to cents
-                        'recurring': {
-                            'interval': 'year'
-                        }
-                    },
+                    'price': plan['stripe_price_id'],  # Use existing Stripe price ID
                     'quantity': 1,
                 }],
                 mode='subscription',
