@@ -170,15 +170,15 @@ class StripePaymentService:
                 session = event.data.object
                 print(f"\nSession data: {session}")
                 user_id = session.metadata.get('user_id')
-                plan_name = session.metadata.get('plan_id')  # This is actually the plan name, e.g., 'SILVER'
+                plan_id = session.metadata.get('plan_id')  # This is the database plan ID, e.g., '4'
                 
                 print(f"\nExtracted metadata:")
                 print(f"User ID: {user_id}")
-                print(f"Plan ID: {plan_name}")
+                print(f"Plan ID: {plan_id}")
                 
                 try:
                     user = BaseUser.objects.get(id=user_id)
-                    plan = SubscriptionPlan.objects.get(name__iexact=plan_name.lower())
+                    plan = SubscriptionPlan.objects.get(id=plan_id)
                     print(f"\nFound user: {user.email}")
                     print(f"User type - is_talent: {user.is_talent}, is_background: {user.is_background}")
                     print(f"Found plan: {plan.name}")
@@ -261,7 +261,7 @@ class StripePaymentService:
                     print(f"Error: User with ID {user_id} not found")
                     raise
                 except SubscriptionPlan.DoesNotExist:
-                    print(f"Error: Plan with ID {plan_name} not found")
+                    print(f"Error: Plan with ID {plan_id} not found")
                     raise
                 except Exception as e:
                     print(f"Error updating profile: {str(e)}")
