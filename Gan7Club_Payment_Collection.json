@@ -1,0 +1,706 @@
+{
+	"info": {
+		"_postman_id": "gan7club-payment-collection",
+		"name": "Gan7Club Payment System",
+		"description": "Complete collection for testing Gan7Club payment endpoints with actual pricing configuration",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Authentication",
+			"item": [
+				{
+					"name": "Login - Get Token",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"{{user_email}}\",\n    \"password\": \"{{user_password}}\"\n}"
+						},
+						"url": {
+							"raw": "https://api.gan7club.com/api/token/",
+							"protocol": "https",
+							"host": [
+								"api",
+								"gan7club",
+								"com"
+							],
+							"path": [
+								"api",
+								"token",
+								""
+							]
+						}
+					},
+					"response": [],
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const response = pm.response.json();",
+									"    pm.environment.set('access_token', response.access);",
+									"    pm.environment.set('refresh_token', response.refresh);",
+									"    console.log('Token saved successfully');",
+									"} else {",
+									"    console.log('Login failed');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Refresh Token",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"refresh\": \"{{refresh_token}}\"\n}"
+						},
+						"url": {
+							"raw": "https://api.gan7club.com/api/token/refresh/",
+							"protocol": "https",
+							"host": [
+								"api",
+								"gan7club",
+								"com"
+							],
+							"path": [
+								"api",
+								"token",
+								"refresh",
+								""
+							]
+						}
+					},
+					"response": [],
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const response = pm.response.json();",
+									"    pm.environment.set('access_token', response.access);",
+									"    console.log('Token refreshed successfully');",
+									"} else {",
+									"    console.log('Token refresh failed');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "Payment Endpoints",
+			"item": [
+				{
+					"name": "Get Pricing Plans",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "https://api.gan7club.com/api/payments/pricing/",
+							"protocol": "https",
+							"host": [
+								"api",
+								"gan7club",
+								"com"
+							],
+							"path": [
+								"api",
+								"payments",
+								"pricing",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Checkout Session - Silver Plan ($99/year)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"plan_id\": 1,\n    \"success_url\": \"https://gan7club.com/success\",\n    \"cancel_url\": \"https://gan7club.com/cancel\"\n}"
+						},
+						"url": {
+							"raw": "https://api.gan7club.com/api/payments/create-checkout-session/",
+							"protocol": "https",
+							"host": [
+								"api",
+								"gan7club",
+								"com"
+							],
+							"path": [
+								"api",
+								"payments",
+								"create-checkout-session",
+								""
+							]
+						}
+					},
+					"response": [],
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const response = pm.response.json();",
+									"    pm.environment.set('checkout_session_id', response.session_id);",
+									"    pm.environment.set('checkout_url', response.url);",
+									"    console.log('Silver Plan Checkout session created:', response.session_id);",
+									"    console.log('Checkout URL:', response.url);",
+									"} else {",
+									"    console.log('Checkout session creation failed');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Create Checkout Session - Gold Plan ($199/year)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"plan_id\": 2,\n    \"success_url\": \"https://gan7club.com/success\",\n    \"cancel_url\": \"https://gan7club.com/cancel\"\n}"
+						},
+						"url": {
+							"raw": "https://api.gan7club.com/api/payments/create-checkout-session/",
+							"protocol": "https",
+							"host": [
+								"api",
+								"gan7club",
+								"com"
+							],
+							"path": [
+								"api",
+								"payments",
+								"create-checkout-session",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Checkout Session - Platinum Plan ($350/year)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"plan_id\": 3,\n    \"success_url\": \"https://gan7club.com/success\",\n    \"cancel_url\": \"https://gan7club.com/cancel\"\n}"
+						},
+						"url": {
+							"raw": "https://api.gan7club.com/api/payments/create-checkout-session/",
+							"protocol": "https",
+							"host": [
+								"api",
+								"gan7club",
+								"com"
+							],
+							"path": [
+								"api",
+								"payments",
+								"create-checkout-session",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Checkout Session - Bands Plan ($500/year)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"plan_id\": 4,\n    \"success_url\": \"https://gan7club.com/success\",\n    \"cancel_url\": \"https://gan7club.com/cancel\"\n}"
+						},
+						"url": {
+							"raw": "https://api.gan7club.com/api/payments/create-checkout-session/",
+							"protocol": "https",
+							"host": [
+								"api",
+								"gan7club",
+								"com"
+							],
+							"path": [
+								"api",
+								"payments",
+								"create-checkout-session",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Checkout Session - Background Jobs ($300/year)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"plan_id\": 5,\n    \"success_url\": \"https://gan7club.com/success\",\n    \"cancel_url\": \"https://gan7club.com/cancel\"\n}"
+						},
+						"url": {
+							"raw": "https://api.gan7club.com/api/payments/create-checkout-session/",
+							"protocol": "https",
+							"host": [
+								"api",
+								"gan7club",
+								"com"
+							],
+							"path": [
+								"api",
+								"payments",
+								"create-checkout-session",
+								""
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Additional Services",
+			"item": [
+				{
+					"name": "Profile Verification ($19.99)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"service_id\": \"PROFILE_VERIFICATION\",\n    \"success_url\": \"https://gan7club.com/success\",\n    \"cancel_url\": \"https://gan7club.com/cancel\"\n}"
+						},
+						"url": {
+							"raw": "https://api.gan7club.com/api/payments/create-checkout-session/",
+							"protocol": "https",
+							"host": [
+								"api",
+								"gan7club",
+								"com"
+							],
+							"path": [
+								"api",
+								"payments",
+								"create-checkout-session",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Featured Placement ($49.99)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"service_id\": \"FEATURED_PLACEMENT\",\n    \"success_url\": \"https://gan7club.com/success\",\n    \"cancel_url\": \"https://gan7club.com/cancel\"\n}"
+						},
+						"url": {
+							"raw": "https://api.gan7club.com/api/payments/create-checkout-session/",
+							"protocol": "https",
+							"host": [
+								"api",
+								"gan7club",
+								"com"
+							],
+							"path": [
+								"api",
+								"payments",
+								"create-checkout-session",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Custom URL ($9.99)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"service_id\": \"CUSTOM_URL\",\n    \"success_url\": \"https://gan7club.com/success\",\n    \"cancel_url\": \"https://gan7club.com/cancel\"\n}"
+						},
+						"url": {
+							"raw": "https://api.gan7club.com/api/payments/create-checkout-session/",
+							"protocol": "https",
+							"host": [
+								"api",
+								"gan7club",
+								"com"
+							],
+							"path": [
+								"api",
+								"payments",
+								"create-checkout-session",
+								""
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Subscription Management",
+			"item": [
+				{
+					"name": "Get User Subscriptions",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "https://api.gan7club.com/api/payments/subscriptions/",
+							"protocol": "https",
+							"host": [
+								"api",
+								"gan7club",
+								"com"
+							],
+							"path": [
+								"api",
+								"payments",
+								"subscriptions",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Subscription Checkout Session",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"plan_id\": 1,\n    \"success_url\": \"https://gan7club.com/success\",\n    \"cancel_url\": \"https://gan7club.com/cancel\"\n}"
+						},
+						"url": {
+							"raw": "https://api.gan7club.com/api/payments/subscriptions/create_checkout_session/",
+							"protocol": "https",
+							"host": [
+								"api",
+								"gan7club",
+								"com"
+							],
+							"path": [
+								"api",
+								"payments",
+								"subscriptions",
+								"create_checkout_session",
+								""
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Webhook Testing",
+			"item": [
+				{
+					"name": "Test Webhook - Checkout Session Completed",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"type\": \"checkout.session.completed\",\n    \"data\": {\n        \"object\": {\n            \"id\": \"{{checkout_session_id}}\",\n            \"customer_email\": \"test@example.com\",\n            \"metadata\": {\n                \"user_id\": \"1\",\n                \"plan_id\": \"1\"\n            },\n            \"payment_status\": \"paid\",\n            \"amount_total\": 9900,\n            \"currency\": \"usd\"\n        }\n    }\n}"
+						},
+						"url": {
+							"raw": "https://api.gan7club.com/api/payments/webhook/",
+							"protocol": "https",
+							"host": [
+								"api",
+								"gan7club",
+								"com"
+							],
+							"path": [
+								"api",
+								"payments",
+								"webhook",
+								""
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Error Testing",
+			"item": [
+				{
+					"name": "Test Invalid Plan ID",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"plan_id\": 999,\n    \"success_url\": \"https://gan7club.com/success\",\n    \"cancel_url\": \"https://gan7club.com/cancel\"\n}"
+						},
+						"url": {
+							"raw": "https://api.gan7club.com/api/payments/create-checkout-session/",
+							"protocol": "https",
+							"host": [
+								"api",
+								"gan7club",
+								"com"
+							],
+							"path": [
+								"api",
+								"payments",
+								"create-checkout-session",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Test Missing Authentication",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"plan_id\": 1,\n    \"success_url\": \"https://gan7club.com/success\",\n    \"cancel_url\": \"https://gan7club.com/cancel\"\n}"
+						},
+						"url": {
+							"raw": "https://api.gan7club.com/api/payments/create-checkout-session/",
+							"protocol": "https",
+							"host": [
+								"api",
+								"gan7club",
+								"com"
+							],
+							"path": [
+								"api",
+								"payments",
+								"create-checkout-session",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Test Missing Required Fields",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"plan_id\": 1\n}"
+						},
+						"url": {
+							"raw": "https://api.gan7club.com/api/payments/create-checkout-session/",
+							"protocol": "https",
+							"host": [
+								"api",
+								"gan7club",
+								"com"
+							],
+							"path": [
+								"api",
+								"payments",
+								"create-checkout-session",
+								""
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"variable": [
+		{
+			"key": "user_email",
+			"value": "your-email@example.com",
+			"type": "string"
+		},
+		{
+			"key": "user_password",
+			"value": "your-password",
+			"type": "string"
+		},
+		{
+			"key": "access_token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "refresh_token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "checkout_session_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "checkout_url",
+			"value": "",
+			"type": "string"
+		}
+	]
+} 

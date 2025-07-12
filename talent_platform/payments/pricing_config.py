@@ -13,7 +13,7 @@ SUBSCRIPTION_PLANS = {
             'Basic search functionality',
             'Email support',
         ],
-        'stripe_price_id': 'test_price_silver',
+        'stripe_price_id': 'price_1RfJFoP623EsFG0oJbcWJKzU',
         'duration_months': 12,
     },
     'GOLD': {
@@ -26,7 +26,7 @@ SUBSCRIPTION_PLANS = {
             'Enhanced search optimization',
             'Email and phone support',
         ],
-        'stripe_price_id': 'test_price_gold',
+        'stripe_price_id': 'price_1RfJjxP623EsFG0oZvEjMoiP',
         'duration_months': 12,
     },
     'PLATINUM': {
@@ -39,7 +39,7 @@ SUBSCRIPTION_PLANS = {
             'VIP search optimization',
             'Priority email and phone support',
         ],
-        'stripe_price_id': 'test_price_platinum',
+        'stripe_price_id': 'price_1RfJkoP623EsFG0oN96YwLf9',
         'duration_months': 12,
     },
     'BANDS': {
@@ -54,7 +54,7 @@ SUBSCRIPTION_PLANS = {
             'Priority booking requests',
             'Dedicated band support',
         ],
-        'stripe_price_id': 'test_price_bands',
+        'stripe_price_id': 'price_1RfJFoP623EsFG0oJbcWJKzU',  # Using Silver price for now
         'duration_months': 12,
     },
     'BACKGROUND_JOBS': {
@@ -71,7 +71,7 @@ SUBSCRIPTION_PLANS = {
             'Professional profile with enhanced visibility',
             'Dedicated support for equipment services',
         ],
-        'stripe_price_id': 'test_price_background_jobs',
+        'stripe_price_id': 'price_1RfJnhP623EsFG0onn7GnIYh',
         'duration_months': 12,
     },
 }

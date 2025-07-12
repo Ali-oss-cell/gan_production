@@ -8,6 +8,7 @@ from django.http import HttpResponse
 from django.conf import settings
 import json
 import stripe
+import requests
 from rest_framework.views import APIView
 from .pricing_config import (
     SUBSCRIPTION_PLANS,
@@ -573,24 +574,61 @@ class CreateCheckoutSessionView(APIView):
                     status=status.HTTP_400_BAD_REQUEST
                 )
             
-            # Create Stripe checkout session
+            # Create Stripe checkout session with timeout and error handling
+            import requests
+            
+            # Set timeout for Stripe requests (30 seconds)
+            stripe.default_http_client = stripe.http_client.RequestsClient(timeout=30)
             stripe.api_key = settings.STRIPE_SECRET_KEY
             
-            session = stripe.checkout.Session.create(
-                payment_method_types=['card'],
-                line_items=[{
-                    'price': plan['stripe_price_id'],  # Use existing Stripe price ID
-                    'quantity': 1,
-                }],
-                mode='subscription',
-                success_url=success_url,
-                cancel_url=cancel_url,
-                customer_email=request.user.email,
-                metadata={
-                    'user_id': str(request.user.id),
-                    'plan_id': plan_id
-                }
-            )
+            # Validate Stripe key before making the call
+            if not stripe.api_key or not stripe.api_key.startswith(('sk_test_', 'sk_live_')):
+                return Response(
+                    {'error': 'Invalid Stripe configuration. Please contact support.'},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+            
+            try:
+                session = stripe.checkout.Session.create(
+                    payment_method_types=['card'],
+                    line_items=[{
+                        'price': plan['stripe_price_id'],  # Use existing Stripe price ID
+                        'quantity': 1,
+                    }],
+                    mode='subscription',
+                    success_url=success_url,
+                    cancel_url=cancel_url,
+                    customer_email=request.user.email,
+                    metadata={
+                        'user_id': str(request.user.id),
+                        'plan_id': plan_id
+                    }
+                )
+            except stripe.error.AuthenticationError as e:
+                return Response(
+                    {'error': 'Stripe authentication failed. Please contact support.'},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+            except stripe.error.InvalidRequestError as e:
+                return Response(
+                    {'error': f'Invalid request to Stripe: {str(e)}'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            except requests.exceptions.Timeout:
+                return Response(
+                    {'error': 'Stripe request timed out. Please try again.'},
+                    status=status.HTTP_408_REQUEST_TIMEOUT
+                )
+            except requests.exceptions.ConnectionError:
+                return Response(
+                    {'error': 'Unable to connect to Stripe. Please try again.'},
+                    status=status.HTTP_503_SERVICE_UNAVAILABLE
+                )
+            except Exception as e:
+                return Response(
+                    {'error': f'Unexpected error: {str(e)}'},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
 
             return Response({
                 'session_id': session.id,

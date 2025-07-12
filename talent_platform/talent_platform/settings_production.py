@@ -2,7 +2,8 @@ import os
 from .settings import *
 from dotenv import load_dotenv
 
-load_dotenv()
+# Load .env file from the correct path
+load_dotenv('/var/www/gan7club/.env')
 
 # Security Settings
 DEBUG = False
@@ -53,15 +54,10 @@ if USE_SPACES:
     AWS_LOCATION = 'media'
     AWS_QUERYSTRING_AUTH = False
     
-    # Custom CDN domain configuration
-    SPACES_CDN_URL = os.getenv('SPACES_CDN_URL', '')
-    if SPACES_CDN_URL and SPACES_CDN_URL.startswith('https://cdn.gan7club.com'):
-        AWS_S3_CUSTOM_DOMAIN = 'cdn.gan7club.com'
-        MEDIA_URL = SPACES_CDN_URL
-    else:
-        AWS_S3_CUSTOM_DOMAIN = None
-        # Use default CDN URL for Spaces
-        MEDIA_URL = f'https://{AWS_STORAGE_BUCKET_NAME}.fra1.cdn.digitaloceanspaces.com/{AWS_LOCATION}/'
+    # Use direct DigitalOcean Spaces URL (no custom domain)
+    AWS_S3_CUSTOM_DOMAIN = None
+    # Use default CDN URL for Spaces
+    MEDIA_URL = f'https://{AWS_STORAGE_BUCKET_NAME}.fra1.cdn.digitaloceanspaces.com/{AWS_LOCATION}/'
     
     # Use custom storage backend for media files
     DEFAULT_FILE_STORAGE = 'talent_platform.storage_backends.MediaStorage'

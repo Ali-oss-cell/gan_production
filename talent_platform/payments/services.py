@@ -90,6 +90,14 @@ class StripePaymentService:
             payment_method_types = StripePaymentService.get_payment_methods_for_region(region_code)
             print(f"Payment methods for region {region_code}: {payment_method_types}")
             
+            # Set timeout for Stripe requests (30 seconds)
+            import requests
+            stripe.default_http_client = stripe.http_client.RequestsClient(timeout=30)
+            
+            # Validate Stripe key before making the call
+            if not stripe.api_key or not stripe.api_key.startswith(('sk_test_', 'sk_live_')):
+                raise Exception("Invalid Stripe configuration. Please contact support.")
+            
             # Debug: Print the exact checkout session parameters
             checkout_params = {
                 'customer': user.stripe_customer_id,
@@ -124,9 +132,22 @@ class StripePaymentService:
             print(f"Plan Price ID: {checkout_params['line_items'][0]['price']}")
             print("=== END DEBUG ===\n")
             
-            session = stripe.checkout.Session.create(**checkout_params)
-            print(f"Created session with ID: {session.id}")
-            return session
+            try:
+                session = stripe.checkout.Session.create(**checkout_params)
+                print(f"Created session with ID: {session.id}")
+                return session
+            except stripe.error.AuthenticationError as e:
+                print(f"Stripe authentication error: {str(e)}")
+                raise Exception("Stripe authentication failed. Please contact support.")
+            except stripe.error.InvalidRequestError as e:
+                print(f"Stripe invalid request error: {str(e)}")
+                raise Exception(f"Invalid request to Stripe: {str(e)}")
+            except requests.exceptions.Timeout:
+                print("Stripe request timed out")
+                raise Exception("Stripe request timed out. Please try again.")
+            except requests.exceptions.ConnectionError:
+                print("Stripe connection error")
+                raise Exception("Unable to connect to Stripe. Please try again.")
         except stripe.error.StripeError as e:
             print(f"Stripe error: {str(e)}")
             raise Exception(f"Failed to create checkout session: {str(e)}")
