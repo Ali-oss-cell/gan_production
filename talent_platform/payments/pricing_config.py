@@ -54,7 +54,7 @@ SUBSCRIPTION_PLANS = {
             'Priority booking requests',
             'Dedicated band support',
         ],
-        'stripe_price_id': 'price_1RfJFoP623EsFG0oJbcWJKzU',  # Using Silver price for now
+        'stripe_price_id': 'price_your-bands-price-id',  # Replace with actual Bands price ID
         'duration_months': 12,
     },
     'BACKGROUND_JOBS': {
