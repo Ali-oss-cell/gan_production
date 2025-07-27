@@ -403,9 +403,20 @@ class StripePaymentService:
     def handle_payment_succeeded(invoice_data):
         """Handle invoice.payment_succeeded event"""
         try:
-            # This is handled by subscription events, but we can log it
-            print(f"Payment succeeded for invoice: {invoice_data.id}")
+            # Find subscription and update status to active
+            subscription = Subscription.objects.get(
+                stripe_subscription_id=invoice_data.subscription
+            )
             
+            # Update subscription status to active
+            subscription.status = 'active'
+            subscription.is_active = True
+            subscription.save()
+            
+            print(f"Payment succeeded for invoice: {invoice_data.id}, subscription {subscription.id} activated")
+            
+        except Subscription.DoesNotExist:
+            print(f"Payment succeeded for invoice: {invoice_data.id}, but subscription not found")
         except Exception as e:
             raise ValueError(f"Failed to handle payment succeeded: {str(e)}")
     
