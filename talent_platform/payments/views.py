@@ -29,7 +29,7 @@ from .serializers import (
     CreateCheckoutSessionSerializer,
     CreatePaymentIntentSerializer
 )
-from .services import StripePaymentService
+from .payment_services import StripePaymentService
 
 class SubscriptionPlanViewSet(viewsets.ModelViewSet):
     """

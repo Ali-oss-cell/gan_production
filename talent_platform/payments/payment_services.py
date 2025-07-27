@@ -2,7 +2,7 @@ import stripe
 from django.conf import settings
 from django.utils import timezone
 from decimal import Decimal
-from .models import PaymentTransaction, PaymentMethodSupport
+from .models import PaymentTransaction, PaymentMethodSupport, Subscription
 from .payment_methods_config import get_payment_method_config, is_payment_method_supported
 
 # Initialize Stripe
@@ -198,8 +198,8 @@ class GooglePayService:
         return {
             'environment': 'TEST' if settings.DEBUG else 'PRODUCTION',
             'merchantInfo': {
-                'merchantName': settings.STRIPE_MERCHANT_NAME,
-                'merchantId': settings.STRIPE_MERCHANT_ID,
+                'merchantName': getattr(settings, 'STRIPE_MERCHANT_NAME', 'Gan7Club'),
+                'merchantId': getattr(settings, 'STRIPE_MERCHANT_ID', ''),
             },
             'allowedPaymentMethods': [{
                 'type': 'CARD',
@@ -211,7 +211,7 @@ class GooglePayService:
                     'type': 'PAYMENT_GATEWAY',
                     'parameters': {
                         'gateway': 'stripe',
-                        'gatewayMerchantId': settings.STRIPE_MERCHANT_ID,
+                        'gatewayMerchantId': getattr(settings, 'STRIPE_MERCHANT_ID', ''),
                     },
                 },
             }],
@@ -222,3 +222,315 @@ class GooglePayService:
                 'countryCode': 'US',
             },
         } 
+
+class StripePaymentService:
+    """Service for handling Stripe payments and webhooks"""
+    
+    @staticmethod
+    def create_subscription_checkout_session(user, plan, success_url, cancel_url, region_code='us'):
+        """Create a Stripe checkout session for subscription"""
+        try:
+            # Get or create Stripe customer
+            customer = StripePaymentService.get_or_create_customer(user)
+            
+            # Create checkout session
+            session = stripe.checkout.Session.create(
+                customer=customer.id,
+                payment_method_types=['card'],
+                line_items=[{
+                    'price': plan.stripe_price_id,
+                    'quantity': 1,
+                }],
+                mode='subscription',
+                success_url=success_url,
+                cancel_url=cancel_url,
+                metadata={
+                    'user_id': str(user.id),
+                    'plan_id': str(plan.id),
+                    'plan_name': plan.name
+                }
+            )
+            
+            return session
+            
+        except stripe.error.StripeError as e:
+            raise ValueError(f"Failed to create checkout session: {str(e)}")
+    
+    @staticmethod
+    def get_or_create_customer(user):
+        """Get or create a Stripe customer for the user"""
+        try:
+            # Check if user already has a Stripe customer ID
+            if hasattr(user, 'stripe_customer_id') and user.stripe_customer_id:
+                return stripe.Customer.retrieve(user.stripe_customer_id)
+            
+            # Create new customer
+            customer = stripe.Customer.create(
+                email=user.email,
+                name=f"{user.first_name} {user.last_name}" if hasattr(user, 'first_name') else user.email,
+                metadata={
+                    'user_id': str(user.id),
+                    'platform': 'gan7club'
+                }
+            )
+            
+            # Save customer ID to user model
+            user.stripe_customer_id = customer.id
+            user.save(update_fields=['stripe_customer_id'])
+            
+            return customer
+            
+        except stripe.error.StripeError as e:
+            raise ValueError(f"Failed to get/create customer: {str(e)}")
+    
+    @staticmethod
+    def handle_webhook_event(payload, sig_header):
+        """Handle Stripe webhook events"""
+        try:
+            # Verify webhook signature
+            event = stripe.Webhook.construct_event(
+                payload, sig_header, settings.STRIPE_WEBHOOK_SECRET
+            )
+            
+            # Handle different event types
+            if event['type'] == 'checkout.session.completed':
+                StripePaymentService.handle_checkout_completed(event['data']['object'])
+            elif event['type'] == 'customer.subscription.created':
+                StripePaymentService.handle_subscription_created(event['data']['object'])
+            elif event['type'] == 'customer.subscription.updated':
+                StripePaymentService.handle_subscription_updated(event['data']['object'])
+            elif event['type'] == 'customer.subscription.deleted':
+                StripePaymentService.handle_subscription_deleted(event['data']['object'])
+            elif event['type'] == 'invoice.payment_succeeded':
+                StripePaymentService.handle_payment_succeeded(event['data']['object'])
+            elif event['type'] == 'invoice.payment_failed':
+                StripePaymentService.handle_payment_failed(event['data']['object'])
+            
+            return True
+            
+        except ValueError as e:
+            raise e
+        except Exception as e:
+            raise ValueError(f"Webhook handling failed: {str(e)}")
+    
+    @staticmethod
+    def handle_checkout_completed(session):
+        """Handle checkout.session.completed event"""
+        try:
+            from django.contrib.auth import get_user_model
+            User = get_user_model()
+            
+            # Get user from session metadata
+            user_id = session.metadata.get('user_id')
+            if not user_id:
+                raise ValueError("No user_id in session metadata")
+            
+            user = User.objects.get(id=user_id)
+            
+            # Get subscription from Stripe
+            subscription = stripe.Subscription.retrieve(session.subscription)
+            
+            # Create or update subscription in database
+            StripePaymentService.create_or_update_subscription(user, subscription)
+            
+        except Exception as e:
+            raise ValueError(f"Failed to handle checkout completed: {str(e)}")
+    
+    @staticmethod
+    def handle_subscription_created(subscription_data):
+        """Handle customer.subscription.created event"""
+        try:
+            from django.contrib.auth import get_user_model
+            User = get_user_model()
+            
+            # Get customer
+            customer = stripe.Customer.retrieve(subscription_data.customer)
+            
+            # Find user by Stripe customer ID
+            try:
+                user = User.objects.get(stripe_customer_id=customer.id)
+            except User.DoesNotExist:
+                # Try to find by email
+                user = User.objects.get(email=customer.email)
+                # Update user with Stripe customer ID
+                user.stripe_customer_id = customer.id
+                user.save(update_fields=['stripe_customer_id'])
+            
+            # Create or update subscription
+            StripePaymentService.create_or_update_subscription(user, subscription_data)
+            
+        except Exception as e:
+            raise ValueError(f"Failed to handle subscription created: {str(e)}")
+    
+    @staticmethod
+    def handle_subscription_updated(subscription_data):
+        """Handle customer.subscription.updated event"""
+        try:
+            # Find existing subscription
+            subscription = Subscription.objects.get(
+                stripe_subscription_id=subscription_data.id
+            )
+            
+            # Update subscription data
+            StripePaymentService.update_subscription_from_stripe(subscription, subscription_data)
+            
+        except Subscription.DoesNotExist:
+            # If subscription doesn't exist, create it
+            StripePaymentService.handle_subscription_created(subscription_data)
+        except Exception as e:
+            raise ValueError(f"Failed to handle subscription updated: {str(e)}")
+    
+    @staticmethod
+    def handle_subscription_deleted(subscription_data):
+        """Handle customer.subscription.deleted event"""
+        try:
+            subscription = Subscription.objects.get(
+                stripe_subscription_id=subscription_data.id
+            )
+            
+            # Mark subscription as canceled
+            subscription.status = 'canceled'
+            subscription.is_active = False
+            subscription.end_date = timezone.now()
+            subscription.save()
+            
+        except Subscription.DoesNotExist:
+            pass  # Subscription already deleted
+        except Exception as e:
+            raise ValueError(f"Failed to handle subscription deleted: {str(e)}")
+    
+    @staticmethod
+    def handle_payment_succeeded(invoice_data):
+        """Handle invoice.payment_succeeded event"""
+        try:
+            # This is handled by subscription events, but we can log it
+            print(f"Payment succeeded for invoice: {invoice_data.id}")
+            
+        except Exception as e:
+            raise ValueError(f"Failed to handle payment succeeded: {str(e)}")
+    
+    @staticmethod
+    def handle_payment_failed(invoice_data):
+        """Handle invoice.payment_failed event"""
+        try:
+            # Find subscription and update status
+            subscription = Subscription.objects.get(
+                stripe_subscription_id=invoice_data.subscription
+            )
+            
+            subscription.status = 'past_due'
+            subscription.save()
+            
+        except Subscription.DoesNotExist:
+            pass
+        except Exception as e:
+            raise ValueError(f"Failed to handle payment failed: {str(e)}")
+    
+    @staticmethod
+    def create_or_update_subscription(user, stripe_subscription):
+        """Create or update subscription in database"""
+        try:
+            from .models import SubscriptionPlan
+            
+            # Get the plan from Stripe price ID
+            price_id = stripe_subscription.items.data[0].price.id
+            plan = SubscriptionPlan.objects.get(stripe_price_id=price_id)
+            
+            # Create or update subscription
+            subscription, created = Subscription.objects.update_or_create(
+                stripe_subscription_id=stripe_subscription.id,
+                defaults={
+                    'user': user,
+                    'plan': plan,
+                    'stripe_customer_id': stripe_subscription.customer,
+                    'status': stripe_subscription.status,
+                    'current_period_start': timezone.datetime.fromtimestamp(
+                        stripe_subscription.current_period_start, tz=timezone.utc
+                    ),
+                    'current_period_end': timezone.datetime.fromtimestamp(
+                        stripe_subscription.current_period_end, tz=timezone.utc
+                    ),
+                    'cancel_at_period_end': stripe_subscription.cancel_at_period_end,
+                    'is_active': stripe_subscription.status == 'active'
+                }
+            )
+            
+            return subscription
+            
+        except Exception as e:
+            raise ValueError(f"Failed to create/update subscription: {str(e)}")
+    
+    @staticmethod
+    def update_subscription_from_stripe(subscription, stripe_subscription):
+        """Update subscription with data from Stripe"""
+        try:
+            subscription.status = stripe_subscription.status
+            subscription.current_period_start = timezone.datetime.fromtimestamp(
+                stripe_subscription.current_period_start, tz=timezone.utc
+            )
+            subscription.current_period_end = timezone.datetime.fromtimestamp(
+                stripe_subscription.current_period_end, tz=timezone.utc
+            )
+            subscription.cancel_at_period_end = stripe_subscription.cancel_at_period_end
+            subscription.is_active = stripe_subscription.status == 'active'
+            
+            if stripe_subscription.status == 'canceled':
+                subscription.end_date = timezone.now()
+            
+            subscription.save()
+            
+            return subscription
+            
+        except Exception as e:
+            raise ValueError(f"Failed to update subscription: {str(e)}")
+    
+    @staticmethod
+    def cancel_subscription(subscription):
+        """Cancel a subscription in Stripe"""
+        try:
+            # Cancel in Stripe
+            stripe_sub = stripe.Subscription.modify(
+                subscription.stripe_subscription_id,
+                cancel_at_period_end=True
+            )
+            
+            # Update local subscription
+            subscription.cancel_at_period_end = True
+            subscription.save()
+            
+            return True
+            
+        except stripe.error.StripeError as e:
+            raise ValueError(f"Failed to cancel subscription: {str(e)}")
+    
+    @staticmethod
+    def get_subscription_status(subscription):
+        """Get current subscription status from Stripe"""
+        try:
+            stripe_sub = stripe.Subscription.retrieve(subscription.stripe_subscription_id)
+            
+            return {
+                'status': stripe_sub.status,
+                'current_period_end': timezone.datetime.fromtimestamp(
+                    stripe_sub.current_period_end, tz=timezone.utc
+                ).isoformat(),
+                'cancel_at_period_end': stripe_sub.cancel_at_period_end
+            }
+            
+        except stripe.error.StripeError as e:
+            raise ValueError(f"Failed to get subscription status: {str(e)}")
+    
+    @staticmethod
+    def get_payment_methods_for_region(region_code):
+        """Get available payment methods for a region"""
+        # This is a simplified version - you can expand based on your needs
+        base_methods = ['card']
+        
+        if region_code.lower() in ['us', 'ca']:
+            return base_methods + ['apple_pay', 'google_pay']
+        elif region_code.lower() in ['eu']:
+            return base_methods + ['sepa_debit', 'ideal', 'sofort']
+        elif region_code.lower() in ['gb']:
+            return base_methods + ['bacs_debit']
+        else:
+            return base_methods 
