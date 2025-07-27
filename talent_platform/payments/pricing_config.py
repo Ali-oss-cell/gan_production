@@ -54,7 +54,7 @@ SUBSCRIPTION_PLANS = {
             'Priority booking requests',
             'Dedicated band support',
         ],
-        'stripe_price_id': 'price_your-bands-price-id',  # Replace with actual Bands price ID
+        'stripe_price_id': 'price_1RfJFoP623EsFG0oJbcWJKzU',  # Using Silver price for now - needs unique ID
         'duration_months': 12,
     },
     'BACKGROUND_JOBS': {
@@ -100,7 +100,7 @@ ADDITIONAL_SERVICES = {
         'name': 'Bands Package',
         'price': Decimal('350.00'),
         'description': 'Special package for bands and musical groups',
-        'stripe_price_id': 'test_price_bands',
+        'stripe_price_id': 'price_1RfJFoP623EsFG0oJbcWJKzU',  # Using Silver price for now
     },
 }
 
