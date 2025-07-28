@@ -1,5 +1,5 @@
 import os
-from .settings import *
+from talent_platform.settings import *
 from dotenv import load_dotenv
 
 # Load .env file from the correct path
