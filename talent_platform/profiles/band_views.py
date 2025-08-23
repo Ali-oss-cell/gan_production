@@ -15,7 +15,7 @@ from .band_serializers import BandCreateSerializer, BandDetailSerializer, BandIn
 
 from .models import BandInvitation, TalentUserProfile,Band, BandMembership
 from rest_framework.permissions import IsAuthenticated, BasePermission
-from users .permissions import IsTalentUser
+from users.permissions import IsTalentUser
 # Band Views
 
 # List band for users
@@ -49,7 +49,7 @@ class BandListView(ListAPIView):
             from payments.models import Subscription
             has_bands_subscription = Subscription.objects.filter(
                 user=request.user,
-                plan__name='bands',
+                plan__name='Bands',
                 is_active=True,
                 status='active'
             ).exists()
@@ -59,7 +59,7 @@ class BandListView(ListAPIView):
             if has_bands_subscription:
                 subscription = Subscription.objects.get(
                     user=request.user,
-                    plan__name='bands',
+                    plan__name='Bands',
                     is_active=True,
                     status='active'
                 )

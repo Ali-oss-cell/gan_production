@@ -215,7 +215,7 @@ class BandCreateSerializer(serializers.ModelSerializer):
         from payments.models import Subscription
         has_bands_subscription = Subscription.objects.filter(
             user=user,
-            plan__name='bands',
+            plan__name='Bands',
             is_active=True,
             status='active'
         ).exists()

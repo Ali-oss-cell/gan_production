@@ -287,30 +287,46 @@ class StripePaymentService:
     def handle_webhook_event(payload, sig_header):
         """Handle Stripe webhook events"""
         try:
+            print(f"🔄 Processing webhook event...")
+            
             # Verify webhook signature
             event = stripe.Webhook.construct_event(
                 payload, sig_header, settings.STRIPE_WEBHOOK_SECRET
             )
             
+            print(f"   Event type: {event['type']}")
+            print(f"   Event ID: {event.get('id', 'unknown')}")
+            
             # Handle different event types
             if event['type'] == 'checkout.session.completed':
+                print("   Handling checkout.session.completed")
                 StripePaymentService.handle_checkout_completed(event['data']['object'])
             elif event['type'] == 'customer.subscription.created':
+                print("   Handling customer.subscription.created")
                 StripePaymentService.handle_subscription_created(event['data']['object'])
             elif event['type'] == 'customer.subscription.updated':
+                print("   Handling customer.subscription.updated")
                 StripePaymentService.handle_subscription_updated(event['data']['object'])
             elif event['type'] == 'customer.subscription.deleted':
+                print("   Handling customer.subscription.deleted")
                 StripePaymentService.handle_subscription_deleted(event['data']['object'])
             elif event['type'] == 'invoice.payment_succeeded':
+                print("   Handling invoice.payment_succeeded")
                 StripePaymentService.handle_payment_succeeded(event['data']['object'])
             elif event['type'] == 'invoice.payment_failed':
+                print("   Handling invoice.payment_failed")
                 StripePaymentService.handle_payment_failed(event['data']['object'])
+            else:
+                print(f"   ⚠️  Unhandled event type: {event['type']}")
             
+            print(f"✅ Webhook event {event['type']} processed successfully")
             return True
             
         except ValueError as e:
+            print(f"❌ Webhook signature verification failed: {str(e)}")
             raise e
         except Exception as e:
+            print(f"❌ Webhook handling failed: {str(e)}")
             raise ValueError(f"Webhook handling failed: {str(e)}")
     
     @staticmethod
@@ -403,21 +419,31 @@ class StripePaymentService:
     def handle_payment_succeeded(invoice_data):
         """Handle invoice.payment_succeeded event"""
         try:
+            print(f"🔄 Processing payment succeeded for invoice: {invoice_data.id}")
+            print(f"   Subscription ID: {invoice_data.subscription}")
+            
             # Find subscription and update status to active
             subscription = Subscription.objects.get(
                 stripe_subscription_id=invoice_data.subscription
             )
+            
+            print(f"   Found subscription {subscription.id} for user {subscription.user.id}")
+            print(f"   Plan: {subscription.plan.name}")
+            print(f"   Previous status: {subscription.status}, is_active: {subscription.is_active}")
             
             # Update subscription status to active
             subscription.status = 'active'
             subscription.is_active = True
             subscription.save()
             
-            print(f"Payment succeeded for invoice: {invoice_data.id}, subscription {subscription.id} activated")
+            print(f"✅ Payment succeeded for invoice: {invoice_data.id}, subscription {subscription.id} activated")
+            print(f"   New status: {subscription.status}, is_active: {subscription.is_active}")
             
         except Subscription.DoesNotExist:
-            print(f"Payment succeeded for invoice: {invoice_data.id}, but subscription not found")
+            print(f"❌ Payment succeeded for invoice: {invoice_data.id}, but subscription not found")
+            print(f"   Looking for subscription ID: {invoice_data.subscription}")
         except Exception as e:
+            print(f"❌ Error in handle_payment_succeeded: {str(e)}")
             raise ValueError(f"Failed to handle payment succeeded: {str(e)}")
     
     @staticmethod
@@ -444,8 +470,21 @@ class StripePaymentService:
             from .models import SubscriptionPlan
             
             # Get the plan from Stripe price ID
-            price_id = stripe_subscription.items.data[0].price.id
+            # Handle both Stripe object types (items.data vs items['data'])
+            if hasattr(stripe_subscription.items, 'data'):
+                # Stripe object with .data attribute
+                price_id = stripe_subscription.items.data[0].price.id
+            elif isinstance(stripe_subscription.items, dict):
+                # Dictionary format
+                price_id = stripe_subscription.items['data'][0]['price']['id']
+            else:
+                # Try to call items() if it's a method
+                items_data = stripe_subscription.items()
+                price_id = items_data.data[0].price.id
+            
+            print(f"   Looking for plan with price_id: {price_id}")
             plan = SubscriptionPlan.objects.get(stripe_price_id=price_id)
+            print(f"   Found plan: {plan.name} (ID: {plan.id})")
             
             # Create or update subscription
             subscription, created = Subscription.objects.update_or_create(
@@ -462,7 +501,9 @@ class StripePaymentService:
                         stripe_subscription.current_period_end, tz=timezone.utc
                     ),
                     'cancel_at_period_end': stripe_subscription.cancel_at_period_end,
-                    'is_active': stripe_subscription.status == 'active'
+                    # For new subscriptions, set is_active based on whether payment succeeded
+                    # 'incomplete' means waiting for payment, 'active' means payment succeeded
+                    'is_active': stripe_subscription.status in ['active', 'trialing']
                 }
             )
             
