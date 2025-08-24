@@ -470,24 +470,26 @@ class StripePaymentService:
             from .models import SubscriptionPlan
             
             # Get the plan from Stripe price ID
-            # Handle both Stripe object types (items.data vs items['data'])
-            if hasattr(stripe_subscription.items, 'data') and stripe_subscription.items.data:
-                # Stripe object with .data attribute
-                price_id = stripe_subscription.items.data[0].price.id
-            elif isinstance(stripe_subscription.items, dict) and 'data' in stripe_subscription.items:
-                # Dictionary format
-                price_id = stripe_subscription.items['data'][0]['price']['id']
-            else:
-                # Fallback: try to access directly
+            # Handle Stripe subscription items - items is a method that returns a list object
+            try:
+                # Call items() method to get the list
+                items_list = stripe_subscription.items()
+                if hasattr(items_list, 'data') and items_list.data:
+                    price_id = items_list.data[0].price.id
+                elif hasattr(items_list, '__iter__') and len(items_list) > 0:
+                    # Sometimes it's directly iterable
+                    price_id = items_list[0].price.id
+                else:
+                    raise ValueError(f"No items found in subscription items: {items_list}")
+            except Exception as e:
+                # Fallback: try as attribute (older Stripe versions)
                 try:
-                    price_id = stripe_subscription.items.data[0].price.id
-                except:
-                    # Last resort: try items() method
-                    items_data = stripe_subscription.items()
-                    if hasattr(items_data, 'data'):
-                        price_id = items_data.data[0].price.id
+                    if hasattr(stripe_subscription.items, 'data') and stripe_subscription.items.data:
+                        price_id = stripe_subscription.items.data[0].price.id
                     else:
-                        raise ValueError("Could not extract price ID from subscription items")
+                        raise ValueError(f"Could not extract price ID from subscription items. Items type: {type(stripe_subscription.items)}, Error: {e}")
+                except Exception as fallback_error:
+                    raise ValueError(f"Could not extract price ID from subscription items. Original error: {e}, Fallback error: {fallback_error}")
             
             print(f"   Looking for plan with price_id: {price_id}")
             plan = SubscriptionPlan.objects.get(stripe_price_id=price_id)
