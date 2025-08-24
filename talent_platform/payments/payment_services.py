@@ -1,6 +1,7 @@
 import stripe
 from django.conf import settings
 from django.utils import timezone
+from datetime import timezone as dt_timezone
 from decimal import Decimal
 from .models import PaymentTransaction, PaymentMethodSupport, Subscription
 from .payment_methods_config import get_payment_method_config, is_payment_method_supported
@@ -529,10 +530,10 @@ class StripePaymentService:
                     'stripe_customer_id': stripe_subscription.customer,
                     'status': stripe_subscription.status,
                     'current_period_start': timezone.datetime.fromtimestamp(
-                        stripe_subscription.current_period_start, tz=timezone.utc
+                        stripe_subscription.current_period_start, tz=dt_timezone.utc
                     ),
                     'current_period_end': timezone.datetime.fromtimestamp(
-                        stripe_subscription.current_period_end, tz=timezone.utc
+                        stripe_subscription.current_period_end, tz=dt_timezone.utc
                     ),
                     'cancel_at_period_end': stripe_subscription.cancel_at_period_end,
                     # For new subscriptions, set is_active based on whether payment succeeded
@@ -552,10 +553,10 @@ class StripePaymentService:
         try:
             subscription.status = stripe_subscription.status
             subscription.current_period_start = timezone.datetime.fromtimestamp(
-                stripe_subscription.current_period_start, tz=timezone.utc
+                stripe_subscription.current_period_start, tz=dt_timezone.utc
             )
             subscription.current_period_end = timezone.datetime.fromtimestamp(
-                stripe_subscription.current_period_end, tz=timezone.utc
+                stripe_subscription.current_period_end, tz=dt_timezone.utc
             )
             subscription.cancel_at_period_end = stripe_subscription.cancel_at_period_end
             subscription.is_active = stripe_subscription.status == 'active'
@@ -598,7 +599,7 @@ class StripePaymentService:
             return {
                 'status': stripe_sub.status,
                 'current_period_end': timezone.datetime.fromtimestamp(
-                    stripe_sub.current_period_end, tz=timezone.utc
+                    stripe_sub.current_period_end, tz=dt_timezone.utc
                 ).isoformat(),
                 'cancel_at_period_end': stripe_sub.cancel_at_period_end
             }
