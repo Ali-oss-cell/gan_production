@@ -205,7 +205,7 @@ class BandCreateSerializer(serializers.ModelSerializer):
         fields = [
             'name', 'description', 'profile_picture',
             'contact_email', 'contact_phone', 'location', 'website', 'band_type'
-        ]
+            ]
     
     def validate(self, data):
         """Validate that user has bands subscription for creating bands"""

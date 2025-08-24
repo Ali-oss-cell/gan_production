@@ -234,6 +234,36 @@ class BandCreateView(CreateAPIView):
 
     def perform_create(self, serializer):
         serializer.save()
+    
+    def create(self, request, *args, **kwargs):
+        """Override create to return comprehensive response data"""
+        try:
+            serializer = self.get_serializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            self.perform_create(serializer)
+            
+            # Get the created band with additional data
+            band = serializer.instance
+            
+            # Use BandSerializer to get full band data
+            band_serializer = BandSerializer(band, context={'request': request})
+            
+            return Response({
+                "success": True,
+                "message": f"Band '{band.name}' created successfully!",
+                "band": band_serializer.data
+            }, status=status.HTTP_201_CREATED)
+            
+        except ValidationError as e:
+            return Response({
+                "success": False,
+                "error": str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({
+                "success": False,
+                "error": f"Failed to create band: {str(e)}"
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 # Update a band
 class BandUpdateView(UpdateAPIView):
@@ -416,21 +446,29 @@ class GenerateBandInvitationView(APIView):
         position = request.data.get('position', '')
         
         # Create a new invitation with 15-minute expiration
-        from django.utils import timezone
-        from datetime import timedelta
-        
-        invitation = BandInvitation.objects.create(
-            band=band,
-            created_by=talent_profile,
-            position=position,
-            expires_at=timezone.now() + timedelta(minutes=15)
-        )
-        
-        serializer = BandInvitationSerializer(invitation)
-        return Response({
-            "message": f"Invitation code generated successfully. Valid for 15 minutes until {invitation.expires_at.strftime('%H:%M:%S')}.",
-            "invitation": serializer.data
-        }, status=status.HTTP_201_CREATED)
+        try:
+            from django.utils import timezone
+            from datetime import timedelta
+            
+            invitation = BandInvitation.objects.create(
+                band=band,
+                created_by=talent_profile,
+                position=position,
+                expires_at=timezone.now() + timedelta(minutes=15)
+            )
+            
+            serializer = BandInvitationSerializer(invitation)
+            return Response({
+                "success": True,
+                "message": f"Invitation code generated successfully. Valid for 15 minutes until {invitation.expires_at.strftime('%H:%M:%S')}.",
+                "invitation": serializer.data
+            }, status=status.HTTP_201_CREATED)
+            
+        except Exception as e:
+            return Response({
+                "success": False,
+                "error": f"Failed to generate invitation code: {str(e)}"
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 # List all invitations for a band (admin only)
@@ -537,12 +575,21 @@ class UseBandInvitationView(APIView):
             # Return success message with membership details
             membership_serializer = BandMembershipSerializer(membership)
             return Response({
+                "success": True,
                 "message": f"You have successfully joined {invitation.band.name}!",
                 "membership": membership_serializer.data
             }, status=status.HTTP_201_CREATED)
             
         except ValidationError as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({
+                "success": False,
+                "error": str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({
+                "success": False,
+                "error": f"Failed to join band: {str(e)}"
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 # Note: The following views were documented in band_api_documentation.md but not used in any URL patterns
