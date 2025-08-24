@@ -470,26 +470,51 @@ class StripePaymentService:
             from .models import SubscriptionPlan
             
             # Get the plan from Stripe price ID
-            # Handle Stripe subscription items - items is a method that returns a list object
+            # Handle different ways Stripe subscription items can be accessed
+            price_id = None
+            
+            # Try different approaches to get the price ID
             try:
-                # Call items() method to get the list
-                items_list = stripe_subscription.items()
-                if hasattr(items_list, 'data') and items_list.data:
-                    price_id = items_list.data[0].price.id
-                elif hasattr(items_list, '__iter__') and len(items_list) > 0:
-                    # Sometimes it's directly iterable
-                    price_id = items_list[0].price.id
+                # Approach 1: items.data (most common for Stripe objects)
+                if hasattr(stripe_subscription.items, 'data') and stripe_subscription.items.data:
+                    price_id = stripe_subscription.items.data[0].price.id
+                    print(f"   Got price_id from items.data: {price_id}")
+                
+                # Approach 2: items as dictionary with 'data' key
+                elif isinstance(stripe_subscription.items, dict) and 'data' in stripe_subscription.items:
+                    price_id = stripe_subscription.items['data'][0]['price']['id']
+                    print(f"   Got price_id from items dict: {price_id}")
+                
+                # Approach 3: Check if items is callable (method)
+                elif callable(stripe_subscription.items):
+                    # Don't call items() as it might return dict_items
+                    # Instead, look for alternative ways to access
+                    raise ValueError("Items is callable but we need to handle this differently")
+                
                 else:
-                    raise ValueError(f"No items found in subscription items: {items_list}")
+                    raise ValueError(f"Unknown items format: {type(stripe_subscription.items)}")
+                    
             except Exception as e:
-                # Fallback: try as attribute (older Stripe versions)
+                # Last resort: try to get from the subscription's plan directly
                 try:
-                    if hasattr(stripe_subscription.items, 'data') and stripe_subscription.items.data:
-                        price_id = stripe_subscription.items.data[0].price.id
+                    # Sometimes the plan info is directly on the subscription
+                    if hasattr(stripe_subscription, 'plan') and hasattr(stripe_subscription.plan, 'id'):
+                        price_id = stripe_subscription.plan.id
+                        print(f"   Got price_id from subscription.plan: {price_id}")
                     else:
-                        raise ValueError(f"Could not extract price ID from subscription items. Items type: {type(stripe_subscription.items)}, Error: {e}")
-                except Exception as fallback_error:
-                    raise ValueError(f"Could not extract price ID from subscription items. Original error: {e}, Fallback error: {fallback_error}")
+                        # Debug info for troubleshooting
+                        debug_info = {
+                            'items_type': type(stripe_subscription.items),
+                            'items_callable': callable(stripe_subscription.items),
+                            'has_data_attr': hasattr(stripe_subscription.items, 'data') if hasattr(stripe_subscription, 'items') else False,
+                            'subscription_attrs': [attr for attr in dir(stripe_subscription) if not attr.startswith('_')]
+                        }
+                        raise ValueError(f"Could not extract price ID. Debug info: {debug_info}. Original error: {e}")
+                except Exception as final_error:
+                    raise ValueError(f"Failed all attempts to get price ID. Original: {e}, Final: {final_error}")
+            
+            if not price_id:
+                raise ValueError("No price_id extracted from subscription")
             
             print(f"   Looking for plan with price_id: {price_id}")
             plan = SubscriptionPlan.objects.get(stripe_price_id=price_id)
