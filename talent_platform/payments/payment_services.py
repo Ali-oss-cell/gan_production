@@ -471,16 +471,23 @@ class StripePaymentService:
             
             # Get the plan from Stripe price ID
             # Handle both Stripe object types (items.data vs items['data'])
-            if hasattr(stripe_subscription.items, 'data'):
+            if hasattr(stripe_subscription.items, 'data') and stripe_subscription.items.data:
                 # Stripe object with .data attribute
                 price_id = stripe_subscription.items.data[0].price.id
-            elif isinstance(stripe_subscription.items, dict):
+            elif isinstance(stripe_subscription.items, dict) and 'data' in stripe_subscription.items:
                 # Dictionary format
                 price_id = stripe_subscription.items['data'][0]['price']['id']
             else:
-                # Try to call items() if it's a method
-                items_data = stripe_subscription.items()
-                price_id = items_data.data[0].price.id
+                # Fallback: try to access directly
+                try:
+                    price_id = stripe_subscription.items.data[0].price.id
+                except:
+                    # Last resort: try items() method
+                    items_data = stripe_subscription.items()
+                    if hasattr(items_data, 'data'):
+                        price_id = items_data.data[0].price.id
+                    else:
+                        raise ValueError("Could not extract price ID from subscription items")
             
             print(f"   Looking for plan with price_id: {price_id}")
             plan = SubscriptionPlan.objects.get(stripe_price_id=price_id)
