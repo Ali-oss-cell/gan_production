@@ -1,0 +1,5 @@
+[33m69b53d0[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m Fix critical import error in band_views.py that was preventing API from working
+[33m905ad9f[m[33m ([m[1;31morigin/main[m[33m)[m Add debugging to bands subscription check
+[33m2c151f2[m Fix webhook subscription activation - better logging and incomplete status handling
+[33mdf731d0[m Fix subscription activation and update Stripe price IDs
+[33ma8119c5[m Fix BANDS plan stripe_price_id placeholder

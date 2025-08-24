@@ -232,14 +232,14 @@ REST_FRAMEWORK = {
         'rest_framework.throttling.UserRateThrottle',
     ],
     'DEFAULT_THROTTLE_RATES': {
-        'anon': '30/hour',           # Reduced for production
-        'user': '200/hour',          # Reduced for production
-        'talent_user': '300/hour',   # Reduced for production
-        'background_user': '300/hour', # Reduced for production
-        'dashboard_user': '500/hour', # Reduced for production
-        'admin_dashboard_user': '2000/hour', # Reduced for production
-        'payment_endpoints': '30/hour', # Reduced for production
-        'restricted_country': '50/hour', # Reduced for production
+        'anon': '200/hour',          # Increased for testing
+        'user': '1000/hour',         # Increased for normal usage
+        'talent_user': '1500/hour',  # Increased for active users
+        'background_user': '1500/hour', # Increased for active users
+        'dashboard_user': '2000/hour', # Increased for admin users
+        'admin_dashboard_user': '5000/hour', # Increased for admin users
+        'payment_endpoints': '200/hour', # Increased for payment testing
+        'restricted_country': '300/hour', # Increased for management
     }
 }
 
@@ -265,6 +265,7 @@ STRIPE_PRICE_IDS = {
     'gold': os.getenv('STRIPE_PRICE_GOLD'),
     'platinum': os.getenv('STRIPE_PRICE_PLATINUM'),
     'back_ground_jobs': os.getenv('STRIPE_PRICE_BACKGROUND_JOBS'),
+    'bands': os.getenv('STRIPE_PRICE_BANDS'),  # Added missing bands price ID
 }
 
 # File Upload Settings
