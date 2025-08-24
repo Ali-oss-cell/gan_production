@@ -49,7 +49,7 @@ class BandListView(ListAPIView):
             from payments.models import Subscription
             has_bands_subscription = Subscription.objects.filter(
                 user=request.user,
-                plan__name='Bands',
+                plan__name='bands',
                 is_active=True,
                 status='active'
             ).exists()
@@ -59,7 +59,7 @@ class BandListView(ListAPIView):
             if has_bands_subscription:
                 subscription = Subscription.objects.get(
                     user=request.user,
-                    plan__name='Bands',
+                    plan__name='bands',
                     is_active=True,
                     status='active'
                 )
