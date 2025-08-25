@@ -320,15 +320,16 @@ class BandSerializer(serializers.ModelSerializer):
     members = serializers.SerializerMethodField()
     creator_name = serializers.SerializerMethodField()
     profile_score = serializers.SerializerMethodField()
+    is_creator = serializers.SerializerMethodField()
     
     class Meta:
         model = Band
         fields = [
             'id', 'name', 'description', 'band_type', 'profile_picture',
             'contact_email', 'contact_phone', 'location', 'website',
-            'creator_name', 'members', 'created_at', 'updated_at', 'profile_score'
+            'creator_name', 'members', 'created_at', 'updated_at', 'profile_score', 'is_creator'
         ]
-        read_only_fields = ['id', 'creator_name', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'creator_name', 'created_at', 'updated_at', 'is_creator']
     
     def get_members(self, obj):
         memberships = BandMembership.objects.filter(band=obj).select_related('talent_user__user')
@@ -345,4 +346,17 @@ class BandSerializer(serializers.ModelSerializer):
     def get_profile_score(self, obj):
         """Get the profile score from the model's method"""
         return obj.get_profile_score()
+    
+    def get_is_creator(self, obj):
+        """Check if the current user is the creator of this band"""
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            return False
+        
+        try:
+            from .models import TalentUserProfile
+            talent_profile = TalentUserProfile.objects.get(user=request.user)
+            return obj.creator == talent_profile
+        except TalentUserProfile.DoesNotExist:
+            return False
 
