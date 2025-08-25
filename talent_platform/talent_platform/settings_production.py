@@ -131,6 +131,7 @@ CORS_ALLOW_HEADERS = os.getenv('CORS_ALLOWED_HEADERS', '').split(',') if os.gete
     'user-agent',
     'x-csrftoken',
     'x-requested-with',
+    'is-talent',  # Added for talent user identification
 ]
 
 # CSRF Trusted Origins for Production - from environment variables
