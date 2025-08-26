@@ -2,7 +2,7 @@ from inspect import istraceback
 import os
 from django.shortcuts import render
 from rest_framework.views import APIView
-from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework.response import Response
 from rest_framework import status 
 from rest_framework.generics import RetrieveAPIView, UpdateAPIView, ListAPIView, CreateAPIView, DestroyAPIView
@@ -270,7 +270,7 @@ class BandUpdateView(UpdateAPIView):
     serializer_class = BandUpdateWithMembersSerializer
     permission_classes = [IsAuthenticated, IsTalentUser]
     lookup_field = 'id'
-    parser_classes = (MultiPartParser, FormParser)
+    parser_classes = (MultiPartParser, FormParser, JSONParser)
 
     def get_queryset(self):
         # Optimize queryset to avoid N+1 query problems
