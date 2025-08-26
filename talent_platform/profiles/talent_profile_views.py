@@ -59,6 +59,25 @@ class TalentUserProfileView(APIView):
     
     def update_profile(self, request, *args, partial=False, **kwargs):
         instance = self.get_object()
+        
+        # Handle profile picture upload if provided
+        if 'profile_picture' in request.FILES:
+            # Delete old profile picture if it exists to avoid storage buildup
+            if instance.profile_picture:
+                try:
+                    # Check if file exists before attempting to delete
+                    if hasattr(instance.profile_picture, 'path') and os.path.isfile(instance.profile_picture.path):
+                        os.remove(instance.profile_picture.path)
+                        print(f"[DEBUG] Deleted old profile picture: {instance.profile_picture.path}")
+                except Exception as e:
+                    # Log error but continue with the update
+                    print(f"[DEBUG] Error removing old profile picture: {e}")
+            
+            # Set the new profile picture
+            instance.profile_picture = request.FILES['profile_picture']
+            instance.save(update_fields=['profile_picture'])
+            print(f"[DEBUG] Profile picture updated for user: {request.user.email}")
+        
         serializer = TalentUserProfileUpdateSerializer(instance, data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)
         serializer.save()
