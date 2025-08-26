@@ -98,7 +98,7 @@ if (file) {
       "first_name": "John",
       "last_name": "Doe"
     },
-    "profile_picture": "https://gan7club.com/media/profile_pictures/user_123_profile.jpg",
+    "profile_picture": "https://gan7club-spaces.fra1.cdn.digitaloceanspaces.com/media/profile_pictures/user_123_profile.jpg",
     "aboutyou": "Description about yourself",
     "city": "New York",
     "country": "USA",
@@ -122,9 +122,15 @@ if (file) {
 
 ## Features
 
+### DigitalOcean Spaces Storage
+- Profile pictures are automatically stored in DigitalOcean Spaces (same as other media)
+- CDN delivery for fast global access
+- Storage path: `media/profile_pictures/filename.jpg`
+- CDN URLs: `https://gan7club-spaces.fra1.cdn.digitaloceanspaces.com/media/profile_pictures/`
+
 ### Automatic File Cleanup
 - When a user uploads a new profile picture, the old one is automatically deleted
-- Prevents storage buildup and saves disk space
+- Prevents storage buildup and saves disk space in Spaces
 - Graceful error handling if old file deletion fails
 
 ### File Validation
@@ -150,7 +156,7 @@ Headers:
 ```json
 {
   "id": 123,
-  "profile_picture": "https://gan7club.com/media/profile_pictures/user_123_profile.jpg",
+  "profile_picture": "https://gan7club-spaces.fra1.cdn.digitaloceanspaces.com/media/profile_pictures/user_123_profile.jpg",
   "file_limits": {
     "max_image_size": 5242880,
     "max_video_size": 104857600,

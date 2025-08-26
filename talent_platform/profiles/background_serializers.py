@@ -46,7 +46,7 @@ class BackGroundJobs(serializers.ModelSerializer):
     class Meta:
         model = BackGroundJobsProfile
         fields = [
-            'id', 'email', 'username', 'country', 'date_of_birth', 'gender', 'account_type', 'profile_score'
+            'id', 'email', 'username', 'profile_picture', 'country', 'date_of_birth', 'gender', 'account_type', 'profile_score'
         ]
         extra_kwargs = {
             'user': {'read_only': True}  # User cannot be updated via this serializer
@@ -56,6 +56,25 @@ class BackGroundJobs(serializers.ModelSerializer):
         """Get the profile score from the model's method"""
         return obj.get_profile_score()
 
+
+class BackGroundJobsUpdateSerializer(serializers.ModelSerializer):
+    """Serializer for updating background profile including profile picture"""
+    
+    class Meta:
+        model = BackGroundJobsProfile
+        fields = ['profile_picture', 'country', 'date_of_birth', 'gender']
+        extra_kwargs = {
+            'profile_picture': {'required': False},
+            'country': {'required': False},
+            'date_of_birth': {'required': False},
+            'gender': {'required': False}
+        }
+    
+    def validate(self, data):
+        # Ensure at least one field is being updated
+        if not data:
+            raise serializers.ValidationError("At least one field must be provided for update.")
+        return data
 
 
 # Base serializer for Item-based models

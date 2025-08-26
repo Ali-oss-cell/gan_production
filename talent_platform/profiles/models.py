@@ -227,6 +227,7 @@ class BackGroundJobsProfile(models.Model):
         on_delete=models.CASCADE,
         related_name='background_profile'
     )
+    profile_picture = models.ImageField(upload_to='background_profile_pictures/', blank=True, null=True)
     country = models.CharField(max_length=25, null=False, default='country', db_index=True)
     date_of_birth = models.DateField(verbose_name="Date of Birth", blank=True, null=True, db_index=True)
     GENDER_CHOICES = [

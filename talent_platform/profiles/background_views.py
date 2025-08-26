@@ -1,7 +1,7 @@
 import os
 from django.shortcuts import render
 from rest_framework.views import APIView
-from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework.response import Response
 from rest_framework import status 
 from rest_framework.generics import RetrieveAPIView, UpdateAPIView, ListAPIView, CreateAPIView, DestroyAPIView
@@ -10,7 +10,7 @@ from rest_framework.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404
 from django.core.exceptions import ValidationError
 
-from .background_serializers import BackGroundJobs,PropSerializer,CostumeSerializer,LocationSerializer,MemorabiliaSerializer,VehicleSerializer,MusicItemSerializer,RareItemSerializer,ArtisticMaterialSerializer
+from .background_serializers import BackGroundJobs, BackGroundJobsUpdateSerializer, PropSerializer,CostumeSerializer,LocationSerializer,MemorabiliaSerializer,VehicleSerializer,MusicItemSerializer,RareItemSerializer,ArtisticMaterialSerializer
 from .background_serializers import ItemSerializer
 from .models import BackGroundJobsProfile, Prop, Costume, Location, Memorabilia, Vehicle, ArtisticMaterial, MusicItem, RareItem
 from rest_framework.permissions import IsAuthenticated, BasePermission
@@ -21,11 +21,10 @@ from payments.serializers import SubscriptionSerializer
 
 
 
-class BackGroundJobsUserProfileDetailView(RetrieveAPIView):
+class BackGroundJobsUserProfileDetailView(APIView):
     queryset = BackGroundJobsProfile.objects.all()
-    serializer_class = BackGroundJobs
-    permission_classes = [IsAuthenticated,IsBackgroundUser]
-    lookup_field = 'id'  # Use the primary key (id) of TalentUserProfile
+    permission_classes = [IsAuthenticated, IsBackgroundUser]
+    parser_classes = (MultiPartParser, FormParser, JSONParser)
 
     def get_object(self):
         # Fetch the profile of the currently authenticated user
@@ -34,10 +33,10 @@ class BackGroundJobsUserProfileDetailView(RetrieveAPIView):
             raise Http404("Profile not found. Please create your profile first.")
         return profile
     
-    def retrieve(self, request, *args, **kwargs):
-        """Override retrieve to include profile score and subscription status"""
+    def get(self, request, *args, **kwargs):
+        """Get background user profile with profile score and subscription status"""
         instance = self.get_object()
-        serializer = self.get_serializer(instance)
+        serializer = BackGroundJobs(instance)
         
         # Get the profile score
         score_data = instance.get_profile_score()
@@ -63,6 +62,41 @@ class BackGroundJobsUserProfileDetailView(RetrieveAPIView):
                 'subscription': subscription_data
             },
             'restrictions': restrictions
+        })
+    
+    def post(self, request, *args, **kwargs):
+        """Update background user profile including profile picture"""
+        instance = self.get_object()
+        
+        # Handle profile picture upload if provided
+        if 'profile_picture' in request.FILES:
+            # Delete old profile picture if it exists to avoid storage buildup
+            if instance.profile_picture:
+                try:
+                    # Check if file exists before attempting to delete
+                    if hasattr(instance.profile_picture, 'path') and os.path.isfile(instance.profile_picture.path):
+                        os.remove(instance.profile_picture.path)
+                        print(f"[DEBUG] Deleted old background profile picture: {instance.profile_picture.path}")
+                except Exception as e:
+                    # Log error but continue with the update
+                    print(f"[DEBUG] Error removing old background profile picture: {e}")
+            
+            # Set the new profile picture
+            instance.profile_picture = request.FILES['profile_picture']
+            instance.save(update_fields=['profile_picture'])
+            print(f"[DEBUG] Background profile picture updated for user: {request.user.email}")
+        
+        # Update other profile fields
+        partial = request.query_params.get('partial', 'true').lower() == 'true'
+        serializer = BackGroundJobsUpdateSerializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        
+        # Return updated profile data
+        updated_serializer = BackGroundJobs(instance)
+        return Response({
+            'message': 'Background profile updated successfully',
+            'profile': updated_serializer.data
         })
 
 
