@@ -107,7 +107,7 @@ class BandUpdateWithMembersSerializer(serializers.ModelSerializer):
                     # Store member info before deletion
                     removed_members.append({
                         'id': membership.id,
-                        'username': membership.talent_user.user.username
+                        'email': membership.talent_user.user.email
                     })
                     
                     membership.delete()
@@ -165,7 +165,7 @@ class BandUpdateWithMembersSerializer(serializers.ModelSerializer):
                 # Track the change
                 updated_roles.append({
                     'id': membership.id,
-                    'username': membership.talent_user.user.username,
+                    'email': membership.talent_user.user.email,
                     'old_role': old_role,
                     'new_role': new_role
                 })
