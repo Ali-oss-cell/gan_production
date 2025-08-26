@@ -370,5 +370,11 @@ class ReferenceDataView(APIView):
                 'availability_choices': getattr(HybridWorker, 'AVAILABILITY_CHOICES', [])
             })
         
+        elif data_type == 'band':
+            from .models import Band
+            return Response({
+                'band_types': Band.BAND_TYPE_CHOICES
+            })
+        
         else:
             return Response({})

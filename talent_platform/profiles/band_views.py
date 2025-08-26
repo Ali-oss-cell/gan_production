@@ -286,10 +286,28 @@ class BandUpdateView(UpdateAPIView):
         try:
             talent_profile = TalentUserProfile.objects.get(user=self.request.user)
             if band.creator != talent_profile:
-                raise PermissionDenied("Only the band creator can update the band details and manage member roles.")
+                # Provide detailed error information for debugging
+                error_details = {
+                    "error": "Permission denied",
+                    "reason": "Only the band creator can update the band details and manage member roles",
+                    "current_user_id": self.request.user.id,
+                    "current_user_username": self.request.user.username,
+                    "band_creator_id": band.creator.user.id,
+                    "band_creator_username": band.creator.user.username,
+                    "band_id": band.id,
+                    "band_name": band.name
+                }
+                print(f"[DEBUG] Permission denied for band update: {error_details}")
+                raise PermissionDenied(f"Only the band creator can update the band details and manage member roles. Current user: {self.request.user.username}, Band creator: {band.creator.user.username}")
             return band
         except TalentUserProfile.DoesNotExist:
-            raise PermissionDenied("Talent profile not found.")
+            error_details = {
+                "error": "Talent profile not found",
+                "user_id": self.request.user.id,
+                "username": self.request.user.username
+            }
+            print(f"[DEBUG] Talent profile not found: {error_details}")
+            raise PermissionDenied(f"Talent profile not found for user: {self.request.user.username}")
         
     def get_serializer_context(self):
         context = super().get_serializer_context()
@@ -297,6 +315,11 @@ class BandUpdateView(UpdateAPIView):
         return context
         
     def update(self, request, *args, **kwargs):
+        # Debug authentication information
+        print(f"[DEBUG] Band update request - User: {request.user.username} (ID: {request.user.id})")
+        print(f"[DEBUG] Request headers: {dict(request.headers)}")
+        print(f"[DEBUG] Request data: {request.data}")
+        
         partial = kwargs.pop('partial', True)  # Default to partial updates for more flexibility
         instance = self.get_object()
         
