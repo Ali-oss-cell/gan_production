@@ -82,14 +82,14 @@ class BandUpdateWithMembersSerializer(serializers.ModelSerializer):
                 "error": "Permission denied in serializer",
                 "reason": "Only the band creator can update the band details and member roles",
                 "current_user_id": user.id,
-                "current_user_username": user.username,
+                "current_user_email": user.email,
                 "band_creator_id": instance.creator.user.id,
-                "band_creator_username": instance.creator.user.username,
+                "band_creator_email": instance.creator.user.email,
                 "band_id": instance.id,
                 "band_name": instance.name
             }
             print(f"[DEBUG] Permission denied in serializer: {error_details}")
-            raise serializers.ValidationError(f"Only the band creator can update the band details and member roles. Current user: {user.username}, Band creator: {instance.creator.user.username}")
+            raise serializers.ValidationError(f"Only the band creator can update the band details and member roles. Current user: {user.email}, Band creator: {instance.creator.user.email}")
         
         # Track changes for response message
         removed_members = []

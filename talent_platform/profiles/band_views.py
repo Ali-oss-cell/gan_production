@@ -291,23 +291,23 @@ class BandUpdateView(UpdateAPIView):
                     "error": "Permission denied",
                     "reason": "Only the band creator can update the band details and manage member roles",
                     "current_user_id": self.request.user.id,
-                    "current_user_username": self.request.user.username,
+                    "current_user_email": self.request.user.email,
                     "band_creator_id": band.creator.user.id,
-                    "band_creator_username": band.creator.user.username,
+                    "band_creator_email": band.creator.user.email,
                     "band_id": band.id,
                     "band_name": band.name
                 }
                 print(f"[DEBUG] Permission denied for band update: {error_details}")
-                raise PermissionDenied(f"Only the band creator can update the band details and manage member roles. Current user: {self.request.user.username}, Band creator: {band.creator.user.username}")
+                raise PermissionDenied(f"Only the band creator can update the band details and manage member roles. Current user: {self.request.user.email}, Band creator: {band.creator.user.email}")
             return band
         except TalentUserProfile.DoesNotExist:
             error_details = {
                 "error": "Talent profile not found",
                 "user_id": self.request.user.id,
-                "username": self.request.user.username
+                "email": self.request.user.email
             }
             print(f"[DEBUG] Talent profile not found: {error_details}")
-            raise PermissionDenied(f"Talent profile not found for user: {self.request.user.username}")
+            raise PermissionDenied(f"Talent profile not found for user: {self.request.user.email}")
         
     def get_serializer_context(self):
         context = super().get_serializer_context()
@@ -316,7 +316,7 @@ class BandUpdateView(UpdateAPIView):
         
     def update(self, request, *args, **kwargs):
         # Debug authentication information
-        print(f"[DEBUG] Band update request - User: {request.user.username} (ID: {request.user.id})")
+        print(f"[DEBUG] Band update request - User: {request.user.email} (ID: {request.user.id})")
         print(f"[DEBUG] Request headers: {dict(request.headers)}")
         print(f"[DEBUG] Request data: {request.data}")
         

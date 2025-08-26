@@ -5,8 +5,10 @@ This document explains how to properly integrate with the band member removal AP
 
 ## API Endpoint
 ```
-PATCH /api/bands/{band_id}/
+PATCH /api/bands/{band_id}/update/
 ```
+
+**IMPORTANT**: Note the `/update/` at the end of the URL!
 
 ## Authentication Requirements
 - **Required Header**: `Authorization: Bearer {jwt_token}`
@@ -83,7 +85,7 @@ Response includes:
 
 ### Remove Member
 ```
-PATCH /api/bands/{band_id}/
+PATCH /api/bands/{band_id}/update/
 Headers:
   Authorization: Bearer {token}
   is-talent: true
@@ -94,6 +96,8 @@ Body:
   "members_to_remove": [membership_id]
 }
 ```
+
+**CRITICAL**: The update endpoint is different from the detail endpoint!
 
 ## Error Handling
 
