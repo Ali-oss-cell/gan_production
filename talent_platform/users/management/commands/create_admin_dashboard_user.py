@@ -1,5 +1,6 @@
 import os
 import getpass
+from datetime import date
 from django.core.management.base import BaseCommand
 from django.contrib.auth import get_user_model
 from django.db import transaction
@@ -10,7 +11,7 @@ class Command(BaseCommand):
     help = 'Creates an admin dashboard user for the talent platform'
 
     def add_arguments(self, parser):
-        parser.add_argument('--username', type=str, help='Username for the admin dashboard user')
+        parser.add_argument('--username', type=str, help='Email for the admin dashboard user')
         parser.add_argument('--password', type=str, help='Password for the admin dashboard user')
         parser.add_argument('--first_name', type=str, help='First name for the admin dashboard user')
         parser.add_argument('--last_name', type=str, help='Last name for the admin dashboard user')
@@ -29,18 +30,18 @@ class Command(BaseCommand):
                 self.stdout.write(self.style.SUCCESS('Operation cancelled.'))
                 return
 
-        # Get username
+        # Get email
         username = options['username']
         if not username and not options['non_interactive']:
-            username = input('Enter username: ')
+            username = input('Enter email: ')
         if not username:
-            self.stdout.write(self.style.ERROR('Username is required'))
+            self.stdout.write(self.style.ERROR('Email is required'))
             return
 
-        # Check if username already exists
-        email = f"{username}@dashboard.internal"
+        # Check if email already exists
+        email = username  # Use the username as email directly
         if User.objects.filter(email=email).exists():
-            self.stdout.write(self.style.ERROR(f'User with username {username} already exists'))
+            self.stdout.write(self.style.ERROR(f'User with email {email} already exists'))
             return
 
         # Get password
@@ -78,8 +79,13 @@ class Command(BaseCommand):
                 password=password,
                 first_name=first_name,
                 last_name=last_name,
-                is_staff=True
+                is_staff=True,
+                date_of_birth=date(1990, 1, 1),  # Default date for admin users
+                gender='Prefer not to say',
+                country='System'
             )
-            self.stdout.write(self.style.SUCCESS(f'Admin dashboard user {username} created successfully'))
+            self.stdout.write(self.style.SUCCESS(f'Admin dashboard user {email} created successfully'))
+            self.stdout.write(self.style.SUCCESS(f'Email: {email}'))
+            self.stdout.write(self.style.SUCCESS(f'Dashboard Admin: True'))
         except Exception as e:
             self.stdout.write(self.style.ERROR(f'Failed to create admin dashboard user: {str(e)}'))
