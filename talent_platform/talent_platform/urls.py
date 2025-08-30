@@ -25,7 +25,7 @@ from rest_framework_simplejwt.views import (
 
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
+    # path('admin/', admin.site.urls),  # Disabled Django admin
     path('api/', include('users.urls')),
     path('api/', include('profiles.urls')),
     path('api/payments/', include('payments.urls')),
