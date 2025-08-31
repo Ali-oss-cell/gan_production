@@ -12,6 +12,7 @@ from django.shortcuts import get_object_or_404
 from .models import BaseUser
 from .permissions import IsAdminDashboardUser
 import logging
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -150,15 +151,23 @@ class DashboardLoginView(BaseLoginView):
     serializer_class = DashboardLoginSerializer
 
     def get_serializer_class(self):
-        # Check if admin login is requested via query parameter
-        if self.request.data.get('admin_login') == 'true' or self.request.query_params.get('admin_login') == 'true':
+        # Check if admin login is requested via query parameter first
+        if hasattr(self, 'request') and self.request.query_params.get('admin_login') == 'true':
             return AdminDashboardLoginSerializer
+        
+        # For POST requests, we need to check the request body
+        import json
+        try:
+            if hasattr(self, 'request') and hasattr(self.request, 'body') and self.request.body:
+                body_data = json.loads(self.request.body)
+                if body_data.get('admin_login') == 'true':
+                    return AdminDashboardLoginSerializer
+        except (json.JSONDecodeError, AttributeError):
+            pass
+            
         return DashboardLoginSerializer
 
     def post(self, request, *args, **kwargs):
-        # Get the appropriate serializer based on the request
-        self.serializer_class = self.get_serializer_class()
-        
         response = super().post(request, *args, **kwargs)
         
         # Check if user is a dashboard user
@@ -167,9 +176,19 @@ class DashboardLoginView(BaseLoginView):
                 'message': 'This account is not registered as a Dashboard user'
             }, status=status.HTTP_403_FORBIDDEN)
         
-        # If admin login was requested, verify staff status
-        if (request.data.get('admin_login') == 'true' or 
-            request.query_params.get('admin_login') == 'true') and not response.data.get('is_staff'):
+        # Check if admin login was requested and verify staff status
+        is_admin_login = False
+        try:
+            if request.query_params.get('admin_login') == 'true':
+                is_admin_login = True
+            elif hasattr(request, 'body') and request.body:
+                body_data = json.loads(request.body)
+                if body_data.get('admin_login') == 'true':
+                    is_admin_login = True
+        except (json.JSONDecodeError, AttributeError):
+            pass
+            
+        if is_admin_login and not response.data.get('is_staff'):
             return Response({
                 'message': 'This account is not registered as an Admin Dashboard user'
             }, status=status.HTTP_403_FORBIDDEN)
