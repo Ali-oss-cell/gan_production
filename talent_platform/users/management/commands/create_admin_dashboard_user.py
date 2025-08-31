@@ -41,7 +41,25 @@ class Command(BaseCommand):
         # Check if email already exists
         email = username  # Use the username as email directly
         if User.objects.filter(email=email).exists():
-            self.stdout.write(self.style.ERROR(f'User with email {email} already exists'))
+            self.stdout.write(self.style.WARNING(f'User with email {email} already exists'))
+            update = 'y'
+            if not options['non_interactive']:
+                update = input('Do you want to update this user to dashboard admin? (y/n): ')
+            if update.lower() != 'y':
+                self.stdout.write(self.style.SUCCESS('Operation cancelled.'))
+                return
+            
+            # Update existing user
+            existing_user = User.objects.get(email=email)
+            existing_user.is_dashboard = True
+            existing_user.is_dashboard_admin = True
+            existing_user.is_staff = False  # Custom dashboard only, no Django admin
+            existing_user.is_superuser = False
+            existing_user.save()
+            
+            self.stdout.write(self.style.SUCCESS(f'Updated existing user {email} to dashboard admin'))
+            self.stdout.write(self.style.SUCCESS(f'Dashboard Admin: {existing_user.is_dashboard_admin}'))
+            self.stdout.write(self.style.SUCCESS(f'Dashboard User: {existing_user.is_dashboard}'))
             return
 
         # Get password
@@ -79,7 +97,7 @@ class Command(BaseCommand):
                 password=password,
                 first_name=first_name,
                 last_name=last_name,
-                is_staff=True,
+                is_staff=False,  # Custom dashboard only, no Django admin
                 date_of_birth=date(1990, 1, 1),  # Default date for admin users
                 gender='Prefer not to say',
                 country='System'
