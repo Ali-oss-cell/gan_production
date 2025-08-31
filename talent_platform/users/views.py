@@ -153,6 +153,7 @@ class DashboardLoginView(BaseLoginView):
     def get_serializer_class(self):
         # Check if admin login is requested via query parameter first
         if hasattr(self, 'request') and self.request.query_params.get('admin_login') == 'true':
+            logger.info("Admin login detected via query parameter")
             return AdminDashboardLoginSerializer
         
         # For POST requests, we need to check the request body
@@ -161,14 +162,19 @@ class DashboardLoginView(BaseLoginView):
             if hasattr(self, 'request') and hasattr(self.request, 'body') and self.request.body:
                 body_data = json.loads(self.request.body)
                 if body_data.get('admin_login') == 'true':
+                    logger.info("Admin login detected via request body")
                     return AdminDashboardLoginSerializer
         except (json.JSONDecodeError, AttributeError):
             pass
             
+        logger.info("Using regular dashboard login serializer")
         return DashboardLoginSerializer
 
     def post(self, request, *args, **kwargs):
         response = super().post(request, *args, **kwargs)
+        
+        # Debug: Log response data
+        logger.info(f"Login response data: {response.data}")
         
         # Check if user is a dashboard user
         if not response.data.get('is_dashboard'):
@@ -187,6 +193,9 @@ class DashboardLoginView(BaseLoginView):
                     is_admin_login = True
         except (json.JSONDecodeError, AttributeError):
             pass
+            
+        logger.info(f"Admin login requested: {is_admin_login}")
+        logger.info(f"is_dashboard_admin in response: {response.data.get('is_dashboard_admin')}")
             
         if is_admin_login and not response.data.get('is_dashboard_admin'):
             return Response({
