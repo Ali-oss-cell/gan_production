@@ -16,20 +16,10 @@ class Command(BaseCommand):
         parser.add_argument('--first_name', type=str, help='First name for the admin dashboard user')
         parser.add_argument('--last_name', type=str, help='Last name for the admin dashboard user')
         parser.add_argument('--non-interactive', action='store_true', help='Run without interactive prompts')
+        parser.add_argument('--force', action='store_true', help='Force creation even if user exists')
 
     @transaction.atomic
     def handle(self, *args, **options):
-        # Check if admin dashboard user already exists
-        admin_exists = User.objects.filter(is_dashboard=True, is_dashboard_admin=True).exists()
-        if admin_exists:
-            self.stdout.write(self.style.WARNING('An admin dashboard user already exists!'))
-            proceed = 'y'
-            if not options['non_interactive']:
-                proceed = input('Do you want to create another admin dashboard user? (y/n): ')
-            if proceed.lower() != 'y':
-                self.stdout.write(self.style.SUCCESS('Operation cancelled.'))
-                return
-
         # Get email
         username = options['username']
         if not username and not options['non_interactive']:
@@ -42,12 +32,14 @@ class Command(BaseCommand):
         email = username  # Use the username as email directly
         if User.objects.filter(email=email).exists():
             self.stdout.write(self.style.WARNING(f'User with email {email} already exists'))
-            update = 'y'
-            if not options['non_interactive']:
-                update = input('Do you want to update this user to dashboard admin? (y/n): ')
-            if update.lower() != 'y':
-                self.stdout.write(self.style.SUCCESS('Operation cancelled.'))
-                return
+            
+            if not options['force']:
+                update = 'y'
+                if not options['non-interactive']:
+                    update = input('Do you want to update this user to dashboard admin? (y/n): ')
+                if update.lower() != 'y':
+                    self.stdout.write(self.style.SUCCESS('Operation cancelled.'))
+                    return
             
             # Update existing user
             existing_user = User.objects.get(email=email)
@@ -55,6 +47,11 @@ class Command(BaseCommand):
             existing_user.is_dashboard_admin = True
             existing_user.is_staff = False  # Custom dashboard only, no Django admin
             existing_user.is_superuser = False
+            
+            # Update password if provided
+            if options['password']:
+                existing_user.set_password(options['password'])
+            
             existing_user.save()
             
             self.stdout.write(self.style.SUCCESS(f'Updated existing user {email} to dashboard admin'))
@@ -76,7 +73,7 @@ class Command(BaseCommand):
 
         # Get first name
         first_name = options['first_name']
-        if not first_name and not options['non_interactive']:
+        if not first_name and not options['non-interactive']:
             first_name = input('Enter first name: ')
         if not first_name:
             self.stdout.write(self.style.ERROR('First name is required'))
@@ -84,7 +81,7 @@ class Command(BaseCommand):
 
         # Get last name
         last_name = options['last_name']
-        if not last_name and not options['non_interactive']:
+        if not last_name and not options['non-interactive']:
             last_name = input('Enter last name: ')
         if not last_name:
             self.stdout.write(self.style.ERROR('Last name is required'))
@@ -104,6 +101,7 @@ class Command(BaseCommand):
             )
             self.stdout.write(self.style.SUCCESS(f'Admin dashboard user {email} created successfully'))
             self.stdout.write(self.style.SUCCESS(f'Email: {email}'))
-            self.stdout.write(self.style.SUCCESS(f'Dashboard Admin: True'))
+            self.stdout.write(self.style.SUCCESS(f'Dashboard Admin: {user.is_dashboard_admin}'))
+            self.stdout.write(self.style.SUCCESS(f'Dashboard User: {user.is_dashboard}'))
         except Exception as e:
             self.stdout.write(self.style.ERROR(f'Failed to create admin dashboard user: {str(e)}'))
