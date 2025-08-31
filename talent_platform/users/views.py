@@ -188,7 +188,7 @@ class DashboardLoginView(BaseLoginView):
         except (json.JSONDecodeError, AttributeError):
             pass
             
-        if is_admin_login and not response.data.get('is_staff'):
+        if is_admin_login and not response.data.get('is_dashboard_admin'):
             return Response({
                 'message': 'This account is not registered as an Admin Dashboard user'
             }, status=status.HTTP_403_FORBIDDEN)
