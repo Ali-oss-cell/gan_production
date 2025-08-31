@@ -28,6 +28,8 @@
 - [x] Remove problematic "admin already exists" check
 - [x] Add `--force` flag for overwriting existing users
 - [x] Ensure password updates work correctly
+- [x] Create new `create_dashboard_user` command with user type selection
+- [x] Create `manage_dashboard_users` command for user management
 - [ ] Test command with various scenarios
 
 ### **Phase 3: Debug Login Flow**
@@ -48,8 +50,22 @@
 
 ## 🎯 **Immediate Actions**
 
-### **Step 1: Clean Database**
+### **Step 1: Push Updated Commands**
 ```bash
+git add talent_platform/users/management/commands/create_dashboard_user.py
+git add talent_platform/users/management/commands/manage_dashboard_users.py
+git commit -m "Add comprehensive dashboard user management tools"
+git push origin main
+```
+
+### **Step 2: On Server - Clean Database**
+```bash
+cd /var/www/gan7club/talent_platform
+git pull origin main
+
+# List current dashboard users
+python manage.py manage_dashboard_users --action list
+
 # Delete all admin users
 python manage.py shell --settings=talent_platform.settings_production
 ```
@@ -61,21 +77,63 @@ print("✅ All admin users deleted")
 exit()
 ```
 
-### **Step 2: Create Fresh Admin**
+### **Step 3: Create Fresh Admin User**
 ```bash
-python manage.py create_admin_dashboard_user --username admin@gan7club.com --password YourSecurePassword123 --first_name Admin --last_name User --non-interactive
+# Option 1: Interactive (choose admin type)
+python manage.py create_dashboard_user
+
+# Option 2: Non-interactive (direct admin creation)
+python manage.py create_dashboard_user --username admin@gan7club.com --password YourSecurePassword123 --first_name Admin --last_name User --user_type admin --non-interactive
 ```
 
-### **Step 3: Debug Login**
+### **Step 4: Verify User Creation**
+```bash
+# List all dashboard users
+python manage.py manage_dashboard_users --action list
+
+# View specific user details
+python manage.py manage_dashboard_users --action view --email admin@gan7club.com
+```
+
+### **Step 5: Debug Login**
 ```bash
 python debug_admin_login.py
 ```
 
-### **Step 4: Test Login**
+### **Step 6: Test Login**
 ```bash
 curl -X POST https://api.gan7club.com/api/admin/login/ \
   -H "Content-Type: application/json" \
   -d '{"email": "admin@gan7club.com", "password": "YourSecurePassword123", "admin_login": "true"}'
+```
+
+## 🎯 **New Dashboard User Management Tools**
+
+### **1. Create Dashboard Users**
+```bash
+# Interactive mode - choose user type
+python manage.py create_dashboard_user
+
+# Non-interactive mode
+python manage.py create_dashboard_user --username user@example.com --password password123 --first_name John --last_name Doe --user_type regular --non-interactive
+```
+
+### **2. Manage Dashboard Users**
+```bash
+# List all dashboard users
+python manage.py manage_dashboard_users --action list
+
+# View user details
+python manage.py manage_dashboard_users --action view --email user@example.com
+
+# Delete user
+python manage.py manage_dashboard_users --action delete --email user@example.com
+
+# Promote to admin
+python manage.py manage_dashboard_users --action promote --email user@example.com
+
+# Demote from admin
+python manage.py manage_dashboard_users --action demote --email admin@example.com
 ```
 
 ## 🔍 **Expected Results**
@@ -86,6 +144,7 @@ After fixes:
 - ✅ Login response includes `is_dashboard_admin` field
 - ✅ Admin login validation passes
 - ✅ Frontend login works with 200 OK response
+- ✅ Easy management of dashboard users
 
 ## 📋 **Success Criteria**
 
@@ -94,12 +153,14 @@ After fixes:
 3. **Login**: Admin login returns 200 OK with tokens
 4. **Frontend**: Admin login works in browser
 5. **Business Logic**: Custom dashboard admin system works as intended
+6. **Management**: Easy creation and management of both user types
 
 ## 🚀 **Next Steps**
 
-1. Push updated command to server
+1. Push updated commands to server
 2. Clean database state
-3. Create fresh admin user
+3. Create fresh admin user using new tool
 4. Run debug script
 5. Test login flow
 6. Verify frontend works
+7. Test user management tools
