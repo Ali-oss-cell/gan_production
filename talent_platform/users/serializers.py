@@ -248,6 +248,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             'is_talent': self.user.is_talent,
             'is_background': self.user.is_background,
             'is_dashboard': self.user.is_dashboard,
+            'is_dashboard_admin': self.user.is_dashboard_admin,
             'is_staff': self.user.is_staff
         })
         return data
