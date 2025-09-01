@@ -152,9 +152,14 @@ class DashboardLoginView(BaseLoginView):
 
     def get_serializer_class(self):
         # Check if admin login is requested via query parameter first
-        if hasattr(self, 'request') and self.request.query_params.get('admin_login') == 'true':
-            logger.info("Admin login detected via query parameter")
-            return AdminDashboardLoginSerializer
+        if hasattr(self, 'request') and hasattr(self.request, 'query_params'):
+            if self.request.query_params.get('admin_login') == 'true':
+                logger.info("Admin login detected via query parameter")
+                return AdminDashboardLoginSerializer
+        elif hasattr(self, 'request') and hasattr(self.request, 'GET'):
+            if self.request.GET.get('admin_login') == 'true':
+                logger.info("Admin login detected via request.GET")
+                return AdminDashboardLoginSerializer
         
         # For POST requests, we need to check the request body
         import json
