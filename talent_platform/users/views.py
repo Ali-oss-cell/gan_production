@@ -182,6 +182,9 @@ class DashboardLoginView(BaseLoginView):
         return DashboardLoginSerializer
 
     def post(self, request, *args, **kwargs):
+        # Use the correct serializer based on get_serializer_class()
+        self.serializer_class = self.get_serializer_class()
+        
         response = super().post(request, *args, **kwargs)
         
         # Debug: Log response data
