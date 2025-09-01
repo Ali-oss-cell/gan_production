@@ -185,10 +185,20 @@ class DashboardLoginView(BaseLoginView):
         # Use the correct serializer based on get_serializer_class()
         self.serializer_class = self.get_serializer_class()
         
+        # Get the response from the parent class
         response = super().post(request, *args, **kwargs)
         
         # Debug: Log response data
         logger.info(f"Login response data: {response.data}")
+        
+        # IMPORTANT: The serializer validation should have already added the flags
+        # If they're missing, there's a deeper issue
+        if 'is_dashboard' not in response.data:
+            logger.error("is_dashboard flag missing from response data!")
+            logger.error(f"Available keys: {list(response.data.keys())}")
+            return Response({
+                'message': 'Internal server error: User flags not found'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
         # Check if user is a dashboard user
         if not response.data.get('is_dashboard'):
@@ -196,7 +206,7 @@ class DashboardLoginView(BaseLoginView):
                 'message': 'This account is not registered as a Dashboard user'
             }, status=status.HTTP_403_FORBIDDEN)
         
-        # Check if admin login was requested and verify staff status
+        # Check if admin login was requested and verify admin status
         is_admin_login = False
         try:
             if request.query_params.get('admin_login') == 'true':
