@@ -167,6 +167,12 @@ class DashboardLoginView(BaseLoginView):
         except (json.JSONDecodeError, AttributeError):
             pass
             
+        # Check request.data (already parsed by DRF)
+        if hasattr(self, 'request') and hasattr(self.request, 'data') and self.request.data:
+            if self.request.data.get('admin_login') == 'true':
+                logger.info("Admin login detected via request.data")
+                return AdminDashboardLoginSerializer
+            
         logger.info("Using regular dashboard login serializer")
         return DashboardLoginSerializer
 
