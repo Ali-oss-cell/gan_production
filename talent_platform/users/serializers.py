@@ -102,6 +102,26 @@ class UnifiedUserSerializer(serializers.ModelSerializer):
                     raise serializers.ValidationError(
                         {field: "This field is required."}
                     )
+                
+                # Additional validation for country field
+                if field == 'country' and data.get(field):
+                    country = data[field].strip()
+                    if not country or len(country) < 2:
+                        raise serializers.ValidationError({
+                            'country': 'Country must be at least 2 characters long.'
+                        })
+                    data[field] = country
+
+            # Parse date_of_birth if it's a string
+            if isinstance(data['date_of_birth'], str):
+                try:
+                    from datetime import datetime
+                    parsed_date = datetime.strptime(data['date_of_birth'], '%Y-%m-%d').date()
+                    data['date_of_birth'] = parsed_date
+                except ValueError:
+                    raise serializers.ValidationError({
+                        'date_of_birth': 'Invalid date format. Use YYYY-MM-DD format.'
+                    })
 
             # Age validation
             dob = data['date_of_birth']
@@ -124,6 +144,25 @@ class UnifiedUserSerializer(serializers.ModelSerializer):
         except Exception as e:
             logger.error(f"Validation error: {str(e)}")
             raise
+
+    def validate_date_of_birth(self, value):
+        """
+        Validate and parse date_of_birth field
+        """
+        try:
+            if isinstance(value, str):
+                from datetime import datetime
+                parsed_date = datetime.strptime(value, '%Y-%m-%d').date()
+                return parsed_date
+            elif isinstance(value, date):
+                return value
+            else:
+                raise serializers.ValidationError("Invalid date format. Use YYYY-MM-DD format.")
+        except ValueError:
+            raise serializers.ValidationError("Invalid date format. Use YYYY-MM-DD format.")
+        except Exception as e:
+            logger.error(f"Date of birth validation error: {str(e)}")
+            raise serializers.ValidationError("Invalid date format.")
 
     def validate_email(self, value):
         """

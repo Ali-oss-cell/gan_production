@@ -7,43 +7,163 @@ from rest_framework.permissions import IsAdminUser
 from rest_framework.generics import RetrieveAPIView, ListAPIView
 from rest_framework.pagination import PageNumberPagination
 from django.urls import reverse
+from django.utils import timezone
+from django.db.models import Count, Sum, Q
+from datetime import datetime, timedelta
+import logging
 
-from users.models import BaseUser
-from users.serializers import UnifiedUserSerializer
-from users.permissions import IsAdminDashboardUser, IsDashboardUser
-from profiles.models import TalentUserProfile, VisualWorker, ExpressiveWorker, HybridWorker, TalentMedia, Band, BackGroundJobsProfile
-from .serializers import (
-    TalentDashboardSerializer, VisualWorkerDashboardSerializer, 
-    ExpressiveWorkerDashboardSerializer, HybridWorkerDashboardSerializer,
-    BandDashboardSerializer, BackGroundDashboardSerializer
-)
-from .utils import get_sharing_status
-from profiles.utils.media_url_helper import get_media_url, get_thumbnail_url
+# Initialize logger with error handling
+try:
+    logger = logging.getLogger(__name__)
+except Exception as e:
+    # Fallback logging if logger fails
+    import sys
+    def log_message(level, message):
+        print(f"[{level}] {message}", file=sys.stderr)
+    logger = type('Logger', (), {
+        'info': lambda msg: log_message('INFO', msg),
+        'warning': lambda msg: log_message('WARNING', msg),
+        'error': lambda msg: log_message('ERROR', msg)
+    })()
+
+# Import with error handling
+try:
+    from users.models import BaseUser
+    from users.serializers import UnifiedUserSerializer
+    from users.permissions import IsAdminDashboardUser, IsDashboardUser
+    from profiles.models import TalentUserProfile, VisualWorker, ExpressiveWorker, HybridWorker, TalentMedia, Band, BackGroundJobsProfile, BandMedia
+    from payments.models import PaymentTransaction, Subscription
+    from .serializers import (
+        TalentDashboardSerializer, VisualWorkerDashboardSerializer, 
+        ExpressiveWorkerDashboardSerializer, HybridWorkerDashboardSerializer,
+        BandDashboardSerializer, BackGroundDashboardSerializer
+    )
+    from .utils import get_sharing_status
+    from profiles.utils.media_url_helper import get_media_url, get_thumbnail_url
+except ImportError as import_error:
+    logger.error(f"Import error: {str(import_error)}")
+    # Create fallback classes if imports fail
+    BaseUser = None
+    UnifiedUserSerializer = None
+    IsAdminDashboardUser = None
+    IsDashboardUser = None
 
 
+class HealthCheckView(APIView):
+    """Simple health check endpoint to verify API is working"""
+    
+    def get(self, request):
+        return Response({
+            'status': 'healthy',
+            'message': 'Dashboard API is working',
+            'timestamp': timezone.now().isoformat()
+        }, status=status.HTTP_200_OK)
 
 
 class DashboardUserCreateView(APIView):
     """View for creating new dashboard users"""
     permission_classes = [IsAdminDashboardUser]
     
+    def get(self, request):
+        """Simple test endpoint to verify API is working"""
+        return Response({
+            'success': True,
+            'message': 'Dashboard user creation endpoint is working',
+            'status': 'ok'
+        }, status=status.HTTP_200_OK)
+    
     def post(self, request):
         """Create a new dashboard user"""
-        data = request.data.copy()
-        data['role'] = 'dashboard'
-        
-        serializer = UnifiedUserSerializer(data=data)
-        if serializer.is_valid():
-            user = serializer.save()
+        try:
+            logger.info(f"=== DASHBOARD USER CREATION REQUEST ===")
+            logger.info(f"Request method: {request.method}")
+            
+            # Check if user is authenticated before accessing user properties
+            if hasattr(request, 'user') and request.user and hasattr(request.user, 'is_authenticated'):
+                logger.info(f"Request user: {request.user}")
+                logger.info(f"Request user authenticated: {request.user.is_authenticated}")
+                logger.info(f"Request user is_dashboard_admin: {getattr(request.user, 'is_dashboard_admin', False)}")
+            else:
+                logger.warning("Request user not properly authenticated")
+                return Response({
+                    'success': False,
+                    'message': 'Authentication required',
+                    'error': 'User not authenticated'
+                }, status=status.HTTP_401_UNAUTHORIZED)
+                
+            logger.info(f"Request data: {request.data}")
+            logger.info(f"Request headers: {dict(request.headers)}")
+            logger.info(f"=====================================")
+        except Exception as e:
+            logger.error(f"Error in initial logging: {str(e)}")
             return Response({
-                'message': 'Dashboard user created successfully',
-                'id': user.id,
-                'email': user.email
-            }, status=status.HTTP_201_CREATED)
-        return Response({
-            'message': 'Failed to create dashboard user',
-            'errors': serializer.errors
-        }, status=status.HTTP_400_BAD_REQUEST)
+                'success': False,
+                'message': 'Server error during request processing',
+                'error': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+        # Continue with user creation logic
+        try:
+            data = request.data.copy()
+            
+            # Preserve the role from the request, but ensure it's a valid dashboard role
+            role = data.get('role')
+            logger.info(f"Role requested: {role}")
+            
+            if role not in ['dashboard', 'admin_dashboard']:
+                logger.warning(f"Invalid role requested: {role}")
+                return Response({
+                    'message': 'Invalid role. Must be "dashboard" or "admin_dashboard"',
+                    'errors': {'role': 'Invalid role specified'}
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Check if required classes are available
+            if UnifiedUserSerializer is None:
+                logger.error("UnifiedUserSerializer not available")
+                return Response({
+                    'success': False,
+                    'message': 'Serializer not available',
+                    'error': 'UnifiedUserSerializer import failed'
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                
+            try:
+                logger.info(f"About to validate data with UnifiedUserSerializer")
+                logger.info(f"Data to validate: {data}")
+                serializer = UnifiedUserSerializer(data=data)
+                if serializer.is_valid():
+                    logger.info(f"Serializer validation passed for role: {role}")
+                    user = serializer.save()
+                    logger.info(f"User created successfully: {user.email} with role {role}")
+                    return Response({
+                        'success': True,
+                        'message': f'{role.replace("_", " ").title()} created successfully',
+                        'id': user.id,
+                        'email': user.email,
+                        'role': role
+                    }, status=status.HTTP_201_CREATED)
+                else:
+                    logger.warning(f"Serializer validation failed: {serializer.errors}")
+                    logger.error(f"Detailed validation errors: {serializer.errors}")
+                    return Response({
+                        'success': False,
+                        'message': 'Failed to create dashboard user',
+                        'errors': serializer.errors
+                    }, status=status.HTTP_400_BAD_REQUEST)
+            except Exception as serializer_error:
+                logger.error(f"Serializer error: {str(serializer_error)}")
+                return Response({
+                    'success': False,
+                    'message': 'Serializer error during user creation',
+                    'error': str(serializer_error)
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                
+        except Exception as e:
+            logger.error(f"Exception during dashboard user creation: {str(e)}")
+            return Response({
+                'success': False,
+                'message': 'Server error during user creation',
+                'error': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class DashboardUserManagementView(APIView):
@@ -573,3 +693,148 @@ class AllProfilesView(ListAPIView):
             item['profile_url'] = request.build_absolute_uri(reverse('dashboard:talent-profile-detail', args=[item['id']]))
         
         return Response(data)
+
+
+class DashboardAnalyticsView(APIView):
+    """
+    Comprehensive dashboard analytics endpoint providing key metrics for admin dashboard.
+    
+    GET /api/dashboard/analytics/
+    
+    Returns:
+    {
+        "total_users": 1250,
+        "users_this_week": 23,
+        "total_media_items": 5420,
+        "active_users": 89,
+        "pending_approvals": 12,
+        "total_revenue": 12500.50,
+        "revenue_this_month": 3200.75,
+        "breakdown": {
+            "talent_users": 800,
+            "background_users": 450,
+            "verified_users": 650,
+            "premium_subscribers": 180
+        },
+        "media_breakdown": {
+            "talent_media": 4200,
+            "band_media": 1220
+        },
+        "subscription_stats": {
+            "active_subscriptions": 180,
+            "trial_subscriptions": 25,
+            "cancelled_this_month": 8
+        }
+    }
+    """
+    permission_classes = [IsAdminDashboardUser]
+    
+    def get(self, request):
+        try:
+            # Calculate date ranges
+            now = timezone.now()
+            week_ago = now - timedelta(days=7)
+            month_ago = now - timedelta(days=30)
+            
+            # Total Users
+            total_users = BaseUser.objects.filter(is_active=True).count()
+            
+            # Users this week
+            users_this_week = BaseUser.objects.filter(
+                is_active=True,
+                date_joined__gte=week_ago
+            ).count()
+            
+            # Total Media Items (TalentMedia + BandMedia)
+            talent_media_count = TalentMedia.objects.filter(is_test_video=False).count()
+            band_media_count = BandMedia.objects.count()
+            total_media_items = talent_media_count + band_media_count
+            
+            # Active Users (users who logged in within last 24 hours)
+            # Note: This is a simplified calculation. In a real app, you'd track last_login
+            active_users = BaseUser.objects.filter(
+                is_active=True,
+                last_login__gte=now - timedelta(hours=24)
+            ).count()
+            
+            # Pending Approvals (users with unverified email or incomplete profiles)
+            pending_approvals = BaseUser.objects.filter(
+                Q(email_verified=False) | 
+                Q(talentuserprofile__is_verified=False) |
+                Q(backgroundjobsprofile__is_verified=False)
+            ).distinct().count()
+            
+            # Total Revenue (completed payment transactions)
+            total_revenue = PaymentTransaction.objects.filter(
+                status='completed'
+            ).aggregate(total=Sum('amount'))['total'] or 0
+            
+            # Revenue this month
+            revenue_this_month = PaymentTransaction.objects.filter(
+                status='completed',
+                created_at__gte=month_ago
+            ).aggregate(total=Sum('amount'))['total'] or 0
+            
+            # User breakdown
+            talent_users = BaseUser.objects.filter(is_talent=True, is_active=True).count()
+            background_users = BaseUser.objects.filter(is_background=True, is_active=True).count()
+            verified_users = BaseUser.objects.filter(
+                Q(talentuserprofile__is_verified=True) | 
+                Q(backgroundjobsprofile__is_verified=True)
+            ).distinct().count()
+            
+            # Premium subscribers (users with active paid subscriptions)
+            premium_subscribers = Subscription.objects.filter(
+                status='active',
+                is_active=True
+            ).count()
+            
+            # Subscription statistics
+            active_subscriptions = Subscription.objects.filter(
+                status='active',
+                is_active=True
+            ).count()
+            
+            trial_subscriptions = Subscription.objects.filter(
+                status='trialing',
+                is_active=True
+            ).count()
+            
+            cancelled_this_month = Subscription.objects.filter(
+                status='canceled',
+                updated_at__gte=month_ago
+            ).count()
+            
+            analytics_data = {
+                "total_users": total_users,
+                "users_this_week": users_this_week,
+                "total_media_items": total_media_items,
+                "active_users": active_users,
+                "pending_approvals": pending_approvals,
+                "total_revenue": float(total_revenue),
+                "revenue_this_month": float(revenue_this_month),
+                "breakdown": {
+                    "talent_users": talent_users,
+                    "background_users": background_users,
+                    "verified_users": verified_users,
+                    "premium_subscribers": premium_subscribers
+                },
+                "media_breakdown": {
+                    "talent_media": talent_media_count,
+                    "band_media": band_media_count
+                },
+                "subscription_stats": {
+                    "active_subscriptions": active_subscriptions,
+                    "trial_subscriptions": trial_subscriptions,
+                    "cancelled_this_month": cancelled_this_month
+                }
+            }
+            
+            return Response(analytics_data, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            logger.error(f"Error in DashboardAnalyticsView: {str(e)}")
+            return Response(
+                {"error": "Failed to fetch analytics data"}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )

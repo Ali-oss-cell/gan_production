@@ -11,6 +11,12 @@ from django.views.generic import TemplateView
 app_name = 'dashboard'
 
 urlpatterns = [
+    # Health check endpoint
+    path('health/', views.HealthCheckView.as_view(), name='health-check'),
+    
+    # Dashboard Analytics
+    path('analytics/', views.DashboardAnalyticsView.as_view(), name='dashboard-analytics'),
+    
     # Define dashboard URLs here
     path('users/create/', views.DashboardUserCreateView.as_view(), name='create-user'),
     
