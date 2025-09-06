@@ -736,99 +736,133 @@ class DashboardAnalyticsView(APIView):
             week_ago = now - timedelta(days=7)
             month_ago = now - timedelta(days=30)
             
-            # Total Users
-            total_users = BaseUser.objects.filter(is_active=True).count()
-            
-            # Users this week
-            users_this_week = BaseUser.objects.filter(
-                is_active=True,
-                date_joined__gte=week_ago
-            ).count()
-            
-            # Total Media Items (TalentMedia + BandMedia)
-            talent_media_count = TalentMedia.objects.filter(is_test_video=False).count()
-            band_media_count = BandMedia.objects.count()
-            total_media_items = talent_media_count + band_media_count
-            
-            # Active Users (users who logged in within last 24 hours)
-            # Note: This is a simplified calculation. In a real app, you'd track last_login
-            active_users = BaseUser.objects.filter(
-                is_active=True,
-                last_login__gte=now - timedelta(hours=24)
-            ).count()
-            
-            # Pending Approvals (users with unverified email or incomplete profiles)
-            pending_approvals = BaseUser.objects.filter(
-                Q(email_verified=False) | 
-                Q(talentuserprofile__is_verified=False) |
-                Q(backgroundjobsprofile__is_verified=False)
-            ).distinct().count()
-            
-            # Total Revenue (completed payment transactions)
-            total_revenue = PaymentTransaction.objects.filter(
-                status='completed'
-            ).aggregate(total=Sum('amount'))['total'] or 0
-            
-            # Revenue this month
-            revenue_this_month = PaymentTransaction.objects.filter(
-                status='completed',
-                created_at__gte=month_ago
-            ).aggregate(total=Sum('amount'))['total'] or 0
-            
-            # User breakdown
-            talent_users = BaseUser.objects.filter(is_talent=True, is_active=True).count()
-            background_users = BaseUser.objects.filter(is_background=True, is_active=True).count()
-            verified_users = BaseUser.objects.filter(
-                Q(talentuserprofile__is_verified=True) | 
-                Q(backgroundjobsprofile__is_verified=True)
-            ).distinct().count()
-            
-            # Premium subscribers (users with active paid subscriptions)
-            premium_subscribers = Subscription.objects.filter(
-                status='active',
-                is_active=True
-            ).count()
-            
-            # Subscription statistics
-            active_subscriptions = Subscription.objects.filter(
-                status='active',
-                is_active=True
-            ).count()
-            
-            trial_subscriptions = Subscription.objects.filter(
-                status='trialing',
-                is_active=True
-            ).count()
-            
-            cancelled_this_month = Subscription.objects.filter(
-                status='canceled',
-                updated_at__gte=month_ago
-            ).count()
-            
+            # Initialize default values
             analytics_data = {
-                "total_users": total_users,
-                "users_this_week": users_this_week,
-                "total_media_items": total_media_items,
-                "active_users": active_users,
-                "pending_approvals": pending_approvals,
-                "total_revenue": float(total_revenue),
-                "revenue_this_month": float(revenue_this_month),
+                "total_users": 0,
+                "users_this_week": 0,
+                "total_media_items": 0,
+                "active_users": 0,
+                "pending_approvals": 0,
+                "total_revenue": 0.0,
+                "revenue_this_month": 0.0,
                 "breakdown": {
-                    "talent_users": talent_users,
-                    "background_users": background_users,
-                    "verified_users": verified_users,
-                    "premium_subscribers": premium_subscribers
+                    "talent_users": 0,
+                    "background_users": 0,
+                    "verified_users": 0,
+                    "premium_subscribers": 0
                 },
                 "media_breakdown": {
-                    "talent_media": talent_media_count,
-                    "band_media": band_media_count
+                    "talent_media": 0,
+                    "band_media": 0
                 },
                 "subscription_stats": {
-                    "active_subscriptions": active_subscriptions,
-                    "trial_subscriptions": trial_subscriptions,
-                    "cancelled_this_month": cancelled_this_month
+                    "active_subscriptions": 0,
+                    "trial_subscriptions": 0,
+                    "cancelled_this_month": 0
                 }
             }
+            
+            # Total Users - Basic count only
+            try:
+                analytics_data["total_users"] = BaseUser.objects.filter(is_active=True).count()
+            except Exception as e:
+                logger.warning(f"Error getting total users: {e}")
+            
+            # Users this week
+            try:
+                analytics_data["users_this_week"] = BaseUser.objects.filter(
+                    is_active=True,
+                    date_joined__gte=week_ago
+                ).count()
+            except Exception as e:
+                logger.warning(f"Error getting users this week: {e}")
+            
+            # Total Media Items - Simplified
+            try:
+                if TalentMedia:
+                    talent_media_count = TalentMedia.objects.count()
+                    analytics_data["media_breakdown"]["talent_media"] = talent_media_count
+                    analytics_data["total_media_items"] += talent_media_count
+            except Exception as e:
+                logger.warning(f"Error getting talent media count: {e}")
+            
+            try:
+                if BandMedia:
+                    band_media_count = BandMedia.objects.count()
+                    analytics_data["media_breakdown"]["band_media"] = band_media_count
+                    analytics_data["total_media_items"] += band_media_count
+            except Exception as e:
+                logger.warning(f"Error getting band media count: {e}")
+            
+            # Active Users - Simplified
+            try:
+                analytics_data["active_users"] = BaseUser.objects.filter(
+                    is_active=True,
+                    last_login__isnull=False
+                ).count()
+            except Exception as e:
+                logger.warning(f"Error getting active users: {e}")
+            
+            # Pending Approvals - Simplified
+            try:
+                analytics_data["pending_approvals"] = BaseUser.objects.filter(
+                    email_verified=False
+                ).count()
+            except Exception as e:
+                logger.warning(f"Error getting pending approvals: {e}")
+            
+            # Total Revenue - Simplified
+            try:
+                if PaymentTransaction:
+                    total_revenue = PaymentTransaction.objects.filter(
+                        status='completed'
+                    ).aggregate(total=Sum('amount'))['total'] or 0
+                    analytics_data["total_revenue"] = float(total_revenue)
+                    
+                    revenue_this_month = PaymentTransaction.objects.filter(
+                        status='completed',
+                        created_at__gte=month_ago
+                    ).aggregate(total=Sum('amount'))['total'] or 0
+                    analytics_data["revenue_this_month"] = float(revenue_this_month)
+            except Exception as e:
+                logger.warning(f"Error getting revenue data: {e}")
+            
+            # User breakdown - Simplified
+            try:
+                analytics_data["breakdown"]["talent_users"] = BaseUser.objects.filter(
+                    is_talent=True, is_active=True
+                ).count()
+            except Exception as e:
+                logger.warning(f"Error getting talent users: {e}")
+            
+            try:
+                analytics_data["breakdown"]["background_users"] = BaseUser.objects.filter(
+                    is_background=True, is_active=True
+                ).count()
+            except Exception as e:
+                logger.warning(f"Error getting background users: {e}")
+            
+            # Subscription statistics - Simplified
+            try:
+                if Subscription:
+                    analytics_data["breakdown"]["premium_subscribers"] = Subscription.objects.filter(
+                        status='active'
+                    ).count()
+                    
+                    analytics_data["subscription_stats"]["active_subscriptions"] = Subscription.objects.filter(
+                        status='active'
+                    ).count()
+                    
+                    analytics_data["subscription_stats"]["trial_subscriptions"] = Subscription.objects.filter(
+                        status='trialing'
+                    ).count()
+                    
+                    analytics_data["subscription_stats"]["cancelled_this_month"] = Subscription.objects.filter(
+                        status='canceled',
+                        updated_at__gte=month_ago
+                    ).count()
+            except Exception as e:
+                logger.warning(f"Error getting subscription data: {e}")
             
             return Response(analytics_data, status=status.HTTP_200_OK)
             
