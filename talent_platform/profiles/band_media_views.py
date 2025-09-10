@@ -98,10 +98,14 @@ class BandMediaDeleteView(APIView):
         
         # Check if the user is an admin of the band (handled by IsBandAdmin permission)
         
-        # Delete the file from the filesystem
+        # Delete the file from cloud storage (DigitalOcean Spaces)
         if media.media_file:
-            if os.path.isfile(media.media_file.path):
-                os.remove(media.media_file.path)
+            try:
+                # Delete from cloud storage using Django's storage backend
+                media.media_file.delete(save=False)
+            except Exception as e:
+                # Log error but continue with database deletion
+                print(f"Warning: Could not delete file from storage: {str(e)}")
         
         # Delete the database record
         media.delete()
