@@ -123,12 +123,9 @@ class TalentLoginView(BaseLoginView):
     serializer_class = TalentLoginSerializer
 
     def post(self, request, *args, **kwargs):
-        response = super().post(request, *args, **kwargs)
-        if not response.data.get('is_talent'):
-            return Response({
-                'message': 'This account is not registered as Talent'
-            }, status=status.HTTP_403_FORBIDDEN)
-        return response
+        # The TalentLoginSerializer already validates is_talent flag
+        # No need for additional checks here
+        return super().post(request, *args, **kwargs)
 
 class BackgroundLoginView(BaseLoginView):
     """
