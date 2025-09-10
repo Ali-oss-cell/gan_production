@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 class UserRegistrationView(APIView):
     """
-    Unified registration endpoint for all user types with improved error handling
+    Optimized registration endpoint for all user types with improved performance
     """
     def post(self, request):
         try:
@@ -35,10 +35,10 @@ class UserRegistrationView(APIView):
                     'errors': serializer.errors
                 }, status=status.HTTP_400_BAD_REQUEST)
             
-            # Create user
+            # Create user with optimized process
             user = serializer.save()
             
-            # Prepare success response
+            # Prepare success response immediately (don't wait for email)
             response_data = {
                 'success': True,
                 'message': 'User registered successfully',
@@ -87,7 +87,8 @@ class BaseLoginView(TokenObtainPairView):
             response.data['email_verified'] = user.email_verified
             if not user.email_verified:
                 response.data['message'] = 'Your email is not verified. You can still use your account, but we recommend verifying your email for enhanced security.'
-                response.data['verification_url'] = f"http://localhost:3000/verify-email?token={user.email_verification_token}"
+                frontend_url = os.getenv('FRONTEND_URL', 'http://localhost:3000')
+                response.data['verification_url'] = f"{frontend_url}/verify-email?token={user.email_verification_token}"
             
             # Set secure cookies
             response.set_cookie(
@@ -332,16 +333,8 @@ class VerifyEmailView(APIView):
             user.email_verification_token_created = timezone.now()
             user.save()
 
-            from django.core.mail import send_mail
-            from django.conf import settings
-            verification_url = f"http://localhost:3000/verify-email?token={user.email_verification_token}"
-            send_mail(
-                'New email verification link',
-                f'Your previous verification link has expired. Please use this new link to verify your email address: {verification_url}',
-                settings.DEFAULT_FROM_EMAIL,
-                [user.email],
-                fail_silently=False,
-            )
+            # Send new verification email asynchronously (optimized)
+            self._send_new_verification_email(user)
 
             return Response({
                 'message': 'Verification link has expired. A new link has been sent to your email.'
@@ -355,3 +348,39 @@ class VerifyEmailView(APIView):
         return Response({
             'message': 'Email verified successfully'
         }, status=status.HTTP_200_OK)
+    
+    def _send_new_verification_email(self, user):
+        """
+        Send new verification email asynchronously (optimized)
+        """
+        try:
+            import os
+            from django.core.mail import send_mail
+            from django.conf import settings
+            
+            # Use environment variable for frontend URL
+            frontend_url = os.getenv('FRONTEND_URL', 'http://localhost:3000')
+            verification_url = f"{frontend_url}/verify-email?token={user.email_verification_token}"
+            
+            # Try async first, fallback to sync
+            try:
+                from .serializers import send_verification_email_async
+                success = send_verification_email_async(user.email, verification_url)
+                if success:
+                    logger.info(f"New verification email queued for {user.email}")
+                else:
+                    logger.warning(f"Failed to queue new verification email for {user.email}")
+            except Exception:
+                # Fallback to synchronous sending
+                send_mail(
+                    'New email verification link',
+                    f'Your previous verification link has expired. Please use this new link to verify your email address: {verification_url}',
+                    settings.DEFAULT_FROM_EMAIL,
+                    [user.email],
+                    fail_silently=False,
+                )
+                logger.info(f"New verification email sent synchronously for {user.email}")
+                
+        except Exception as e:
+            logger.error(f"Failed to send new verification email for {user.email}: {str(e)}")
+            # Don't raise exception - verification should still work

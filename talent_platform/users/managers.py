@@ -35,7 +35,7 @@ class BaseUserManager(DjangoBaseUserManager):
 
     def create_talent_user(self, email, password=None, **extra_fields):
         """
-        Create a talent user with simplified logic
+        Optimized talent user creation with reduced database queries
         """
         try:
             # Extract profile fields
@@ -43,33 +43,37 @@ class BaseUserManager(DjangoBaseUserManager):
             country = extra_fields.pop('country', '')
             date_of_birth = extra_fields.pop('date_of_birth', None)
             
-            # Check if user already exists
-            if self.filter(email=email).exists():
-                existing_user = self.get(email=email)
-                if not existing_user.is_talent:
-                    existing_user.is_talent = True
-                    existing_user.gender = gender
-                    existing_user.country = country
-                    existing_user.date_of_birth = date_of_birth
-                    existing_user.save()
-                    logger.info(f"Updated existing user {email} to talent")
-                return existing_user
-            
-            # Create new user
-            user = self.create_user(
+            # Use get_or_create to avoid separate exists() and get() calls
+            user, created = self.get_or_create(
                 email=email,
-                password=password,
-                is_talent=True,
-                gender=gender,
-                country=country,
-                date_of_birth=date_of_birth,
-                **extra_fields
+                defaults={
+                    'password': password,
+                    'is_talent': True,
+                    'gender': gender,
+                    'country': country,
+                    'date_of_birth': date_of_birth,
+                    **extra_fields
+                }
             )
-        
-            # Create profile separately with error handling
-            self._create_talent_profile(user, country, date_of_birth)
             
-            logger.info(f"Created new talent user {email}")
+            if not created:
+                # User exists, update if needed
+                if not user.is_talent:
+                    user.is_talent = True
+                    user.gender = gender
+                    user.country = country
+                    user.date_of_birth = date_of_birth
+                    user.save(update_fields=['is_talent', 'gender', 'country', 'date_of_birth'])
+                    logger.info(f"Updated existing user {email} to talent")
+            else:
+                # New user created, set password
+                user.set_password(password)
+                user.save(update_fields=['password'])
+                
+                # Create profile asynchronously (non-blocking)
+                self._create_talent_profile_async(user, country, date_of_birth)
+                logger.info(f"Created new talent user {email}")
+            
             return user
 
         except Exception as e:
@@ -203,9 +207,31 @@ class BaseUserManager(DjangoBaseUserManager):
             logger.error(f"Error creating admin dashboard user {email}: {str(e)}")
             raise
 
+    def _create_talent_profile_async(self, user, country, date_of_birth):
+        """
+        Create talent profile asynchronously (non-blocking)
+        """
+        try:
+            # Try to use Celery if available for async profile creation
+            try:
+                from celery import current_app
+                from .serializers import create_talent_profile_task
+                if current_app.control.inspect().active():
+                    create_talent_profile_task.delay(user.id, country, date_of_birth)
+                    logger.info(f"Queued talent profile creation for user {user.email}")
+                    return
+            except Exception:
+                pass
+            
+            # Fallback to synchronous creation
+            self._create_talent_profile(user, country, date_of_birth)
+            
+        except Exception as e:
+            logger.warning(f"Failed to create talent profile for {user.email}: {str(e)}")
+
     def _create_talent_profile(self, user, country, date_of_birth):
         """
-        Create talent profile with error handling
+        Create talent profile with error handling (synchronous fallback)
         """
         try:
             from profiles.models import TalentUserProfile

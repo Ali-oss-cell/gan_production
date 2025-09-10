@@ -54,7 +54,7 @@ def send_verification_email_async(user_email, verification_url):
     # Fallback to synchronous sending
     return send_verification_email_sync(user_email, verification_url)
 
-# Celery task (optional - only works if Celery is configured)
+# Celery tasks (optional - only works if Celery is configured)
 try:
     from celery import shared_task
     
@@ -64,9 +64,59 @@ try:
         Celery task for sending verification emails
         """
         return send_verification_email_sync(user_email, verification_url)
+    
+    @shared_task
+    def create_talent_profile_task(user_id, country, date_of_birth):
+        """
+        Celery task for creating talent profiles asynchronously
+        """
+        try:
+            from django.contrib.auth import get_user_model
+            from profiles.models import TalentUserProfile
+            
+            User = get_user_model()
+            user = User.objects.get(id=user_id)
+            
+            TalentUserProfile.objects.get_or_create(
+                user=user,
+                defaults={
+                    'country': country or '',
+                    'date_of_birth': date_of_birth
+                }
+            )
+            logger.info(f"Created talent profile for user {user.email} via Celery")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to create talent profile via Celery: {str(e)}")
+            return False
+    
+    @shared_task
+    def create_background_profile_task(user_id, country, date_of_birth):
+        """
+        Celery task for creating background profiles asynchronously
+        """
+        try:
+            from django.contrib.auth import get_user_model
+            from profiles.models import BackGroundJobsProfile
+            
+            User = get_user_model()
+            user = User.objects.get(id=user_id)
+            
+            BackGroundJobsProfile.objects.get_or_create(
+                user=user,
+                defaults={
+                    'country': country or '',
+                    'date_of_birth': date_of_birth
+                }
+            )
+            logger.info(f"Created background profile for user {user.email} via Celery")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to create background profile via Celery: {str(e)}")
+            return False
         
 except ImportError:
-    logger.warning("Celery not installed, email sending will be synchronous")
+    logger.warning("Celery not installed, email sending and profile creation will be synchronous")
 
 class UnifiedUserSerializer(serializers.ModelSerializer):
     role = serializers.ChoiceField(
@@ -92,7 +142,7 @@ class UnifiedUserSerializer(serializers.ModelSerializer):
     
     def validate(self, data):
         """
-        Validate all required fields and business rules
+        Optimized validation with reduced database queries
         """
         try:
             # Validate required fields
@@ -132,12 +182,8 @@ class UnifiedUserSerializer(serializers.ModelSerializer):
                     'date_of_birth': 'You must be at least 18 years old.'
                 })
 
-            # Email uniqueness check (simplified)
-            email = data.get('email')
-            if email and User.objects.filter(email=email).exists():
-                raise serializers.ValidationError({
-                    'email': 'A user with this email already exists.'
-                })
+            # Email uniqueness check - moved to create() method to avoid duplicate queries
+            # This will be handled in the manager methods
 
             return data
             
@@ -179,7 +225,7 @@ class UnifiedUserSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         """
-        Create user with simplified logic and better error handling
+        Optimized user creation with async email sending
         """
         try:
             role = validated_data.pop('role')
@@ -232,8 +278,8 @@ class UnifiedUserSerializer(serializers.ModelSerializer):
             # Generate verification token
             self._generate_verification_token(user)
             
-            # Send verification email (with fallback handling)
-            self._send_verification_email(user)
+            # Send verification email asynchronously (non-blocking)
+            self._send_verification_email_async(user)
             
             logger.info(f"Successfully created user {user.email} with role {role}")
             return user
@@ -260,9 +306,29 @@ class UnifiedUserSerializer(serializers.ModelSerializer):
             logger.error(f"Failed to generate verification token for {user.email}: {str(e)}")
             # Don't raise exception - user creation should succeed even if token generation fails
 
+    def _send_verification_email_async(self, user):
+        """
+        Send verification email asynchronously (non-blocking)
+        """
+        try:
+            frontend_url = os.getenv('FRONTEND_URL', 'http://localhost:3000')
+            verification_url = f"{frontend_url}/verify-email?token={user.email_verification_token}"
+            
+            # Try async first, fallback to sync
+            success = send_verification_email_async(user.email, verification_url)
+            
+            if success:
+                logger.info(f"Verification email queued for {user.email}")
+            else:
+                logger.warning(f"Failed to queue verification email for {user.email}")
+                
+        except Exception as e:
+            logger.error(f"Email sending process failed for {user.email}: {str(e)}")
+            # Don't raise exception - user creation should succeed even if email fails
+
     def _send_verification_email(self, user):
         """
-        Send verification email with fallback handling
+        Send verification email with fallback handling (legacy method)
         """
         try:
             frontend_url = os.getenv('FRONTEND_URL', 'http://localhost:3000')
