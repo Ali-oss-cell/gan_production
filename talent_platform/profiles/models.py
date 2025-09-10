@@ -25,6 +25,10 @@ class TalentUserProfile(models.Model):
     ]
     account_type = models.CharField(max_length=10, choices=ACCOUNT_TYPES, default='free', db_index=True)
     
+    # Basic profile fields that were missing
+    country = models.CharField(max_length=25, blank=True, default='', db_index=True)
+    date_of_birth = models.DateField(verbose_name="Date of Birth", blank=True, null=True, help_text="The user's date of birth.", db_index=True)
+    
     def has_specialization(self):
         """
         Check if the user has at least one specialization (VisualWorker, ExpressiveWorker, or HybridWorker).

@@ -1,0 +1,5 @@
+[33mbb7ec5c[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m Add dashboard analytics endpoint and fix admin login issues
+[33mce56f0c[m Fix DashboardLoginView to better handle missing user flags
+[33m9b173a3[m Fix DashboardLoginView to use correct serializer in post method
+[33mc69dbb4[m Fix admin login serializer detection - handle both DRF and WSGI requests
+[33m1e433d4[m Fix admin login serializer detection

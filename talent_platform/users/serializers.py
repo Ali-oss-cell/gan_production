@@ -275,11 +275,11 @@ class UnifiedUserSerializer(serializers.ModelSerializer):
             else:
                 raise serializers.ValidationError({'role': 'Invalid role specified.'})
             
-            # Generate verification token
+            # Generate verification token (fast operation)
             self._generate_verification_token(user)
             
-            # Send verification email asynchronously (non-blocking)
-            self._send_verification_email_async(user)
+            # Queue email sending for background processing (truly non-blocking)
+            self._queue_verification_email(user)
             
             logger.info(f"Successfully created user {user.email} with role {role}")
             return user
@@ -344,6 +344,35 @@ class UnifiedUserSerializer(serializers.ModelSerializer):
                 
         except Exception as e:
             logger.error(f"Email sending process failed for {user.email}: {str(e)}")
+            # Don't raise exception - user creation should succeed even if email fails
+
+    def _queue_verification_email(self, user):
+        """
+        Queue verification email for background processing (truly non-blocking)
+        """
+        try:
+            import threading
+            
+            # Run email sending in a separate thread to avoid blocking registration
+            def send_email_background():
+                try:
+                    frontend_url = os.getenv('FRONTEND_URL', 'http://localhost:3000')
+                    verification_url = f"{frontend_url}/verify-email?token={user.email_verification_token}"
+                    
+                    # Use simple background sending
+                    send_verification_email_sync(user.email, verification_url)
+                    logger.info(f"Background verification email sent for {user.email}")
+                except Exception as e:
+                    logger.warning(f"Background email sending failed for {user.email}: {str(e)}")
+            
+            # Start background thread
+            email_thread = threading.Thread(target=send_email_background, daemon=True)
+            email_thread.start()
+            
+            logger.info(f"Queued verification email for background sending: {user.email}")
+            
+        except Exception as e:
+            logger.warning(f"Failed to queue verification email for {user.email}: {str(e)}")
             # Don't raise exception - user creation should succeed even if email fails
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
