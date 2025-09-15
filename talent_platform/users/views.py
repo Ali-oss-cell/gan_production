@@ -84,8 +84,7 @@ class BaseLoginView(TokenObtainPairView):
             # Get the user from the validated data
             user = self.get_user(request)
             
-            # Include email verification status in response
-            response.data['email_verified'] = user.email_verified
+            # Check email verification status
             if not user.email_verified:
                 response.data['message'] = 'Your email is not verified. You can still use your account, but we recommend verifying your email for enhanced security.'
                 frontend_url = os.getenv('FRONTEND_URL', 'http://localhost:3000')

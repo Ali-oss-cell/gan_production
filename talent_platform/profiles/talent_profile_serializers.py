@@ -81,23 +81,24 @@ class TalentUserProfileSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source='user.username', read_only=True)
     first_name = serializers.CharField(source='user.first_name', read_only=True)
     last_name = serializers.CharField(source='user.last_name', read_only=True)
+    email_verified = serializers.BooleanField(source='user.email_verified', read_only=True)
     full_name = serializers.SerializerMethodField()
     profile_score = serializers.SerializerMethodField()
 
     class Meta:
         model = TalentUserProfile
         fields = [
-            'id', 'email', 'username', 'first_name', 'last_name', 'full_name', 'is_verified', 'profile_complete',
+            'id', 'email', 'username', 'first_name', 'last_name', 'full_name', 'email_verified', 'is_verified', 'profile_complete',
             'account_type', 'country', 'city','phone', 'profile_picture', 'aboutyou',
             'date_of_birth', 'gender', 'media', 'social_media_links', 'aboutyou', 'profile_score'
         ]
         extra_kwargs = {
             'user': {'read_only': True},
+            'email_verified': {'read_only': True},
             'is_verified': {'read_only': True},
             'profile_complete': {'read_only': True},
             'account_type': {'read_only': True},
             'email': {'read_only': True},
-            'is_verified': {'read_only':True},
             'aboutyou': {'required': False}  # Make aboutyou optional
             
         }
