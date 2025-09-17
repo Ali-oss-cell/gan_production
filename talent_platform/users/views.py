@@ -87,8 +87,8 @@ class BaseLoginView(TokenObtainPairView):
             # Check email verification status
             if not user.email_verified:
                 response.data['message'] = 'Your email is not verified. You can still use your account, but we recommend verifying your email for enhanced security.'
-                frontend_url = os.getenv('FRONTEND_URL', 'http://localhost:3000')
-                response.data['verification_url'] = f"{frontend_url}/verify-email?token={user.email_verification_token}"
+                backend_url = os.getenv('BACKEND_URL', 'http://localhost:8000')
+                response.data['verification_url'] = f"{backend_url}/api/verify-email/?token={user.email_verification_token}"
             
             # Set secure cookies
             response.set_cookie(
@@ -356,8 +356,8 @@ class VerifyEmailView(APIView):
             from django.conf import settings
             
             # Use environment variable for frontend URL
-            frontend_url = os.getenv('FRONTEND_URL', 'http://localhost:3000')
-            verification_url = f"{frontend_url}/verify-email?token={user.email_verification_token}"
+            backend_url = os.getenv('BACKEND_URL', 'http://localhost:8000')
+            verification_url = f"{backend_url}/api/verify-email/?token={user.email_verification_token}"
             
             # Try async first, fallback to sync
             try:

@@ -98,8 +98,8 @@ def _send_verification_reminder(user):
         from django.core.mail import send_mail
         from django.conf import settings
         
-        frontend_url = os.getenv('FRONTEND_URL', 'http://localhost:3000')
-        verification_url = f"{frontend_url}/verify-email?token={user.email_verification_token}"
+        backend_url = os.getenv('BACKEND_URL', 'http://localhost:8000')
+        verification_url = f"{backend_url}/api/verify-email/?token={user.email_verification_token}"
         
         subject = 'Reminder: Please verify your email address'
         message = f"""

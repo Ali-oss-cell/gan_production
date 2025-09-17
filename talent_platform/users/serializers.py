@@ -318,8 +318,8 @@ class UnifiedUserSerializer(serializers.ModelSerializer):
         Send verification email asynchronously (non-blocking)
         """
         try:
-            frontend_url = os.getenv('FRONTEND_URL', 'http://localhost:3000')
-            verification_url = f"{frontend_url}/verify-email?token={user.email_verification_token}"
+            backend_url = os.getenv('BACKEND_URL', 'http://localhost:8000')
+            verification_url = f"{backend_url}/api/verify-email/?token={user.email_verification_token}"
             
             # Try async first, fallback to sync
             success = send_verification_email_async(user.email, verification_url)
@@ -338,8 +338,8 @@ class UnifiedUserSerializer(serializers.ModelSerializer):
         Send verification email with fallback handling (legacy method)
         """
         try:
-            frontend_url = os.getenv('FRONTEND_URL', 'http://localhost:3000')
-            verification_url = f"{frontend_url}/verify-email?token={user.email_verification_token}"
+            backend_url = os.getenv('BACKEND_URL', 'http://localhost:8000')
+            verification_url = f"{backend_url}/api/verify-email/?token={user.email_verification_token}"
             
             # Try async first, fallback to sync
             success = send_verification_email_async(user.email, verification_url)
