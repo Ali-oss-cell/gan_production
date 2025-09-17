@@ -16,54 +16,57 @@ DISPOSABLE_EMAIL_DOMAINS = {
     'fakeinbox.com', 'trashmail.com', 'maildrop.cc'
 }
 
-def send_verification_email_sync(user_email, verification_url):
+
+def send_verification_code_email(user_email, verification_code):
     """
-    Synchronous email sending function with error handling
+    Send verification code email (no links, just code)
     """
     try:
         from django.core.mail import send_mail
         from django.conf import settings
         
+        subject = 'Your Email Verification Code'
+        message = f"""
+Hi there!
+
+Thank you for registering with Gan7Club.
+
+Your email verification code is: {verification_code}
+
+Please enter this code on the verification page to complete your registration.
+
+This code will expire in 24 hours.
+
+If you didn't create this account, you can safely ignore this email.
+
+Best regards,
+The Gan7Club Team
+        """.strip()
+        
         send_mail(
-            'Verify your email address',
-            f'Please click the following link to verify your email address: {verification_url}',
+            subject,
+            message,
             settings.DEFAULT_FROM_EMAIL,
             [user_email],
             fail_silently=False,
         )
-        logger.info(f"Verification email sent to {user_email}")
+        logger.info(f"Verification code email sent to {user_email}")
         return True
     except Exception as e:
-        logger.error(f"Email sending failed for {user_email}: {str(e)}")
+        logger.error(f"Verification code email failed for {user_email}: {str(e)}")
         return False
 
-def send_verification_email_async(user_email, verification_url):
-    """
-    Asynchronous email sending with Celery fallback
-    """
-    try:
-        # Try to use Celery if available
-        from celery import current_app
-        if current_app.control.inspect().active():
-            send_verification_email_task.delay(user_email, verification_url)
-            logger.info(f"Queued verification email for {user_email}")
-            return True
-    except Exception as e:
-        logger.warning(f"Celery not available, falling back to sync email: {str(e)}")
-    
-    # Fallback to synchronous sending
-    return send_verification_email_sync(user_email, verification_url)
 
 # Celery tasks (optional - only works if Celery is configured)
 try:
     from celery import shared_task
     
     @shared_task
-    def send_verification_email_task(user_email, verification_url):
+    def send_verification_code_task(user_email, verification_code):
         """
-        Celery task for sending verification emails
+        Celery task for sending verification codes
         """
-        return send_verification_email_sync(user_email, verification_url)
+        return send_verification_code_email(user_email, verification_code)
     
     @shared_task
     def create_talent_profile_task(user_id, country, date_of_birth):
@@ -275,8 +278,8 @@ class UnifiedUserSerializer(serializers.ModelSerializer):
             else:
                 raise serializers.ValidationError({'role': 'Invalid role specified.'})
             
-            # Generate verification token only if user is not already verified
-            self._generate_verification_token(user)
+            # Generate verification code only if user is not already verified
+            self._generate_verification_code(user)
             
             # Queue email sending only if user is not already verified
             if not user.email_verified:
@@ -289,69 +292,33 @@ class UnifiedUserSerializer(serializers.ModelSerializer):
             logger.error(f"User creation failed: {str(e)}")
             raise serializers.ValidationError({'detail': f'User creation failed: {str(e)}'})
 
-    def _generate_verification_token(self, user):
+    def _generate_verification_code(self, user):
         """
-        Generate email verification token only if user is not already verified
+        Generate email verification code only if user is not already verified
         """
         try:
-            # If user is already verified, don't generate a new token
+            # If user is already verified, don't generate a new code
             if user.email_verified:
-                logger.info(f"User {user.email} is already verified, skipping token generation")
+                logger.info(f"User {user.email} is already verified, skipping code generation")
                 return
             
-            import secrets
+            import random
             from django.utils import timezone
             
-            user.email_verification_token = secrets.token_urlsafe(32)
-            user.email_verification_token_created = timezone.now()
+            # Generate 6-digit verification code
+            verification_code = str(random.randint(100000, 999999))
+            
+            user.email_verification_code = verification_code
+            user.email_verification_code_created = timezone.now()
             user.last_verification_email_sent = timezone.now()
-            user.save(update_fields=['email_verification_token', 'email_verification_token_created', 'last_verification_email_sent'])
+            user.save(update_fields=['email_verification_code', 'email_verification_code_created', 'last_verification_email_sent'])
             
-            logger.info(f"Generated verification token for {user.email}")
+            logger.info(f"Generated verification code for {user.email}")
             
         except Exception as e:
-            logger.error(f"Failed to generate verification token for {user.email}: {str(e)}")
-            # Don't raise exception - user creation should succeed even if token generation fails
+            logger.error(f"Failed to generate verification code for {user.email}: {str(e)}")
+            # Don't raise exception - user creation should succeed even if code generation fails
 
-    def _send_verification_email_async(self, user):
-        """
-        Send verification email asynchronously (non-blocking)
-        """
-        try:
-            backend_url = os.getenv('BACKEND_URL', 'http://localhost:8000')
-            verification_url = f"{backend_url}/api/verify-email/?token={user.email_verification_token}"
-            
-            # Try async first, fallback to sync
-            success = send_verification_email_async(user.email, verification_url)
-            
-            if success:
-                logger.info(f"Verification email queued for {user.email}")
-            else:
-                logger.warning(f"Failed to queue verification email for {user.email}")
-                
-        except Exception as e:
-            logger.error(f"Email sending process failed for {user.email}: {str(e)}")
-            # Don't raise exception - user creation should succeed even if email fails
-
-    def _send_verification_email(self, user):
-        """
-        Send verification email with fallback handling (legacy method)
-        """
-        try:
-            backend_url = os.getenv('BACKEND_URL', 'http://localhost:8000')
-            verification_url = f"{backend_url}/api/verify-email/?token={user.email_verification_token}"
-            
-            # Try async first, fallback to sync
-            success = send_verification_email_async(user.email, verification_url)
-            
-            if success:
-                logger.info(f"Verification email sent for {user.email}")
-            else:
-                logger.warning(f"Failed to send verification email for {user.email}")
-                
-        except Exception as e:
-            logger.error(f"Email sending process failed for {user.email}: {str(e)}")
-            # Don't raise exception - user creation should succeed even if email fails
 
     def _queue_verification_email(self, user):
         """
@@ -363,15 +330,11 @@ class UnifiedUserSerializer(serializers.ModelSerializer):
             # Run email sending in a separate thread to avoid blocking registration
             def send_email_background():
                 try:
-                    # Use BACKEND_URL for verification endpoint (not frontend)
-                    backend_url = os.getenv('BACKEND_URL', 'http://localhost:8000')
-                    verification_url = f"{backend_url}/api/verify-email/?token={user.email_verification_token}"
+                    logger.info(f"Sending verification code to {user.email}")
                     
-                    logger.info(f"Sending verification email to {user.email} with URL: {verification_url}")
-                    
-                    # Use simple background sending
-                    send_verification_email_sync(user.email, verification_url)
-                    logger.info(f"Background verification email sent for {user.email}")
+                    # Send verification code email
+                    send_verification_code_email(user.email, user.email_verification_code)
+                    logger.info(f"Background verification code sent for {user.email}")
                 except Exception as e:
                     logger.error(f"Background email sending failed for {user.email}: {str(e)}")
             
@@ -379,7 +342,7 @@ class UnifiedUserSerializer(serializers.ModelSerializer):
             email_thread = threading.Thread(target=send_email_background, daemon=True)
             email_thread.start()
             
-            logger.info(f"Queued verification email for background sending: {user.email}")
+            logger.info(f"Queued verification code email for background sending: {user.email}")
             
         except Exception as e:
             logger.error(f"Failed to queue verification email for {user.email}: {str(e)}")

@@ -87,8 +87,7 @@ class BaseLoginView(TokenObtainPairView):
             # Check email verification status
             if not user.email_verified:
                 response.data['message'] = 'Your email is not verified. You can still use your account, but we recommend verifying your email for enhanced security.'
-                backend_url = os.getenv('BACKEND_URL', 'http://localhost:8000')
-                response.data['verification_url'] = f"{backend_url}/api/verify-email/?token={user.email_verification_token}"
+                response.data['verification_required'] = True
             
             # Set secure cookies
             response.set_cookie(
@@ -312,27 +311,33 @@ class DashboardUserDetailView(APIView):
             'message': 'Dashboard user deleted successfully'
         }, status=status.HTTP_204_NO_CONTENT)
 
-class VerifyEmailView(APIView):
-    def get(self, request):
-        token = request.query_params.get('token')
-        logger.info(f"Email verification attempt with token: {token[:20]}..." if token else "No token provided")
+
+class VerifyEmailCodeView(APIView):
+    """
+    New endpoint to verify email using 6-digit code instead of token
+    """
+    def post(self, request):
+        code = request.data.get('code')
+        email = request.data.get('email')
         
-        if not token:
-            logger.warning("Email verification failed: No token provided")
+        logger.info(f"Email verification attempt with code for: {email}")
+        
+        if not code or not email:
+            logger.warning("Email verification failed: Missing code or email")
             return Response({
                 'success': False,
-                'message': 'Verification token is required'
+                'message': 'Verification code and email are required'
             }, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            # Find user with the token
-            user = BaseUser.objects.get(email_verification_token=token)
-            logger.info(f"Found user for verification: {user.email}")
+            # Find user with the code and email
+            user = BaseUser.objects.get(email=email, email_verification_code=code)
+            logger.info(f"Found user for code verification: {user.email}")
         except BaseUser.DoesNotExist:
-            logger.warning(f"Email verification failed: Invalid token {token[:20]}...")
+            logger.warning(f"Email verification failed: Invalid code {code} for {email}")
             return Response({
                 'success': False,
-                'message': 'Invalid verification token'
+                'message': 'Invalid verification code'
             }, status=status.HTTP_400_BAD_REQUEST)
 
         # Check if user is already verified
@@ -343,71 +348,79 @@ class VerifyEmailView(APIView):
                 'message': 'Email is already verified'
             }, status=status.HTTP_200_OK)
 
-        # Check if token has expired (24 hours)
-        if user.email_verification_token_created:
-            token_age = timezone.now() - user.email_verification_token_created
-            if token_age > timedelta(hours=24):
-                logger.info(f"Token expired for user {user.email}, generating new token")
-                
-                # Generate new token and send new verification email
-                import secrets
-                user.email_verification_token = secrets.token_urlsafe(32)
-                user.email_verification_token_created = timezone.now()
-                user.save(update_fields=['email_verification_token', 'email_verification_token_created'])
-
-                # Send new verification email asynchronously (optimized)
-                self._send_new_verification_email(user)
-
+        # Check if code has expired (24 hours)
+        if user.email_verification_code_created:
+            code_age = timezone.now() - user.email_verification_code_created
+            if code_age > timedelta(hours=24):
+                logger.info(f"Code expired for user {user.email}")
                 return Response({
                     'success': False,
-                    'message': 'Verification link has expired. A new link has been sent to your email.'
+                    'message': 'Verification code has expired. Please request a new one.'
                 }, status=status.HTTP_400_BAD_REQUEST)
 
         # Verify the email
-        logger.info(f"Verifying email for user: {user.email}")
+        logger.info(f"Verifying email with code for user: {user.email}")
         user.email_verified = True
-        user.email_verification_token = None
-        user.email_verification_token_created = None
-        user.save(update_fields=['email_verified', 'email_verification_token', 'email_verification_token_created'])
+        user.email_verification_code = None
+        user.email_verification_code_created = None
+        user.save(update_fields=['email_verified', 'email_verification_code', 'email_verification_code_created'])
         
-        logger.info(f"Email successfully verified for user: {user.email}")
+        logger.info(f"Email successfully verified with code for user: {user.email}")
         return Response({
             'success': True,
             'message': 'Email verified successfully'
         }, status=status.HTTP_200_OK)
-    
-    def _send_new_verification_email(self, user):
-        """
-        Send new verification email asynchronously (optimized)
-        """
+
+class ResendVerificationCodeView(APIView):
+    """
+    Endpoint to resend verification code to user's email
+    """
+    def post(self, request):
+        email = request.data.get('email')
+        
+        if not email:
+            return Response({
+                'success': False,
+                'message': 'Email is required'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
         try:
-            import os
-            from django.core.mail import send_mail
-            from django.conf import settings
-            
-            # Use environment variable for frontend URL
-            backend_url = os.getenv('BACKEND_URL', 'http://localhost:8000')
-            verification_url = f"{backend_url}/api/verify-email/?token={user.email_verification_token}"
-            
-            # Try async first, fallback to sync
-            try:
-                from .serializers import send_verification_email_async
-                success = send_verification_email_async(user.email, verification_url)
-                if success:
-                    logger.info(f"New verification email queued for {user.email}")
-                else:
-                    logger.warning(f"Failed to queue new verification email for {user.email}")
-            except Exception:
-                # Fallback to synchronous sending
-                send_mail(
-                    'New email verification link',
-                    f'Your previous verification link has expired. Please use this new link to verify your email address: {verification_url}',
-                    settings.DEFAULT_FROM_EMAIL,
-                    [user.email],
-                    fail_silently=False,
-                )
-                logger.info(f"New verification email sent synchronously for {user.email}")
-                
-        except Exception as e:
-            logger.error(f"Failed to send new verification email for {user.email}: {str(e)}")
-            # Don't raise exception - verification should still work
+            user = BaseUser.objects.get(email=email)
+        except BaseUser.DoesNotExist:
+            return Response({
+                'success': False,
+                'message': 'User not found'
+            }, status=status.HTTP_404_NOT_FOUND)
+
+        # Check if user is already verified
+        if user.email_verified:
+            return Response({
+                'success': True,
+                'message': 'Email is already verified'
+            }, status=status.HTTP_200_OK)
+
+        # Generate new verification code
+        import random
+        verification_code = str(random.randint(100000, 999999))
+        user.email_verification_code = verification_code
+        user.email_verification_code_created = timezone.now()
+        user.last_verification_email_sent = timezone.now()
+        user.save()
+
+        # Send verification code email
+        from .serializers import send_verification_code_email
+        success = send_verification_code_email(user.email, verification_code)
+
+        if success:
+            logger.info(f"Resent verification code to {user.email}")
+            return Response({
+                'success': True,
+                'message': 'Verification code sent to your email'
+            }, status=status.HTTP_200_OK)
+        else:
+            logger.error(f"Failed to resend verification code to {user.email}")
+            return Response({
+                'success': False,
+                'message': 'Failed to send verification code'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    

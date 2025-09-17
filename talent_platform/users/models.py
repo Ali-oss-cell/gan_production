@@ -15,10 +15,10 @@ class BaseUser(AbstractBaseUser, PermissionsMixin):
     # Add date_joined field that's expected by Django
     date_joined = models.DateTimeField(default=timezone.now)
     
-    # Email verification fields
+    # Email verification fields (code-based only)
     email_verified = models.BooleanField(default=False)
-    email_verification_token = models.CharField(max_length=100, blank=True, null=True)
-    email_verification_token_created = models.DateTimeField(null=True, blank=True)
+    email_verification_code = models.CharField(max_length=6, blank=True, null=True)  # 6-digit code
+    email_verification_code_created = models.DateTimeField(null=True, blank=True)
     last_verification_email_sent = models.DateTimeField(null=True, blank=True)
     
     # Role flags

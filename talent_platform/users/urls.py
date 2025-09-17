@@ -1,8 +1,8 @@
 # urls.py
 from django.urls import path
 from .views import (
-    UserRegistrationView, TalentLoginView, BackgroundLoginView, VerifyEmailView,
-    DashboardLoginView
+    UserRegistrationView, TalentLoginView, BackgroundLoginView, 
+    VerifyEmailCodeView, ResendVerificationCodeView, DashboardLoginView
 )
 
 urlpatterns = [
@@ -16,6 +16,7 @@ urlpatterns = [
     
     # Dashboard User Management endpoints moved to dashboard app
     
-    # Email Verification
-    path('verify-email/', VerifyEmailView.as_view(), name='verify-email'),
+    # Email Verification (code-based only)
+    path('verify-code/', VerifyEmailCodeView.as_view(), name='verify-code'),
+    path('resend-code/', ResendVerificationCodeView.as_view(), name='resend-code'),
 ]

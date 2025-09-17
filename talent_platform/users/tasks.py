@@ -45,9 +45,9 @@ def send_verification_reminders():
                 import time
                 time.sleep(2)  # Wait 2 seconds between emails
                 
-                # Generate new verification token if needed
-                if not user.email_verification_token:
-                    _generate_verification_token(user)
+                # Generate new verification code if needed
+                if not user.email_verification_code:
+                    _generate_verification_code(user)
                 
                 # Send verification email
                 success = _send_verification_reminder(user)
@@ -82,14 +82,15 @@ def send_verification_reminders():
         logger.error(error_msg)
         return {'status': 'error', 'message': error_msg}
 
-def _generate_verification_token(user):
-    """Generate a new verification token for the user"""
-    import secrets
+def _generate_verification_code(user):
+    """Generate a new verification code for the user"""
+    import random
     from django.utils import timezone
     
-    user.email_verification_token = secrets.token_urlsafe(32)
-    user.email_verification_token_created = timezone.now()
-    user.save(update_fields=['email_verification_token', 'email_verification_token_created'])
+    verification_code = str(random.randint(100000, 999999))
+    user.email_verification_code = verification_code
+    user.email_verification_code_created = timezone.now()
+    user.save(update_fields=['email_verification_code', 'email_verification_code_created'])
 
 def _send_verification_reminder(user):
     """Send verification reminder email"""
@@ -98,22 +99,22 @@ def _send_verification_reminder(user):
         from django.core.mail import send_mail
         from django.conf import settings
         
-        backend_url = os.getenv('BACKEND_URL', 'http://localhost:8000')
-        verification_url = f"{backend_url}/api/verify-email/?token={user.email_verification_token}"
-        
         subject = 'Reminder: Please verify your email address'
         message = f"""
 Hi {user.first_name},
 
 This is a friendly reminder to verify your email address for your account.
 
-Please click the link below to verify your email:
-{verification_url}
+Your verification code is: {user.email_verification_code}
+
+Please enter this code on the verification page to complete your registration.
+
+This code will expire in 24 hours.
 
 If you didn't create this account, you can safely ignore this email.
 
 Best regards,
-The Talent Platform Team
+The Gan7Club Team
         """.strip()
         
         send_mail(
