@@ -315,34 +315,64 @@ class DashboardUserDetailView(APIView):
 class VerifyEmailView(APIView):
     def get(self, request):
         token = request.query_params.get('token')
+        logger.info(f"Email verification attempt with token: {token[:20]}..." if token else "No token provided")
+        
         if not token:
+            logger.warning("Email verification failed: No token provided")
             return Response({
+                'success': False,
                 'message': 'Verification token is required'
             }, status=status.HTTP_400_BAD_REQUEST)
 
-        user = get_object_or_404(BaseUser, email_verification_token=token)
-
-        # Check if token has expired (24 hours)
-        if user.email_verification_token_created < timezone.now() - timedelta(hours=24):
-            # Generate new token and send new verification email
-            import secrets
-            user.email_verification_token = secrets.token_urlsafe(32)
-            user.email_verification_token_created = timezone.now()
-            user.save()
-
-            # Send new verification email asynchronously (optimized)
-            self._send_new_verification_email(user)
-
+        try:
+            # Find user with the token
+            user = BaseUser.objects.get(email_verification_token=token)
+            logger.info(f"Found user for verification: {user.email}")
+        except BaseUser.DoesNotExist:
+            logger.warning(f"Email verification failed: Invalid token {token[:20]}...")
             return Response({
-                'message': 'Verification link has expired. A new link has been sent to your email.'
+                'success': False,
+                'message': 'Invalid verification token'
             }, status=status.HTTP_400_BAD_REQUEST)
 
+        # Check if user is already verified
+        if user.email_verified:
+            logger.info(f"User {user.email} is already verified")
+            return Response({
+                'success': True,
+                'message': 'Email is already verified'
+            }, status=status.HTTP_200_OK)
+
+        # Check if token has expired (24 hours)
+        if user.email_verification_token_created:
+            token_age = timezone.now() - user.email_verification_token_created
+            if token_age > timedelta(hours=24):
+                logger.info(f"Token expired for user {user.email}, generating new token")
+                
+                # Generate new token and send new verification email
+                import secrets
+                user.email_verification_token = secrets.token_urlsafe(32)
+                user.email_verification_token_created = timezone.now()
+                user.save(update_fields=['email_verification_token', 'email_verification_token_created'])
+
+                # Send new verification email asynchronously (optimized)
+                self._send_new_verification_email(user)
+
+                return Response({
+                    'success': False,
+                    'message': 'Verification link has expired. A new link has been sent to your email.'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Verify the email
+        logger.info(f"Verifying email for user: {user.email}")
         user.email_verified = True
         user.email_verification_token = None
         user.email_verification_token_created = None
-        user.save()
-
+        user.save(update_fields=['email_verified', 'email_verification_token', 'email_verification_token_created'])
+        
+        logger.info(f"Email successfully verified for user: {user.email}")
         return Response({
+            'success': True,
             'message': 'Email verified successfully'
         }, status=status.HTTP_200_OK)
     

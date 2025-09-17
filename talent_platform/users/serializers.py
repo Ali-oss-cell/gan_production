@@ -363,14 +363,17 @@ class UnifiedUserSerializer(serializers.ModelSerializer):
             # Run email sending in a separate thread to avoid blocking registration
             def send_email_background():
                 try:
-                    frontend_url = os.getenv('FRONTEND_URL', 'http://localhost:3000')
-                    verification_url = f"{frontend_url}/verify-email?token={user.email_verification_token}"
+                    # Use BACKEND_URL for verification endpoint (not frontend)
+                    backend_url = os.getenv('BACKEND_URL', 'http://localhost:8000')
+                    verification_url = f"{backend_url}/api/verify-email/?token={user.email_verification_token}"
+                    
+                    logger.info(f"Sending verification email to {user.email} with URL: {verification_url}")
                     
                     # Use simple background sending
                     send_verification_email_sync(user.email, verification_url)
                     logger.info(f"Background verification email sent for {user.email}")
                 except Exception as e:
-                    logger.warning(f"Background email sending failed for {user.email}: {str(e)}")
+                    logger.error(f"Background email sending failed for {user.email}: {str(e)}")
             
             # Start background thread
             email_thread = threading.Thread(target=send_email_background, daemon=True)
@@ -379,7 +382,7 @@ class UnifiedUserSerializer(serializers.ModelSerializer):
             logger.info(f"Queued verification email for background sending: {user.email}")
             
         except Exception as e:
-            logger.warning(f"Failed to queue verification email for {user.email}: {str(e)}")
+            logger.error(f"Failed to queue verification email for {user.email}: {str(e)}")
             # Don't raise exception - user creation should succeed even if email fails
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
