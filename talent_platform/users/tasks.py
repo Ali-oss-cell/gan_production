@@ -41,6 +41,10 @@ def send_verification_reminders():
         
         for user in unverified_users:
             try:
+                # Add delay between emails to avoid rate limiting
+                import time
+                time.sleep(2)  # Wait 2 seconds between emails
+                
                 # Generate new verification token if needed
                 if not user.email_verification_token:
                     _generate_verification_token(user)

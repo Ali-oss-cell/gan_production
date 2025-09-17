@@ -16,9 +16,23 @@ class Command(BaseCommand):
             action='store_true',
             help='Show what would be sent without actually sending emails',
         )
+        parser.add_argument(
+            '--batch-size',
+            type=int,
+            default=10,
+            help='Number of emails to send in each batch (default: 10)',
+        )
+        parser.add_argument(
+            '--delay',
+            type=int,
+            default=2,
+            help='Delay in seconds between emails (default: 2)',
+        )
 
     def handle(self, *args, **options):
         dry_run = options['dry_run']
+        batch_size = options['batch_size']
+        delay = options['delay']
         
         # Get users who need verification reminders
         now = timezone.now()
@@ -55,6 +69,10 @@ class Command(BaseCommand):
         
         for user in unverified_users:
             try:
+                # Add delay between emails to avoid rate limiting
+                import time
+                time.sleep(delay)  # Wait specified seconds between emails
+                
                 # Generate new verification token if needed
                 if not user.email_verification_token:
                     self._generate_verification_token(user)
