@@ -19,6 +19,7 @@ class BaseUser(AbstractBaseUser, PermissionsMixin):
     email_verified = models.BooleanField(default=False)
     email_verification_token = models.CharField(max_length=100, blank=True, null=True)
     email_verification_token_created = models.DateTimeField(null=True, blank=True)
+    last_verification_email_sent = models.DateTimeField(null=True, blank=True)
     
     # Role flags
     is_talent = models.BooleanField(default=False)

@@ -41,12 +41,13 @@ class BackGroundJobsSerializer(serializers.ModelSerializer):
 class BackGroundJobs(serializers.ModelSerializer):
     email = serializers.CharField(source='user.email', read_only=True)
     username = serializers.CharField(source='user.username', read_only=True)
+    email_verified = serializers.BooleanField(source='user.email_verified', read_only=True)
     profile_score = serializers.SerializerMethodField()
     
     class Meta:
         model = BackGroundJobsProfile
         fields = [
-            'id', 'email', 'username', 'profile_picture', 'country', 'date_of_birth', 'gender', 'account_type', 'profile_score'
+            'id', 'email', 'username', 'email_verified', 'profile_picture', 'country', 'date_of_birth', 'gender', 'account_type', 'profile_score'
         ]
         extra_kwargs = {
             'user': {'read_only': True}  # User cannot be updated via this serializer

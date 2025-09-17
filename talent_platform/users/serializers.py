@@ -275,11 +275,12 @@ class UnifiedUserSerializer(serializers.ModelSerializer):
             else:
                 raise serializers.ValidationError({'role': 'Invalid role specified.'})
             
-            # Generate verification token (fast operation)
+            # Generate verification token only if user is not already verified
             self._generate_verification_token(user)
             
-            # Queue email sending for background processing (truly non-blocking)
-            self._queue_verification_email(user)
+            # Queue email sending only if user is not already verified
+            if not user.email_verified:
+                self._queue_verification_email(user)
             
             logger.info(f"Successfully created user {user.email} with role {role}")
             return user
@@ -290,15 +291,21 @@ class UnifiedUserSerializer(serializers.ModelSerializer):
 
     def _generate_verification_token(self, user):
         """
-        Generate email verification token
+        Generate email verification token only if user is not already verified
         """
         try:
+            # If user is already verified, don't generate a new token
+            if user.email_verified:
+                logger.info(f"User {user.email} is already verified, skipping token generation")
+                return
+            
             import secrets
             from django.utils import timezone
             
             user.email_verification_token = secrets.token_urlsafe(32)
             user.email_verification_token_created = timezone.now()
-            user.save(update_fields=['email_verification_token', 'email_verification_token_created'])
+            user.last_verification_email_sent = timezone.now()
+            user.save(update_fields=['email_verification_token', 'email_verification_token_created', 'last_verification_email_sent'])
             
             logger.info(f"Generated verification token for {user.email}")
             
