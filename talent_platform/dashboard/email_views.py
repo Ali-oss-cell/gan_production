@@ -23,6 +23,8 @@ class SendEmailView(APIView):
         message = request.data.get('message', '')
         user_id = request.data.get('user_id')
         band_id = request.data.get('band_id')
+        recipient_email = request.data.get('recipient_email')
+        recipient_name = request.data.get('recipient_name')
         
         # Validation
         if not subject or not message:
@@ -31,16 +33,18 @@ class SendEmailView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Check if we have either user_id or band_id (but not both)
-        if not user_id and not band_id:
+        # Check if we have at least one way to identify the recipient
+        if not user_id and not band_id and not recipient_email:
             return Response(
-                {'error': 'Either user_id or band_id is required'}, 
+                {'error': 'Either user_id, band_id, or recipient_email is required'}, 
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        if user_id and band_id:
+        # Check that we don't have conflicting identifiers
+        identifiers = [user_id, band_id, recipient_email]
+        if sum(1 for x in identifiers if x) > 1:
             return Response(
-                {'error': 'Please provide either user_id OR band_id, not both'}, 
+                {'error': 'Please provide only one identifier: user_id, band_id, or recipient_email'}, 
                 status=status.HTTP_400_BAD_REQUEST
             )
         
@@ -49,7 +53,7 @@ class SendEmailView(APIView):
             recipient_info = {}
             
             if user_id:
-                # Send to specific user
+                # Send to specific user by ID
                 from users.models import BaseUser
                 target_user = BaseUser.objects.get(id=user_id)
                 recipient_info = {
@@ -57,7 +61,7 @@ class SendEmailView(APIView):
                     'email': target_user.email,
                     'name': f"{target_user.first_name} {target_user.last_name}".strip() or target_user.email
                 }
-            else:
+            elif band_id:
                 # Send to band creator
                 band = Band.objects.get(id=band_id)
                 target_user = band.creator.user
@@ -68,6 +72,25 @@ class SendEmailView(APIView):
                     'band_name': band.name,
                     'band_id': band.id
                 }
+            elif recipient_email:
+                # Send to email address directly (new functionality)
+                from users.models import BaseUser
+                try:
+                    # Try to find user by email
+                    target_user = BaseUser.objects.get(email=recipient_email)
+                    recipient_info = {
+                        'type': 'user_by_email',
+                        'email': target_user.email,
+                        'name': f"{target_user.first_name} {target_user.last_name}".strip() or target_user.email
+                    }
+                except BaseUser.DoesNotExist:
+                    # User doesn't exist in our system, but we can still send email
+                    target_user = None
+                    recipient_info = {
+                        'type': 'external_email',
+                        'email': recipient_email,
+                        'name': recipient_name or recipient_email
+                    }
             
             # Create email record
             email = BulkEmail.objects.create(
@@ -79,34 +102,39 @@ class SendEmailView(APIView):
                 sent_at=timezone.now()
             )
             
-            # Create recipient record
-            recipient = EmailRecipient.objects.create(
-                bulk_email=email,
-                user=target_user,
-                status='pending'
-            )
+            # Create recipient record (only if user exists in our system)
+            recipient = None
+            if target_user:
+                recipient = EmailRecipient.objects.create(
+                    bulk_email=email,
+                    user=target_user,
+                    status='pending'
+                )
             
             # Send email
             success = send_mail(
                 subject=subject,
                 message=message,
                 from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[target_user.email],
+                recipient_list=[recipient_info['email']],
                 fail_silently=False,
             )
             
             if success:
-                recipient.status = 'sent'
-                recipient.sent_at = timezone.now()
+                if recipient:
+                    recipient.status = 'sent'
+                    recipient.sent_at = timezone.now()
                 email.emails_sent = 1
                 email.emails_failed = 0
             else:
-                recipient.status = 'failed'
-                recipient.error_message = 'Email sending failed'
+                if recipient:
+                    recipient.status = 'failed'
+                    recipient.error_message = 'Email sending failed'
                 email.emails_sent = 0
                 email.emails_failed = 1
             
-            recipient.save()
+            if recipient:
+                recipient.save()
             email.save()
             
             # Prepare response
