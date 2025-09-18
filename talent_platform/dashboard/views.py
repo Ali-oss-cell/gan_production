@@ -813,19 +813,26 @@ class DashboardAnalyticsView(APIView):
             
             # Total Revenue - Simplified
             try:
-                if PaymentTransaction:
-                    total_revenue = PaymentTransaction.objects.filter(
-                        status='completed'
-                    ).aggregate(total=Sum('amount'))['total'] or 0
+                # Check if there are any completed transactions
+                completed_transactions = PaymentTransaction.objects.filter(status='completed')
+                
+                if completed_transactions.exists():
+                    total_revenue = completed_transactions.aggregate(total=Sum('amount'))['total'] or 0
                     analytics_data["total_revenue"] = float(total_revenue)
                     
-                    revenue_this_month = PaymentTransaction.objects.filter(
-                        status='completed',
+                    revenue_this_month = completed_transactions.filter(
                         created_at__gte=month_ago
                     ).aggregate(total=Sum('amount'))['total'] or 0
                     analytics_data["revenue_this_month"] = float(revenue_this_month)
+                else:
+                    # No completed transactions found
+                    analytics_data["total_revenue"] = 0.0
+                    analytics_data["revenue_this_month"] = 0.0
+                    
             except Exception as e:
                 logger.warning(f"Error getting revenue data: {e}")
+                analytics_data["total_revenue"] = 0.0
+                analytics_data["revenue_this_month"] = 0.0
             
             # User breakdown - Simplified
             try:
