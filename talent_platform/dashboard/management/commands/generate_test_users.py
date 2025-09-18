@@ -162,9 +162,9 @@ class Command(BaseCommand):
             password='testpass123',
             first_name=first_name,
             last_name=last_name,
-            phone_number=self.fake.phone_number()[:15],  # Limit length
+            phone=self.fake.phone_number()[:20],  # Limit length to match model
             date_of_birth=self.fake.date_of_birth(minimum_age=18, maximum_age=65),
-            gender=random.choice(['male', 'female', 'other']),
+            gender=random.choice(['Male', 'Female', 'Other', 'Prefer not to say']),  # Match model choices
             email_verified=email_verified,
             is_talent=(user_type == 'talent'),
             is_background=(user_type == 'background'),
