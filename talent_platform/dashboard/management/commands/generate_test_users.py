@@ -12,7 +12,7 @@ from profiles.models import (
     TalentUserProfile, BackGroundJobsProfile, TalentMedia,
     VisualWorker, ExpressiveWorker, HybridWorker, Band, BandMedia
 )
-from dashboard.models import SharedMediaPost
+# SharedMediaPost import removed as not needed
 
 class Command(BaseCommand):
     help = 'Generate test users with fake data and Lorem Picsum images'
@@ -196,15 +196,16 @@ class Command(BaseCommand):
         # Create base talent profile
         profile = TalentUserProfile.objects.create(
             user=user,
-            bio=self.fake.text(max_nb_chars=500),
+            aboutyou=self.fake.text(max_nb_chars=500),
             city=self.fake.city(),
             country=self.fake.country(),
-            website=f'https://{self.fake.domain_name()}',
-            instagram_handle=f'@{self.fake.user_name()}',
-            twitter_handle=f'@{self.fake.user_name()}',
+            zipcode=self.fake.zipcode(),
+            phone=self.fake.phone_number()[:20],
+            date_of_birth=self.fake.date_of_birth(minimum_age=18, maximum_age=65),
+            gender=random.choice(['Male', 'Female', 'Other']),
             profile_complete=random.choice([True, False]),
             is_verified=random.random() < 0.3,  # 30% verified
-            account_type='individual'
+            account_type=random.choice(['free', 'silver', 'gold', 'platinum'])
         )
         
         if profile_image:
@@ -219,44 +220,84 @@ class Command(BaseCommand):
     def create_specialized_talent_profile(self, user, profile, talent_type):
         """Create specialized talent profiles"""
         if talent_type == 'musician':
-            skills = random.sample(self.musician_skills, random.randint(1, 3))
             VisualWorker.objects.create(
                 profile=profile,
-                specialization=', '.join(skills),
-                years_of_experience=random.randint(1, 20),
-                equipment_owned=f"{random.choice(skills)} equipment, Recording setup",
-                portfolio_description=f"Professional {skills[0].lower()} player with {random.randint(1, 20)} years experience"
+                primary_category='composer',
+                years_experience=random.randint(1, 20),
+                experience_level=random.choice(['beginner', 'intermediate', 'professional', 'expert']),
+                portfolio_link=f'https://{self.fake.domain_name()}',
+                availability=random.choice(['full_time', 'part_time', 'weekends', 'flexible']),
+                rate_range=random.choice(['low', 'mid', 'high', 'negotiable']),
+                willing_to_relocate=random.choice([True, False])
             )
         
         elif talent_type == 'dancer':
-            styles = random.sample(self.dance_styles, random.randint(1, 3))
             ExpressiveWorker.objects.create(
                 profile=profile,
-                performance_style=', '.join(styles),
-                years_of_experience=random.randint(1, 15),
-                training_background=f"Trained in {styles[0]} at {self.fake.company()}",
-                notable_performances=f"Performed at {self.fake.company()} events"
+                performer_type='dancer',
+                years_experience=random.randint(1, 15),
+                height=random.uniform(150.0, 190.0),
+                weight=random.uniform(45.0, 90.0),
+                hair_color=random.choice(['blonde', 'brown', 'black', 'red', 'gray', 'other']),
+                hair_type=random.choice(['straight', 'wavy', 'curly', 'coily', 'bald', 'other']),
+                skin_tone=random.choice(['fair', 'light', 'medium', 'olive', 'brown', 'dark']),
+                eye_color=random.choice(['blue', 'green', 'brown', 'hazel', 'black', 'other']),
+                eye_size=random.choice(['small', 'medium', 'large']),
+                eye_pattern=random.choice(['normal', 'protruding', 'sunken', 'almond', 'round', 'other']),
+                face_shape=random.choice(['oval', 'round', 'square', 'heart', 'diamond', 'long', 'other']),
+                forehead_shape=random.choice(['broad', 'narrow', 'rounded', 'straight', 'other']),
+                lip_shape=random.choice(['thin', 'full', 'heart', 'round', 'bow', 'other']),
+                eyebrow_pattern=random.choice(['arched', 'straight', 'curved', 'thick', 'thin', 'other']),
+                voice_type=random.choice(['normal', 'thin', 'rough', 'deep', 'soft', 'nasal', 'other']),
+                body_type=random.choice(['athletic', 'slim', 'muscular', 'average', 'plus_size', 'other']),
+                availability=random.choice(['full_time', 'part_time', 'evenings', 'weekends'])
             )
         
         elif talent_type == 'singer':
-            genres = random.sample(self.singing_genres, random.randint(1, 2))
             HybridWorker.objects.create(
                 profile=profile,
-                primary_skill=genres[0],
-                secondary_skills=', '.join(genres[1:]) if len(genres) > 1 else '',
-                years_of_experience=random.randint(1, 25),
-                performance_history=f"Professional {genres[0].lower()} singer",
-                collaboration_interest=True
+                hybrid_type='specialty_performer',
+                years_experience=random.randint(1, 25),
+                height=random.uniform(150.0, 190.0),
+                weight=random.uniform(45.0, 90.0),
+                hair_color=random.choice(['blonde', 'brown', 'black', 'red', 'gray', 'other']),
+                hair_type=random.choice(['straight', 'wavy', 'curly', 'coily', 'bald', 'other']),
+                eye_color=random.choice(['blue', 'green', 'brown', 'hazel', 'black', 'other']),
+                eye_size=random.choice(['small', 'medium', 'large']),
+                eye_pattern=random.choice(['normal', 'protruding', 'sunken', 'almond', 'round', 'other']),
+                face_shape=random.choice(['oval', 'round', 'square', 'heart', 'diamond', 'long', 'other']),
+                forehead_shape=random.choice(['broad', 'narrow', 'rounded', 'straight', 'other']),
+                lip_shape=random.choice(['thin', 'full', 'heart', 'round', 'bow', 'other']),
+                eyebrow_pattern=random.choice(['arched', 'straight', 'curved', 'thick', 'thin', 'other']),
+                voice_type=random.choice(['normal', 'thin', 'rough', 'deep', 'soft', 'nasal', 'other']),
+                skin_tone=random.choice(['fair', 'light', 'medium', 'olive', 'brown', 'dark']),
+                body_type=random.choice(['athletic', 'slim', 'muscular', 'average', 'plus_size', 'other']),
+                fitness_level=random.choice(['beginner', 'intermediate', 'advanced', 'elite']),
+                risk_levels=random.choice(['low', 'moderate', 'high', 'extreme']),
+                availability=random.choice(['full_time', 'part_time', 'evenings', 'weekends']),
+                willing_to_relocate=random.choice([True, False])
             )
         
         elif talent_type == 'actor':
-            acting_style = random.choice(self.acting_types)
             ExpressiveWorker.objects.create(
                 profile=profile,
-                performance_style=acting_style,
-                years_of_experience=random.randint(1, 30),
-                training_background=f"Trained in {acting_style} at {self.fake.company()} Academy",
-                notable_performances=f"Featured in {random.randint(1, 10)} productions"
+                performer_type='actor',
+                years_experience=random.randint(1, 30),
+                height=random.uniform(150.0, 190.0),
+                weight=random.uniform(45.0, 90.0),
+                hair_color=random.choice(['blonde', 'brown', 'black', 'red', 'gray', 'other']),
+                hair_type=random.choice(['straight', 'wavy', 'curly', 'coily', 'bald', 'other']),
+                skin_tone=random.choice(['fair', 'light', 'medium', 'olive', 'brown', 'dark']),
+                eye_color=random.choice(['blue', 'green', 'brown', 'hazel', 'black', 'other']),
+                eye_size=random.choice(['small', 'medium', 'large']),
+                eye_pattern=random.choice(['normal', 'protruding', 'sunken', 'almond', 'round', 'other']),
+                face_shape=random.choice(['oval', 'round', 'square', 'heart', 'diamond', 'long', 'other']),
+                forehead_shape=random.choice(['broad', 'narrow', 'rounded', 'straight', 'other']),
+                lip_shape=random.choice(['thin', 'full', 'heart', 'round', 'bow', 'other']),
+                eyebrow_pattern=random.choice(['arched', 'straight', 'curved', 'thick', 'thin', 'other']),
+                voice_type=random.choice(['normal', 'thin', 'rough', 'deep', 'soft', 'nasal', 'other']),
+                body_type=random.choice(['athletic', 'slim', 'muscular', 'average', 'plus_size', 'other']),
+                availability=random.choice(['full_time', 'part_time', 'evenings', 'weekends'])
             )
 
     def create_talent_media(self, profile, talent_type):
@@ -283,24 +324,23 @@ class Command(BaseCommand):
             
             if media_file:
                 TalentMedia.objects.create(
-                    profile=profile,
-                    title=f"{title_prefix} {i+1}",
-                    description=media_info['description'],
+                    talent=profile,
+                    name=f"{title_prefix} {i+1}",
+                    media_info=media_info['description'],
                     media_type=media_type,
-                    file=media_file,
-                    is_featured=i == 0,  # First one is featured
-                    is_public=random.choice([True, False])
+                    media_file=media_file,
+                    is_test_video=False
                 )
 
     def get_talent_media_types(self, talent_type):
         """Get media types specific to talent type"""
         if talent_type == 'musician':
             return [
-                {'type': 'audio', 'category': 'performance', 'title': 'Original Song', 'description': 'Original composition and performance'},
+                {'type': 'image', 'category': 'performance', 'title': 'Original Song', 'description': 'Original composition and performance'},
                 {'type': 'video', 'category': 'performance', 'title': 'Live Performance', 'description': 'Live performance video'},
                 {'type': 'image', 'category': 'equipment', 'title': 'Studio Setup', 'description': 'Professional recording equipment'},
                 {'type': 'image', 'category': 'performance', 'title': 'Concert Photo', 'description': 'Performance on stage'},
-                {'type': 'audio', 'category': 'portfolio', 'title': 'Demo Track', 'description': 'Professional demo recording'},
+                {'type': 'image', 'category': 'portfolio', 'title': 'Demo Track', 'description': 'Professional demo recording'},
                 {'type': 'image', 'category': 'studio', 'title': 'Recording Session', 'description': 'Behind the scenes in studio'}
             ]
         elif talent_type == 'dancer':
@@ -313,10 +353,10 @@ class Command(BaseCommand):
             ]
         elif talent_type == 'singer':
             return [
-                {'type': 'audio', 'category': 'performance', 'title': 'Vocal Performance', 'description': 'Professional vocal recording'},
+                {'type': 'image', 'category': 'performance', 'title': 'Vocal Performance', 'description': 'Professional vocal recording'},
                 {'type': 'video', 'category': 'performance', 'title': 'Music Video', 'description': 'Professional music video'},
                 {'type': 'image', 'category': 'performance', 'title': 'Concert Shot', 'description': 'Live concert performance'},
-                {'type': 'audio', 'category': 'portfolio', 'title': 'Cover Song', 'description': 'Professional cover performance'},
+                {'type': 'image', 'category': 'portfolio', 'title': 'Cover Song', 'description': 'Professional cover performance'},
                 {'type': 'image', 'category': 'studio', 'title': 'Recording Studio', 'description': 'Professional recording session'}
             ]
         else:  # actor
@@ -360,17 +400,10 @@ class Command(BaseCommand):
         
         profile = BackGroundJobsProfile.objects.create(
             user=user,
-            bio=self.fake.text(max_nb_chars=500),
-            specialization=specialization,
-            years_of_experience=random.randint(1, 20),
-            city=self.fake.city(),
             country=self.fake.country(),
-            hourly_rate=random.randint(25, 200),
-            availability=random.choice(['full_time', 'part_time', 'freelance']),
-            portfolio_url=f'https://{self.fake.domain_name()}',
-            instagram_handle=f'@{self.fake.user_name()}',
-            is_verified=random.random() < 0.25,  # 25% verified
-            profile_complete=random.choice([True, False])
+            date_of_birth=self.fake.date_of_birth(minimum_age=18, maximum_age=65),
+            gender=random.choice(['Male', 'Female', 'Other']),
+            account_type=random.choice(['back_ground_jobs', 'free'])
         )
         
         if profile_image:
