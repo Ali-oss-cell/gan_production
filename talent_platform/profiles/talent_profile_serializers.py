@@ -88,6 +88,7 @@ class TalentUserProfileSerializer(serializers.ModelSerializer):
     # ADD THESE NEW FIELDS:
     upgrade_prompt = serializers.SerializerMethodField()
     account_limitations = serializers.SerializerMethodField()
+    residency = serializers.CharField(source='user.residency', read_only=True)
 
     class Meta:
         model = TalentUserProfile
@@ -166,6 +167,7 @@ class TalentUserProfileUpdateSerializer(serializers.ModelSerializer):
     last_name = serializers.CharField(source='user.last_name', required=False)
     phone = serializers.CharField(required=False, allow_blank=True)
     date_of_birth = serializers.DateField(required=False, allow_null=True)
+    residency = serializers.CharField(source='user.residency', required=False)
     
     def validate_phone(self, value):
         if value:
