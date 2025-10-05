@@ -213,14 +213,17 @@ class TalentUserProfileSearchView(SearchViewMixin, generics.ListAPIView):
             elif media_count > 0:
                 score += 5
                 
-            # Add premium account bonuses - prioritize paid accounts
-            if profile.account_type == 'platinum':
-                score += 30  # Highest tier gets biggest bonus
-            elif profile.account_type == 'gold':
-                score += 20  # Medium tier gets medium bonus
-            elif profile.account_type == 'silver':
-                score += 10  # Basic paid tier gets small bonus
-            # Free accounts get no bonus
+            # Apply account type boost
+            account_boost = profile.get_search_boost()
+            score = score * (1 + account_boost)
+            
+            # Additional boost for verified profiles (paid only)
+            if profile.is_verified and profile.account_type != 'free':
+                score += 20
+            
+            # Platinum users get featured placement boost
+            if profile.can_get_featured_placement():
+                score += 10
             
             profiles_with_scores.append((profile, score))
         
@@ -582,11 +585,9 @@ class VisualWorkerSearchView(SearchViewMixin, generics.ListAPIView):
                 
             # Add premium account bonuses - prioritize paid accounts
             if worker.profile.account_type == 'platinum':
-                score += 30  # Highest tier gets biggest bonus
-            elif worker.profile.account_type == 'gold':
-                score += 20  # Medium tier gets medium bonus
-            elif worker.profile.account_type == 'silver':
-                score += 10  # Basic paid tier gets small bonus
+                score += 15  # Highest tier gets biggest bonus
+            elif worker.profile.account_type == 'premium':
+                score += 10  # Premium tier gets medium bonus
             # Free accounts get no bonus
             
             workers_with_scores.append((worker, score))
@@ -956,11 +957,9 @@ class ExpressiveWorkerSearchView(SearchViewMixin, generics.ListAPIView):
                 
             # Add premium account bonuses - prioritize paid accounts
             if worker.profile.account_type == 'platinum':
-                score += 30  # Highest tier gets biggest bonus
-            elif worker.profile.account_type == 'gold':
-                score += 20  # Medium tier gets medium bonus
-            elif worker.profile.account_type == 'silver':
-                score += 10  # Basic paid tier gets small bonus
+                score += 15  # Highest tier gets biggest bonus
+            elif worker.profile.account_type == 'premium':
+                score += 10  # Premium tier gets medium bonus
             # Free accounts get no bonus
             
             workers_with_scores.append((worker, score))
@@ -1337,11 +1336,9 @@ class HybridWorkerSearchView(SearchViewMixin, generics.ListAPIView):
                 
             # Add premium account bonuses - prioritize paid accounts
             if worker.profile.account_type == 'platinum':
-                score += 30  # Highest tier gets biggest bonus
-            elif worker.profile.account_type == 'gold':
-                score += 20  # Medium tier gets medium bonus
-            elif worker.profile.account_type == 'silver':
-                score += 10  # Basic paid tier gets small bonus
+                score += 15  # Highest tier gets biggest bonus
+            elif worker.profile.account_type == 'premium':
+                score += 10  # Premium tier gets medium bonus
             # Free accounts get no bonus
             
             workers_with_scores.append((worker, score))

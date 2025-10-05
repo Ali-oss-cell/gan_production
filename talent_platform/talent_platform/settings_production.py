@@ -263,8 +263,7 @@ STRIPE_WEBHOOK_SECRET = os.getenv('STRIPE_WEBHOOK_SECRET')
 
 # Stripe Price IDs
 STRIPE_PRICE_IDS = {
-    'silver': os.getenv('STRIPE_PRICE_SILVER'),
-    'gold': os.getenv('STRIPE_PRICE_GOLD'),
+    'premium': os.getenv('STRIPE_PRICE_PREMIUM'),
     'platinum': os.getenv('STRIPE_PRICE_PLATINUM'),
     'back_ground_jobs': os.getenv('STRIPE_PRICE_BACKGROUND_JOBS'),
     'bands': os.getenv('STRIPE_PRICE_BANDS'),  # Added missing bands price ID

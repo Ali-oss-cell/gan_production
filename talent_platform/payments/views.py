@@ -67,15 +67,15 @@ class SubscriptionPlanViewSet(viewsets.ModelViewSet):
         
         # Check user type and filter plans accordingly
         if hasattr(self.request.user, 'is_talent') and self.request.user.is_talent:
-            # For talent users, show main plans (silver, gold, platinum) and bands
+            # For talent users, show main plans (premium, platinum) and bands
             queryset = queryset.filter(
-                name__in=['silver', 'gold', 'platinum', 'bands']
+                name__in=['premium', 'platinum', 'bands']
             )
             
             # Check if user already has a main plan subscription
             has_main_plan = Subscription.objects.filter(
                 user=self.request.user,
-                plan__name__in=['silver', 'gold', 'platinum'],
+                plan__name__in=['premium', 'platinum'],
                 is_active=True
             ).exists()
             
@@ -139,7 +139,7 @@ class SubscriptionPlanViewSet(viewsets.ModelViewSet):
                     # Check if user already has a main plan
                     has_main_plan = Subscription.objects.filter(
                         user=request.user,
-                        plan__name__in=['silver', 'gold', 'platinum'],
+                        plan__name__in=['premium', 'platinum'],
                         is_active=True
                     ).exists()
                     

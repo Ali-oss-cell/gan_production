@@ -199,13 +199,12 @@ class Command(BaseCommand):
             aboutyou=self.fake.text(max_nb_chars=500),
             city=self.fake.city()[:25],  # Limit to 25 characters
             country=self.fake.country()[:25],  # Limit to 25 characters
-            zipcode=self.fake.zipcode()[:30],  # Limit to 30 characters
             phone=self.fake.phone_number()[:20],  # Limit to 20 characters
             date_of_birth=self.fake.date_of_birth(minimum_age=18, maximum_age=65),
             gender=random.choice(['Male', 'Female', 'Other']),
             profile_complete=random.choice([True, False]),
             is_verified=random.random() < 0.3,  # 30% verified
-            account_type=random.choice(['free', 'silver', 'gold', 'platinum'])
+            account_type=random.choice(['free', 'premium', 'platinum'])
         )
         
         if profile_image:

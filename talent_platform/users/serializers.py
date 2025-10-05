@@ -135,7 +135,7 @@ class UnifiedUserSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             'email', 'password', 'first_name', 'last_name', 'role',
-            'country', 'date_of_birth', 'gender'
+            'country', 'residency', 'date_of_birth', 'gender'
         ]
         extra_kwargs = {
             'email': {'validators': []},  # Disable default uniqueness check
@@ -149,21 +149,21 @@ class UnifiedUserSerializer(serializers.ModelSerializer):
         """
         try:
             # Validate required fields
-            required_fields = ['country', 'date_of_birth', 'gender', 'role']
+            required_fields = ['country', 'residency', 'date_of_birth', 'gender', 'role']
             for field in required_fields:
                 if not data.get(field):
                     raise serializers.ValidationError(
                         {field: "This field is required."}
                     )
                 
-                # Additional validation for country field
-                if field == 'country' and data.get(field):
-                    country = data[field].strip()
-                    if not country or len(country) < 2:
+                # Additional validation for country and residency fields
+                if field in ['country', 'residency'] and data.get(field):
+                    field_value = data[field].strip()
+                    if not field_value or len(field_value) < 2:
                         raise serializers.ValidationError({
-                            'country': 'Country must be at least 2 characters long.'
+                            field: f'{field.title()} must be at least 2 characters long.'
                         })
-                    data[field] = country
+                    data[field] = field_value
 
             # Parse date_of_birth if it's a string
             if isinstance(data['date_of_birth'], str):
@@ -242,6 +242,7 @@ class UnifiedUserSerializer(serializers.ModelSerializer):
                     first_name=validated_data['first_name'],
                     last_name=validated_data['last_name'],
                     country=validated_data['country'],
+                    residency=validated_data['residency'],
                     date_of_birth=validated_data['date_of_birth'],
                     gender=gender
                 )
@@ -252,6 +253,7 @@ class UnifiedUserSerializer(serializers.ModelSerializer):
                     first_name=validated_data['first_name'],
                     last_name=validated_data['last_name'],
                     country=validated_data['country'],
+                    residency=validated_data['residency'],
                     date_of_birth=validated_data['date_of_birth'],
                     gender=gender
                 )
@@ -262,6 +264,7 @@ class UnifiedUserSerializer(serializers.ModelSerializer):
                     first_name=validated_data['first_name'],
                     last_name=validated_data['last_name'],
                     country=validated_data['country'],
+                    residency=validated_data['residency'],
                     date_of_birth=validated_data['date_of_birth'],
                     gender=gender
                 )
@@ -272,6 +275,7 @@ class UnifiedUserSerializer(serializers.ModelSerializer):
                     first_name=validated_data['first_name'],
                     last_name=validated_data['last_name'],
                     country=validated_data['country'],
+                    residency=validated_data['residency'],
                     date_of_birth=validated_data['date_of_birth'],
                     gender=gender
                 )

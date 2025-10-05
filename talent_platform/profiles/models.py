@@ -19,8 +19,7 @@ class TalentUserProfile(models.Model):
 
     ACCOUNT_TYPES = [
         ('platinum', 'Platinum'),
-        ('gold', 'Gold'),
-        ('silver', 'Silver'),
+        ('premium', 'Premium'),
         ('free', 'Free'),
     ]
     account_type = models.CharField(max_length=10, choices=ACCOUNT_TYPES, default='free', db_index=True)
@@ -53,77 +52,165 @@ class TalentUserProfile(models.Model):
             'profile_completion': 0,
             'media_content': 0,
             'specialization': 0,
+            'social_media': 0,
             'details': {}
         }
-        # Account tier (unchanged)
+        
+        # Account tier - More balanced scoring
         if self.account_type == 'platinum':
-            score_breakdown['account_tier'] = 50
-            score_breakdown['details']['account_tier'] = 'Platinum account: +50 points'
-        elif self.account_type == 'gold':
-            score_breakdown['account_tier'] = 40
-            score_breakdown['details']['account_tier'] = 'Gold account: +40 points'
-        elif self.account_type == 'silver':
-            score_breakdown['account_tier'] = 30
-            score_breakdown['details']['account_tier'] = 'Silver account: +30 points'
+            score_breakdown['account_tier'] = 25
+            score_breakdown['details']['account_tier'] = 'Platinum account: +25 points'
+        elif self.account_type == 'premium':
+            score_breakdown['account_tier'] = 15
+            score_breakdown['details']['account_tier'] = 'Premium account: +15 points'
         else:
-            score_breakdown['account_tier'] = 10
-            score_breakdown['details']['account_tier'] = 'Free account: +10 points'
-        # Verification (unchanged)
+            score_breakdown['account_tier'] = 5
+            score_breakdown['details']['account_tier'] = 'Free account: +5 points'
+        
+        # Verification - Increased importance
         if self.is_verified:
-            score_breakdown['verification'] = 20
-            score_breakdown['details']['verification'] = 'Verified profile: +20 points'
+            score_breakdown['verification'] = 25
+            score_breakdown['details']['verification'] = 'Verified profile: +25 points'
         else:
-            score_breakdown['details']['verification'] = 'Not verified: +0 points (get verified for +20 points)'
-        # Profile completion (unchanged)
-        if self.profile_complete:
-            score_breakdown['profile_completion'] = 15
-            score_breakdown['details']['profile_completion'] = 'Profile complete: +15 points'
-        else:
-            score_breakdown['details']['profile_completion'] = 'Profile incomplete: +0 points (complete your profile for +15 points)'
-        # Media content (revised: counts non-test media, reduced points)
-        media_count = self.media.filter(is_test_video=False).count() # Count only general portfolio media
-        if media_count >= 5:
-            score_breakdown['media_content'] = 15
-            score_breakdown['details']['media_content'] = 'Strong portfolio (5+ general items): +15 points'
-        elif media_count >= 3:
-            score_breakdown['media_content'] = 10
-            score_breakdown['details']['media_content'] = 'Developing portfolio (3-4 general items): +10 points'
-        elif media_count >= 1:
-            score_breakdown['media_content'] = 5
-            score_breakdown['details']['media_content'] = 'Started portfolio (1-2 general items): +5 points'
-        else:
-            score_breakdown['media_content'] = 0 # Explicitly set to 0 if no media
-            score_breakdown['details']['media_content'] = 'No general media: +0 points (add portfolio items for up to +15 points)'
-        # Specialization (revised: increased points)
+            score_breakdown['details']['verification'] = 'Not verified: +0 points (get verified for +25 points)'
+        
+        # Profile completion - More detailed scoring
+        completion_score = 0
+        completion_details = []
+        
+        # Basic profile fields
+        if self.aboutyou and len(self.aboutyou.strip()) > 50:
+            completion_score += 5
+            completion_details.append('About section: +5 points')
+        if self.profile_picture:
+            completion_score += 5
+            completion_details.append('Profile picture: +5 points')
+        if self.country and self.country != 'country':
+            completion_score += 3
+            completion_details.append('Country specified: +3 points')
+        if self.date_of_birth:
+            completion_score += 2
+            completion_details.append('Date of birth: +2 points')
+        
+        # Specialization completion
         has_specialization = self.has_specialization()
         if has_specialization:
-            score_breakdown['specialization'] = 20
-            score_breakdown['details']['specialization'] = 'Has at least 1 specialization: +20 points'
+            completion_score += 10
+            completion_details.append('Specialization added: +10 points')
+        
+        score_breakdown['profile_completion'] = completion_score
+        if completion_details:
+            score_breakdown['details']['profile_completion'] = '; '.join(completion_details)
         else:
-            score_breakdown['specialization'] = 0 # Explicitly set to 0 if no specialization
-            score_breakdown['details']['specialization'] = 'No specialization: +0 points (add a specialization for +20 points)'
+            score_breakdown['details']['profile_completion'] = 'Profile incomplete: +0 points (complete your profile for up to +25 points)'
+        
+        # Media content - More granular scoring
+        media_count = self.media.filter(is_test_video=False).count()
+        if media_count >= 6:
+            score_breakdown['media_content'] = 20
+            score_breakdown['details']['media_content'] = 'Excellent portfolio (6+ items): +20 points'
+        elif media_count >= 4:
+            score_breakdown['media_content'] = 15
+            score_breakdown['details']['media_content'] = 'Strong portfolio (4-5 items): +15 points'
+        elif media_count >= 2:
+            score_breakdown['media_content'] = 10
+            score_breakdown['details']['media_content'] = 'Good portfolio (2-3 items): +10 points'
+        elif media_count >= 1:
+            score_breakdown['media_content'] = 5
+            score_breakdown['details']['media_content'] = 'Basic portfolio (1 item): +5 points'
+        else:
+            score_breakdown['media_content'] = 0
+            score_breakdown['details']['media_content'] = 'No portfolio items: +0 points (add portfolio items for up to +20 points)'
+        
+        # Specialization - More detailed scoring
+        specialization_score = 0
+        specialization_details = []
+        
+        if has_specialization:
+            # Count specializations
+            spec_count = 0
+            if hasattr(self, 'visual_worker'):
+                spec_count += 1
+                specialization_details.append('Visual Worker')
+            if hasattr(self, 'expressive_worker'):
+                spec_count += 1
+                specialization_details.append('Expressive Worker')
+            if hasattr(self, 'hybrid_worker'):
+                spec_count += 1
+                specialization_details.append('Hybrid Worker')
+            
+            # Base points for having specialization
+            specialization_score = 10
+            # Bonus for multiple specializations
+            if spec_count > 1:
+                specialization_score += 5
+                specialization_details.append(f'Multi-specialization bonus: +5 points')
+            
+            score_breakdown['specialization'] = specialization_score
+            score_breakdown['details']['specialization'] = f'Specializations: {", ".join(specialization_details)} (+{specialization_score} points)'
+        else:
+            score_breakdown['specialization'] = 0
+            score_breakdown['details']['specialization'] = 'No specialization: +0 points (add a specialization for +10 points)'
+        
+        # Social media presence - New scoring category
+        social_media_score = 0
+        social_details = []
+        
+        if hasattr(self, 'social_media_links'):
+            social_links = self.social_media_links
+            link_count = sum([
+                bool(social_links.facebook),
+                bool(social_links.twitter),
+                bool(social_links.instagram),
+                bool(social_links.linkedin),
+                bool(social_links.youtube),
+                bool(social_links.tiktok),
+                bool(social_links.snapchat)
+            ])
+            
+            if link_count >= 4:
+                social_media_score = 10
+                social_details.append('Strong social presence (4+ links): +10 points')
+            elif link_count >= 2:
+                social_media_score = 5
+                social_details.append('Good social presence (2-3 links): +5 points')
+            elif link_count >= 1:
+                social_media_score = 2
+                social_details.append('Basic social presence (1 link): +2 points')
+        
+        score_breakdown['social_media'] = social_media_score
+        if social_details:
+            score_breakdown['details']['social_media'] = '; '.join(social_details)
+        else:
+            score_breakdown['details']['social_media'] = 'No social media links: +0 points (add social links for up to +10 points)'
+        
         # Calculate total
         score_breakdown['total'] = (
             score_breakdown['account_tier'] +
             score_breakdown['verification'] +
             score_breakdown['profile_completion'] +
             score_breakdown['media_content'] +
-            score_breakdown['specialization']
+            score_breakdown['specialization'] +
+            score_breakdown['social_media']
         )
         score_breakdown['total'] = min(score_breakdown['total'], 100)
-        # Improvement tips
-        if score_breakdown['total'] < 80:
+        
+        # Improved improvement tips
+        if score_breakdown['total'] < 70:
             score_breakdown['improvement_tips'] = []
             if self.account_type == 'free':
-                score_breakdown['improvement_tips'].append('Upgrade to Silver (+20), Gold (+30), or Platinum (+40) for more points')
+                score_breakdown['improvement_tips'].append('Upgrade to Premium (+10) or Platinum (+20) for more points')
             if not self.is_verified:
-                score_breakdown['improvement_tips'].append('Verify your profile for +20 points')
-            if not self.profile_complete:
-                score_breakdown['improvement_tips'].append('Complete your profile for +15 points')
-            if media_count < 5: # media_count here still refers to general media due to earlier re-assignment
-                score_breakdown['improvement_tips'].append('Add more general portfolio items for up to +15 points')
+                score_breakdown['improvement_tips'].append('Verify your profile for +25 points')
+            if completion_score < 15:
+                score_breakdown['improvement_tips'].append('Complete your profile details for up to +25 points')
+            if media_count < 4:
+                score_breakdown['improvement_tips'].append('Add more portfolio items for up to +20 points')
             if not has_specialization:
-                score_breakdown['improvement_tips'].append('Add a specialization for +20 points')
+                score_breakdown['improvement_tips'].append('Add a specialization for +10 points')
+            if social_media_score < 5:
+                score_breakdown['improvement_tips'].append('Add social media links for up to +10 points')
+        
         return score_breakdown
     
     @property
@@ -139,9 +226,8 @@ class TalentUserProfile(models.Model):
         Get the maximum number of images allowed based on account type.
         """
         limits = {
-            'free': 2,
-            'silver': 4,
-            'gold': 5,
+            'free': 1,        # Changed from 2 to 1 - Very limited for free users
+            'premium': 4,
             'platinum': 6
         }
         return limits.get(self.account_type, 0)
@@ -151,9 +237,8 @@ class TalentUserProfile(models.Model):
         Get the maximum number of videos allowed based on account type.
         """
         limits = {
-            'free': 1,
-            'silver': 2,
-            'gold': 3,
+            'free': 0,        # Changed from 1 to 0 - No videos for free users
+            'premium': 2,
             'platinum': 4
         }
         return limits.get(self.account_type, 0)
@@ -185,9 +270,81 @@ class TalentUserProfile(models.Model):
             self._video_count = video_count  # Cache the count
             
         return video_count < self.get_video_limit()
+
+
+
+
+    def can_use_advanced_search(self):
+        """
+        Check if user can use advanced search filters.
+        """
+        return self.account_type in ['premium', 'platinum']
+
+    def can_get_priority_support(self):
+        """
+        Check if user gets priority support.
+        """
+        return self.account_type in ['premium', 'platinum']
+
+    def get_search_boost(self):
+        """
+        Get search ranking boost multiplier.
+        """
+        boosts = {
+            'free': 0.1,          # Very low visibility
+            'premium': 0.5,       # Medium visibility  
+            'platinum': 1.0        # High visibility
+        }
+        return boosts.get(self.account_type, 0.1)
+
+    def can_create_custom_url(self):
+        """
+        Check if user can create custom profile URL.
+        """
+        return self.account_type == 'platinum'
+
+    def can_get_featured_placement(self):
+        """
+        Check if user can get featured profile placement.
+        """
+        return self.account_type == 'platinum'
+
+    def get_upgrade_benefits(self):
+        """
+        Get benefits that would be unlocked with upgrade.
+        """
+        if self.account_type == 'free':
+            return {
+                'media': {
+                    'current': f"{self.get_image_limit()} image(s), {self.get_video_limit()} video(s)",
+                    'premium': "4 images, 2 videos",
+                    'platinum': "6 images, 4 videos"
+                },
+                'features': {
+                    'current': "Basic profile only",
+                    'premium': "Verification badge, Analytics, Priority support",
+                    'platinum': "All Premium features + Featured placement, Custom URL"
+                },
+                'visibility': {
+                    'current': "Low search visibility (10% boost)",
+                    'premium': "Enhanced visibility (50% boost)",
+                    'platinum': "Highest visibility (100% boost) + Featured placement"
+                }
+            }
+        elif self.account_type == 'premium':
+            return {
+                'platinum_upgrade': {
+                    'additional_media': "2 more images, 2 more videos",
+                    'messaging': "Unlimited messages",
+                    'features': "Featured placement, Custom URL",
+                    'visibility': "Highest visibility + Featured placement"
+                }
+            }
+        return {}
+
+
     country = models.CharField(max_length=25, null=False, default='country', db_index=True)
     city = models.CharField(max_length=25, null=False, default='city', db_index=True)
-    zipcode = models.CharField(max_length=30, null=False, default="")
     phone = models.CharField(max_length=20, null=False, default="")
     date_of_birth = models.DateField(verbose_name="Date of Birth", blank=True, null=True, help_text="The user's date of birth.", db_index=True)
     #parental_approval = models.BooleanField(default=False, verbose_name="Parental Approval", help_text="Indicates whether parental approval has been provided for minors.")

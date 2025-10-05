@@ -15,7 +15,7 @@ class UserBasicSerializer(serializers.ModelSerializer):
     """Basic user serializer for restricted users view"""
     class Meta:
         model = BaseUser
-        fields = ['id', 'email', 'first_name', 'last_name', 'country', 'city']
+        fields = ['id', 'email', 'first_name', 'last_name', 'country', 'residency', 'city']
 
 class TalentDashboardSerializer(serializers.ModelSerializer):
     """Basic user serializer for restricted users view"""
@@ -69,17 +69,14 @@ class TalentDashboardSerializer(serializers.ModelSerializer):
         
         # Score for account tier
         if obj.account_type == 'platinum':
-            score_breakdown['account_tier'] = 50
-            score_breakdown['details']['account_tier'] = 'Platinum account: +50 points'
-        elif obj.account_type == 'gold':
-            score_breakdown['account_tier'] = 40
-            score_breakdown['details']['account_tier'] = 'Gold account: +40 points'
-        elif obj.account_type == 'silver':
-            score_breakdown['account_tier'] = 30
-            score_breakdown['details']['account_tier'] = 'Silver account: +30 points'
+            score_breakdown['account_tier'] = 25
+            score_breakdown['details']['account_tier'] = 'Platinum account: +25 points'
+        elif obj.account_type == 'premium':
+            score_breakdown['account_tier'] = 15
+            score_breakdown['details']['account_tier'] = 'Premium account: +15 points'
         else:
-            score_breakdown['account_tier'] = 10
-            score_breakdown['details']['account_tier'] = 'Free account: +10 points'
+            score_breakdown['account_tier'] = 5
+            score_breakdown['details']['account_tier'] = 'Free account: +5 points'
         
         # Score for verification
         if obj.is_verified:
@@ -197,13 +194,11 @@ class ExpressiveWorkerDashboardSerializer(serializers.ModelSerializer):
         profile = obj.profile
         score = 0
         if profile.account_type == 'platinum':
-            score += 50
-        elif profile.account_type == 'gold':
-            score += 40
-        elif profile.account_type == 'silver':
-            score += 30
+            score += 25
+        elif profile.account_type == 'premium':
+            score += 15
         else:
-            score += 10
+            score += 5
         if profile.is_verified:
             score += 20
         if profile.profile_complete:

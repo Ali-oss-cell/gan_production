@@ -3,75 +3,69 @@ from django.conf import settings
 
 # Subscription Plans Configuration
 SUBSCRIPTION_PLANS = {
-    'SILVER': {
-        'name': 'Silver',
-        'price': Decimal('99.00'),  # Yearly price in USD
+    'PREMIUM': {
+        'name': 'Premium',
+        'price': Decimal('19.99'),  # Yearly price in USD
         'features': [
-            'Profile visible in search results',
             'Upload up to 4 profile pictures',
-            'Upload up to 2 showcase videos',
-            'Basic search functionality',
-            'Email support',
+            'Upload up to 2 showcase videos', 
+            'Enhanced messaging capabilities',
+            'Enhanced search visibility (50% boost)',
+            'Profile verification badge',
+            'Basic analytics dashboard',
+            'Priority support',
+            'Social media integration',
+            'Advanced search filters'
         ],
-        'stripe_price_id': 'price_1RfJFoP623EsFG0oJbcWJKzU',
-        'duration_months': 12,
-    },
-    'GOLD': {
-        'name': 'Gold',
-        'price': Decimal('199.00'),  # Yearly price in USD
-        'features': [
-            'Enhanced profile visibility in search',
-            'Upload up to 5 profile pictures',
-            'Upload up to 3 showcase videos',
-            'Enhanced search optimization',
-            'Email and phone support',
-        ],
-        'stripe_price_id': 'price_1RfJjxP623EsFG0oZvEjMoiP',
+        'stripe_price_id': 'price_premium',
         'duration_months': 12,
     },
     'PLATINUM': {
-        'name': 'Platinum',
-        'price': Decimal('350.00'),  # Yearly price in USD
+        'name': 'Platinum', 
+        'price': Decimal('39.99'),  # Yearly price in USD
         'features': [
-            'Maximum profile visibility in search',
             'Upload up to 6 profile pictures',
             'Upload up to 4 showcase videos',
-            'VIP search optimization',
-            'Priority email and phone support',
+            'Unlimited messaging capabilities',
+            'Highest search visibility (100% boost)',
+            'Profile verification badge',
+            'Advanced analytics dashboard',
+            'Priority support',
+            'Social media integration',
+            'All search filters',
+            'Featured profile placement',
+            'Custom profile URL',
+            'VIP treatment'
         ],
-        'stripe_price_id': 'price_1RfJkoP623EsFG0oN96YwLf9',
+        'stripe_price_id': 'price_platinum',
         'duration_months': 12,
     },
     'BANDS': {
         'name': 'Bands',
-        'price': Decimal('500.00'),  # Yearly price in USD
+        'price': Decimal('29.99'),  # Yearly price in USD
         'features': [
-            'Special band profile layout',
-            'Upload up to 5 band pictures',
-            'Upload up to 5 band videos',
-            'Band member management',
-            'Event calendar integration',
-            'Priority booking requests',
-            'Dedicated band support',
+            'Create and manage bands',
+            'Unlimited member invitations',
+            'Band media uploads (5 images, 5 videos)',
+            'Band analytics',
+            'Priority support',
+            'Band management tools',
         ],
-        'stripe_price_id': 'price_1RfJmOP623EsFG0o16QVjMut',  # Bands plan price ID
+        'stripe_price_id': 'price_bands',
         'duration_months': 12,
     },
     'BACKGROUND_JOBS': {
-        'name': 'Production Assets Pro',
-        'price': Decimal('300.00'),  # Yearly price in USD
+        'name': 'Background Jobs Professional',
+        'price': Decimal('49.99'),  # Yearly price in USD
         'features': [
-            'Create and share props, costumes, locations, vehicles',
-            'Rent and sell items to production companies',
-            'Upload unlimited media files for your items',
-            'Create detailed listings with descriptions and pricing',
-            'Respond to job requests and booking inquiries',
-            'Priority listing in search results',
-            'Direct communication with production companies',
-            'Professional profile with enhanced visibility',
-            'Dedicated support for equipment services',
+            'Unlimited job postings',
+            'Applicant tracking',
+            'Advanced analytics',
+            'Priority support',
+            'Background verification',
+            'Unlimited item management',
         ],
-        'stripe_price_id': 'price_1RfJnhP623EsFG0onn7GnIYh',
+        'stripe_price_id': 'price_background',
         'duration_months': 12,
     },
 }

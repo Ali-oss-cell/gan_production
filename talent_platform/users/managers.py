@@ -41,6 +41,7 @@ class BaseUserManager(DjangoBaseUserManager):
             # Extract profile fields
             gender = extra_fields.pop('gender', 'Prefer not to say')
             country = extra_fields.pop('country', '')
+            residency = extra_fields.pop('residency', '')
             date_of_birth = extra_fields.pop('date_of_birth', None)
             
             # Use get_or_create to avoid separate exists() and get() calls
@@ -51,6 +52,7 @@ class BaseUserManager(DjangoBaseUserManager):
                     'is_talent': True,
                     'gender': gender,
                     'country': country,
+                    'residency': residency,
                     'date_of_birth': date_of_birth,
                     **extra_fields
                 }
@@ -62,8 +64,9 @@ class BaseUserManager(DjangoBaseUserManager):
                     user.is_talent = True
                     user.gender = gender
                     user.country = country
+                    user.residency = residency
                     user.date_of_birth = date_of_birth
-                    user.save(update_fields=['is_talent', 'gender', 'country', 'date_of_birth'])
+                    user.save(update_fields=['is_talent', 'gender', 'country', 'residency', 'date_of_birth'])
                     logger.info(f"Updated existing user {email} to talent")
             else:
                 # New user created, set password
@@ -88,6 +91,7 @@ class BaseUserManager(DjangoBaseUserManager):
             # Extract profile fields
             gender = extra_fields.pop('gender', 'Prefer not to say')
             country = extra_fields.pop('country', '')
+            residency = extra_fields.pop('residency', '')
             date_of_birth = extra_fields.pop('date_of_birth', None)
             
             # Check if user already exists
@@ -97,6 +101,7 @@ class BaseUserManager(DjangoBaseUserManager):
                     existing_user.is_background = True
                     existing_user.gender = gender
                     existing_user.country = country
+                    existing_user.residency = residency
                     existing_user.date_of_birth = date_of_birth
                     existing_user.save()
                     logger.info(f"Updated existing user {email} to background")
@@ -109,6 +114,7 @@ class BaseUserManager(DjangoBaseUserManager):
                 is_background=True,
                 gender=gender,
                 country=country,
+                residency=residency,
                 date_of_birth=date_of_birth,
                 **extra_fields
             )
@@ -131,6 +137,7 @@ class BaseUserManager(DjangoBaseUserManager):
             # Extract profile fields
             gender = extra_fields.pop('gender', 'Prefer not to say')
             country = extra_fields.pop('country', '')
+            residency = extra_fields.pop('residency', '')
             date_of_birth = extra_fields.pop('date_of_birth', None)
             
             # Check if user already exists
@@ -141,6 +148,7 @@ class BaseUserManager(DjangoBaseUserManager):
                     existing_user.is_dashboard_admin = False
                     existing_user.gender = gender
                     existing_user.country = country
+                    existing_user.residency = residency
                     existing_user.date_of_birth = date_of_birth
                     existing_user.save()
                     logger.info(f"Updated existing user {email} to dashboard")
@@ -154,6 +162,7 @@ class BaseUserManager(DjangoBaseUserManager):
                 is_dashboard_admin=False,
                 gender=gender,
                 country=country,
+                residency=residency,
                 date_of_birth=date_of_birth,
                 **extra_fields
             )
@@ -173,6 +182,7 @@ class BaseUserManager(DjangoBaseUserManager):
             # Extract profile fields
             gender = extra_fields.pop('gender', 'Prefer not to say')
             country = extra_fields.pop('country', '')
+            residency = extra_fields.pop('residency', '')
             date_of_birth = extra_fields.pop('date_of_birth', None)
             
             # Check if user already exists
@@ -183,6 +193,7 @@ class BaseUserManager(DjangoBaseUserManager):
                     existing_user.is_dashboard_admin = True
                     existing_user.gender = gender
                     existing_user.country = country
+                    existing_user.residency = residency
                     existing_user.date_of_birth = date_of_birth
                     existing_user.save()
                     logger.info(f"Updated existing user {email} to admin dashboard")
@@ -196,6 +207,7 @@ class BaseUserManager(DjangoBaseUserManager):
                 is_dashboard_admin=True,
                 gender=gender,
                 country=country,
+                residency=residency,
                 date_of_birth=date_of_birth,
                 **extra_fields
             )

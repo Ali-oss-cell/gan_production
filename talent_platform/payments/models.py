@@ -9,8 +9,7 @@ from .models_restrictions import RestrictedCountryUser
 class SubscriptionPlan(models.Model):
     """Model for subscription plans available on the platform"""
     PLAN_CHOICES = [
-        ('silver', 'Silver'),
-        ('gold', 'Gold'),
+        ('premium', 'Premium'),
         ('platinum', 'Platinum'),
         ('background_jobs', 'Background Jobs Professional'),
         ('bands', 'Bands'),
@@ -40,7 +39,7 @@ class SubscriptionPlan(models.Model):
     
     def is_for_talent(self):
         """Check if this plan is for talent users"""
-        return self.name in ['silver', 'gold', 'platinum', 'bands']
+        return self.name in ['premium', 'platinum', 'bands']
     
     def is_for_background(self):
         """Check if this plan is for background users"""
@@ -65,7 +64,7 @@ class SubscriptionPlan(models.Model):
         """Get available plans based on user type"""
         if user_type == 'talent':
             return cls.objects.filter(
-                name__in=['silver', 'gold', 'platinum', 'bands'],
+                name__in=['premium', 'platinum', 'bands'],
                 is_active=True
             )
         elif user_type == 'background':

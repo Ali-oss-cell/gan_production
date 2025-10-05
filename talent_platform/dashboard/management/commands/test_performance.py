@@ -70,7 +70,7 @@ class Command(BaseCommand):
         for i in range(iterations):
             start_time = time.time()
             queryset = view.get_queryset().filter(
-                account_type='gold',
+                account_type='premium',
                 is_verified=True,
                 profile_complete=True
             )

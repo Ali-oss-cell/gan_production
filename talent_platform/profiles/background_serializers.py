@@ -13,7 +13,7 @@ class BackGroundJobsSerializer(serializers.ModelSerializer):
         model = BackGroundJobsProfile
         fields = [
             'id', 'email', 'username', 'first_name', 'last_name', 'full_name',
-            'country', 'date_of_birth', 'gender', 'profile_score'
+            'country', 'residency', 'date_of_birth', 'gender', 'profile_score'
         ]
         read_only_fields = ['id', 'email', 'username', 'profile_score']
         

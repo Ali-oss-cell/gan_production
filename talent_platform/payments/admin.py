@@ -30,7 +30,7 @@ class RestrictedCountryUserAdmin(admin.ModelAdmin):
         'notes'
     ]
     readonly_fields = ['created_at', 'updated_at']
-    actions = ['approve_users', 'reject_users', 'upgrade_to_premium']
+    actions = ['approve_users', 'reject_users', 'upgrade_to_premium', 'upgrade_to_platinum', 'downgrade_to_free']
     
     fieldsets = (
         ('User Information', {
@@ -79,9 +79,9 @@ class RestrictedCountryUserAdmin(admin.ModelAdmin):
         """Upgrade selected users to premium account types"""
         for obj in queryset:
             if hasattr(obj.user, 'talent_user'):
-                obj.user.talent_user.account_type = 'gold'
+                obj.user.talent_user.account_type = 'premium'
                 obj.user.talent_user.save()
-                obj.account_type = 'gold'
+                obj.account_type = 'premium'
                 obj.last_updated_by = request.user
                 obj.save()
         
@@ -90,6 +90,38 @@ class RestrictedCountryUserAdmin(admin.ModelAdmin):
             f'Successfully upgraded {queryset.count()} user(s) to premium.'
         )
     upgrade_to_premium.short_description = "Upgrade to premium"
+    
+    def upgrade_to_platinum(self, request, queryset):
+        """Upgrade selected users to platinum account types"""
+        for obj in queryset:
+            if hasattr(obj.user, 'talent_user'):
+                obj.user.talent_user.account_type = 'platinum'
+                obj.user.talent_user.save()
+                obj.account_type = 'platinum'
+                obj.last_updated_by = request.user
+                obj.save()
+        
+        self.message_user(
+            request, 
+            f'Successfully upgraded {queryset.count()} user(s) to platinum.'
+        )
+    upgrade_to_platinum.short_description = "Upgrade to platinum"
+    
+    def downgrade_to_free(self, request, queryset):
+        """Downgrade selected users to free account types"""
+        for obj in queryset:
+            if hasattr(obj.user, 'talent_user'):
+                obj.user.talent_user.account_type = 'free'
+                obj.user.talent_user.save()
+                obj.account_type = 'free'
+                obj.last_updated_by = request.user
+                obj.save()
+        
+        self.message_user(
+            request, 
+            f'Successfully downgraded {queryset.count()} user(s) to free.'
+        )
+    downgrade_to_free.short_description = "Downgrade to free"
     
     def get_queryset(self, request):
         """Custom queryset with user information"""

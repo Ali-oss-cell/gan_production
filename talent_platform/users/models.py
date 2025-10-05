@@ -32,8 +32,8 @@ class BaseUser(AbstractBaseUser, PermissionsMixin):
 
     # Common basic fields with proper defaults
     country = models.CharField(max_length=25, blank=True)
+    residency = models.CharField(max_length=25, blank=True, help_text="Country of residence")
     city = models.CharField(max_length=25, blank=True)
-    zipcode = models.CharField(max_length=30, blank=True)
     phone = models.CharField(max_length=20, blank=True)
     date_of_birth = models.DateField(default=timezone.now)  # Valid default
     

@@ -17,7 +17,7 @@ class RestrictedUsersAPIView(APIView):
     Features:
     - View all Syrian users with their current profiles
     - Scan for new Syrian users automatically
-    - Approve users with talent subscriptions (free, silver, gold, platinum)
+    - Approve users with talent subscriptions (free, premium, platinum)
     - Give band subscriptions (basic, premium, pro) + band creator privileges
          - Give background jobs accounts (free, back_ground_jobs)
     - Update existing user account types
@@ -67,7 +67,7 @@ class RestrictedUsersAPIView(APIView):
                 'give_background_account'
             ],
             'account_types': {
-                'talent': ['free', 'silver', 'gold', 'platinum'],
+                'talent': ['free', 'premium', 'platinum'],
                 'background': ['free', 'back_ground_jobs'],
                 'band_subscription': ['bands']  # Only one type of band subscription
             }

@@ -84,13 +84,18 @@ class TalentUserProfileSerializer(serializers.ModelSerializer):
     email_verified = serializers.BooleanField(source='user.email_verified', read_only=True)
     full_name = serializers.SerializerMethodField()
     profile_score = serializers.SerializerMethodField()
+    
+    # ADD THESE NEW FIELDS:
+    upgrade_prompt = serializers.SerializerMethodField()
+    account_limitations = serializers.SerializerMethodField()
 
     class Meta:
         model = TalentUserProfile
         fields = [
             'id', 'email', 'username', 'first_name', 'last_name', 'full_name', 'email_verified', 'is_verified', 'profile_complete',
-            'account_type', 'country', 'city','phone', 'profile_picture', 'aboutyou',
-            'date_of_birth', 'gender', 'media', 'social_media_links', 'aboutyou', 'profile_score'
+            'account_type', 'country', 'residency', 'city','phone', 'profile_picture', 'aboutyou',
+            'date_of_birth', 'gender', 'media', 'social_media_links', 'aboutyou', 'profile_score',
+            'upgrade_prompt', 'account_limitations'  # ADD THESE
         ]
         extra_kwargs = {
             'user': {'read_only': True},
@@ -118,6 +123,41 @@ class TalentUserProfileSerializer(serializers.ModelSerializer):
     def get_profile_score(self, obj):
         """Get the profile score from the model's method"""
         return obj.get_profile_score()
+
+    def get_upgrade_prompt(self, obj):
+        """Get upgrade prompt for free users"""
+        if obj.account_type == 'free':
+            return {
+                'message': 'Upgrade to unlock more features!',
+                'benefits': obj.get_upgrade_benefits(),
+                'upgrade_url': '/pricing'
+            }
+        elif obj.account_type == 'premium':
+            return {
+                'message': 'Upgrade to Platinum for maximum visibility!',
+                'benefits': obj.get_upgrade_benefits(),
+                'upgrade_url': '/pricing'
+            }
+        return None
+    
+    def get_account_limitations(self, obj):
+        """Get current account limitations"""
+        image_count = obj.media.filter(media_type='image').count()
+        video_count = obj.media.filter(media_type='video').count()
+        
+        return {
+            'images_used': image_count,
+            'images_limit': obj.get_image_limit(),
+            'images_remaining': max(0, obj.get_image_limit() - image_count),
+            'videos_used': video_count,
+            'videos_limit': obj.get_video_limit(),
+            'videos_remaining': max(0, obj.get_video_limit() - video_count),
+            'can_advanced_search': obj.can_use_advanced_search(),
+            'can_priority_support': obj.can_get_priority_support(),
+            'can_custom_url': obj.can_create_custom_url(),
+            'can_featured_placement': obj.can_get_featured_placement()
+        }
+    
 
 
 #update in profile        
@@ -153,14 +193,15 @@ class TalentUserProfileUpdateSerializer(serializers.ModelSerializer):
         model = TalentUserProfile
         fields = [
             'first_name', 'last_name',
-            'profile_picture', 'aboutyou', 'city', 'country',
-            'gender', 'date_of_birth', 'phone', 'zipcode'
+            'profile_picture', 'aboutyou', 'city', 'country', 'residency',
+            'gender', 'date_of_birth', 'phone'
         ]
         extra_kwargs = {
             'profile_picture': {'required': False},
             'aboutyou': {'required': False},
             'city': {'required': False},
             'country': {'required': False},
+            'residency': {'required': False},
             'gender': {'required': False},
             'date_of_birth': {'required': False},
             'phone': {'required': False}
@@ -176,7 +217,7 @@ class TalentUserProfileUpdateSerializer(serializers.ModelSerializer):
             user.save()
 
         # Update profile fields
-        profile_fields = ['phone', 'zipcode', 'aboutyou', 'city', 'country', 'gender', 'date_of_birth', 'profile_picture']
+        profile_fields = ['phone', 'aboutyou', 'city', 'country', 'gender', 'date_of_birth', 'profile_picture']
         for field in profile_fields:
             if field in validated_data:
                 setattr(instance, field, validated_data[field])

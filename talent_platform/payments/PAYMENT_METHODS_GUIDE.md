@@ -157,7 +157,7 @@ Content-Type: application/json
     "payment_method": "apple_pay",
     "currency": "USD",
     "metadata": {
-        "plan": "silver",
+        "plan": "premium",
         "user_id": "123"
     }
 }
