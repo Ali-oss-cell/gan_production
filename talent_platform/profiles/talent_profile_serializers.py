@@ -127,37 +127,55 @@ class TalentUserProfileSerializer(serializers.ModelSerializer):
 
     def get_upgrade_prompt(self, obj):
         """Get upgrade prompt for free users"""
-        if obj.account_type == 'free':
-            return {
-                'message': 'Upgrade to unlock more features!',
-                'benefits': obj.get_upgrade_benefits(),
-                'upgrade_url': '/pricing'
-            }
-        elif obj.account_type == 'premium':
-            return {
-                'message': 'Upgrade to Platinum for maximum visibility!',
-                'benefits': obj.get_upgrade_benefits(),
-                'upgrade_url': '/pricing'
-            }
+        try:
+            if obj.account_type == 'free':
+                return {
+                    'message': 'Upgrade to unlock more features!',
+                    'benefits': obj.get_upgrade_benefits(),
+                    'upgrade_url': '/pricing'
+                }
+            elif obj.account_type == 'premium':
+                return {
+                    'message': 'Upgrade to Platinum for maximum visibility!',
+                    'benefits': obj.get_upgrade_benefits(),
+                    'upgrade_url': '/pricing'
+                }
+        except Exception as e:
+            print(f"Error in get_upgrade_prompt: {e}")
         return None
     
     def get_account_limitations(self, obj):
         """Get current account limitations"""
-        image_count = obj.media.filter(media_type='image').count()
-        video_count = obj.media.filter(media_type='video').count()
-        
-        return {
-            'images_used': image_count,
-            'images_limit': obj.get_image_limit(),
-            'images_remaining': max(0, obj.get_image_limit() - image_count),
-            'videos_used': video_count,
-            'videos_limit': obj.get_video_limit(),
-            'videos_remaining': max(0, obj.get_video_limit() - video_count),
-            'can_advanced_search': obj.can_use_advanced_search(),
-            'can_priority_support': obj.can_get_priority_support(),
-            'can_custom_url': obj.can_create_custom_url(),
-            'can_featured_placement': obj.can_get_featured_placement()
-        }
+        try:
+            image_count = obj.media.filter(media_type='image').count()
+            video_count = obj.media.filter(media_type='video').count()
+            
+            return {
+                'images_used': image_count,
+                'images_limit': obj.get_image_limit(),
+                'images_remaining': max(0, obj.get_image_limit() - image_count),
+                'videos_used': video_count,
+                'videos_limit': obj.get_video_limit(),
+                'videos_remaining': max(0, obj.get_video_limit() - video_count),
+                'can_advanced_search': obj.can_use_advanced_search(),
+                'can_priority_support': obj.can_get_priority_support(),
+                'can_custom_url': obj.can_create_custom_url(),
+                'can_featured_placement': obj.can_get_featured_placement()
+            }
+        except Exception as e:
+            print(f"Error in get_account_limitations: {e}")
+            return {
+                'images_used': 0,
+                'images_limit': 0,
+                'images_remaining': 0,
+                'videos_used': 0,
+                'videos_limit': 0,
+                'videos_remaining': 0,
+                'can_advanced_search': False,
+                'can_priority_support': False,
+                'can_custom_url': False,
+                'can_featured_placement': False
+            }
     
 
 
