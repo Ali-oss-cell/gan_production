@@ -273,6 +273,9 @@ class BaseUserManager(DjangoBaseUserManager):
                 user=user,
                 defaults={
                     'country': country or '',
+                    'city': '',  # Initialize with empty string
+                    'phone': '',  # Initialize with empty string
+                    'gender': 'Male',  # Initialize with default value
                     'date_of_birth': date_of_birth
                 }
             )

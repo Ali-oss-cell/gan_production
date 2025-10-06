@@ -26,7 +26,16 @@ class TalentUserProfile(models.Model):
     
     # Basic profile fields that were missing
     country = models.CharField(max_length=25, blank=True, default='', db_index=True)
+    city = models.CharField(max_length=25, blank=True, default='', db_index=True)
+    phone = models.CharField(max_length=20, blank=True, default='')
     date_of_birth = models.DateField(verbose_name="Date of Birth", blank=True, null=True, help_text="The user's date of birth.", db_index=True)
+    
+    GENDER_CHOICES = [
+        ('Male', 'Male'),
+        ('Female', 'Female'),
+        ('Other', 'Other'),
+    ]
+    gender = models.CharField(max_length=10, choices=GENDER_CHOICES, default='Male', db_index=True)
     
     def has_specialization(self):
         """

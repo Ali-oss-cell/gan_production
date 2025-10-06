@@ -135,8 +135,11 @@ class TalentUserProfileSerializer(serializers.ModelSerializer):
     def get_residency(self, obj):
         """Get residency field safely, handling cases where the field might not exist in DB yet"""
         try:
-            return getattr(obj.user, 'residency', '')
-        except AttributeError:
+            # Check if the field exists on the user model
+            if hasattr(obj.user, 'residency'):
+                return getattr(obj.user, 'residency', '')
+            return ''
+        except (AttributeError, Exception):
             return ''
 
     def get_upgrade_prompt(self, obj):
@@ -250,13 +253,24 @@ class TalentUserProfileUpdateSerializer(serializers.ModelSerializer):
                 # Handle residency field safely
                 if attr == 'residency':
                     try:
-                        setattr(user, attr, value)
-                    except AttributeError:
+                        # Check if the field exists before setting it
+                        if hasattr(user, 'residency'):
+                            setattr(user, attr, value)
+                        # If field doesn't exist, skip it silently
+                    except (AttributeError, Exception):
                         # Field doesn't exist in database yet, skip it
                         pass
                 else:
-                    setattr(user, attr, value)
-            user.save()
+                    try:
+                        setattr(user, attr, value)
+                    except (AttributeError, Exception):
+                        # Skip fields that don't exist
+                        pass
+            try:
+                user.save()
+            except Exception as e:
+                # Log the error but continue with profile update
+                print(f"Warning: Could not save user data: {e}")
 
         # Update profile fields
         profile_fields = ['phone', 'aboutyou', 'city', 'country', 'gender', 'date_of_birth', 'profile_picture']
