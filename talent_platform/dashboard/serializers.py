@@ -140,7 +140,7 @@ class TalentDashboardSerializer(serializers.ModelSerializer):
         if score_breakdown['total'] < 80:
             score_breakdown['improvement_tips'] = []
             if obj.account_type == 'free':
-                score_breakdown['improvement_tips'].append('Upgrade to Silver (+20), Gold (+30), or Platinum (+40) for more points')
+                score_breakdown['improvement_tips'].append('Upgrade to Premium (+20) or Platinum (+40) for more points')
             if not obj.is_verified:
                 score_breakdown['improvement_tips'].append('Verify your profile for +20 points')
             if not obj.profile_complete:

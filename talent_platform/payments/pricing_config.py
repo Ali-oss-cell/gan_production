@@ -3,19 +3,31 @@ from django.conf import settings
 
 # Subscription Plans Configuration
 SUBSCRIPTION_PLANS = {
+    'FREE': {
+        'name': 'Free',
+        'price': Decimal('0.00'),  # Free plan
+        'features': [
+            '1 profile picture',
+            '0 showcase videos',
+            'Basic search visibility',
+            'Basic profile features',
+            'Social media links',
+            'Profile verification available',
+        ],
+        'stripe_price_id': 'price_free',
+        'duration_months': 12,
+    },
     'PREMIUM': {
         'name': 'Premium',
         'price': Decimal('19.99'),  # Yearly price in USD
         'features': [
-            'Upload up to 4 profile pictures',
-            'Upload up to 2 showcase videos', 
-            'Enhanced messaging capabilities',
-            'Enhanced search visibility (50% boost)',
-            'Profile verification badge',
-            'Basic analytics dashboard',
+            '4 profile pictures',
+            '2 showcase videos',
+            'Advanced search filters',
             'Priority support',
+            'Enhanced search visibility (50% boost)',
             'Social media integration',
-            'Advanced search filters'
+            'Basic analytics',
         ],
         'stripe_price_id': 'price_premium',
         'duration_months': 12,
@@ -24,18 +36,15 @@ SUBSCRIPTION_PLANS = {
         'name': 'Platinum', 
         'price': Decimal('39.99'),  # Yearly price in USD
         'features': [
-            'Upload up to 6 profile pictures',
-            'Upload up to 4 showcase videos',
-            'Unlimited messaging capabilities',
-            'Highest search visibility (100% boost)',
-            'Profile verification badge',
-            'Advanced analytics dashboard',
-            'Priority support',
-            'Social media integration',
+            '6 profile pictures',
+            '4 showcase videos',
             'All search filters',
-            'Featured profile placement',
+            'Priority support',
+            'Highest search visibility (100% boost)',
             'Custom profile URL',
-            'VIP treatment'
+            'Featured profile placement',
+            'Advanced analytics dashboard',
+            'Social media integration',
         ],
         'stripe_price_id': 'price_platinum',
         'duration_months': 12,
@@ -45,27 +54,19 @@ SUBSCRIPTION_PLANS = {
         'price': Decimal('29.99'),  # Yearly price in USD
         'features': [
             'Create and manage bands',
-            'Unlimited member invitations',
+            'Unlimited band members',
+            'Band profile with description',
+            'Band contact information',
+            'Band location and website',
             'Band media uploads (5 images, 5 videos)',
-            'Band analytics',
-            'Priority support',
-            'Band management tools',
+            'Member role management (admin/member)',
+            'Member position assignments',
+            'Band invitations system',
+            'Band analytics and scoring',
+            'Band profile pictures',
+            'Social media integration for bands',
         ],
         'stripe_price_id': 'price_bands',
-        'duration_months': 12,
-    },
-    'BACKGROUND_JOBS': {
-        'name': 'Background Jobs Professional',
-        'price': Decimal('49.99'),  # Yearly price in USD
-        'features': [
-            'Unlimited job postings',
-            'Applicant tracking',
-            'Advanced analytics',
-            'Priority support',
-            'Background verification',
-            'Unlimited item management',
-        ],
-        'stripe_price_id': 'price_background',
         'duration_months': 12,
     },
 }

@@ -35,7 +35,7 @@ class SubscriptionPlanViewSet(viewsets.ModelViewSet):
     """
     API endpoint for managing subscription plans.
     Plans are filtered based on user profile type:
-    - Talent profiles must choose one of: Silver, Gold, or Platinum
+    - Talent profiles must choose one of: Free, Premium, or Platinum
     - Talent profiles can optionally add Bands plan
     - Background profiles can only choose Background Jobs plan
     """
@@ -570,7 +570,7 @@ class CreateCheckoutSessionView(APIView):
 
             if not plan:
                 return Response(
-                    {'error': f'Invalid plan ID: {plan_id}. Valid IDs are: 1 (Silver), 2 (Gold), 3 (Platinum), 4 (Bands), 5 (Background Jobs)'},
+                    {'error': f'Invalid plan ID: {plan_id}. Valid IDs are: 1 (Free), 2 (Premium), 3 (Platinum), 4 (Bands), 5 (Background Jobs)'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
             
