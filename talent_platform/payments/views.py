@@ -574,6 +574,18 @@ class CreateCheckoutSessionView(APIView):
                     status=status.HTTP_400_BAD_REQUEST
                 )
             
+            # Debug: Check the plan data
+            print(f"DEBUG: Plan data: {plan}")
+            print(f"DEBUG: Stripe price ID: {plan.get('stripe_price_id')}")
+            
+            # Validate stripe_price_id
+            stripe_price_id = plan.get('stripe_price_id')
+            if not stripe_price_id or stripe_price_id == 'None':
+                return Response(
+                    {'error': f'Invalid Stripe price ID for plan {plan_id}. Please contact support.'},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+            
             # Create Stripe checkout session with timeout and error handling
             import requests
             
@@ -592,7 +604,7 @@ class CreateCheckoutSessionView(APIView):
                 session = stripe.checkout.Session.create(
                     payment_method_types=['card'],
                     line_items=[{
-                        'price': plan['stripe_price_id'],  # Use existing Stripe price ID
+                        'price': stripe_price_id,  # Use validated Stripe price ID
                         'quantity': 1,
                     }],
                     mode='subscription',
