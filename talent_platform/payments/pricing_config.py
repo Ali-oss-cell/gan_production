@@ -21,53 +21,70 @@ SUBSCRIPTION_PLANS = {
         'name': 'Premium',
         'price': Decimal('19.99'),  # Yearly price in USD
         'features': [
-            '4 profile pictures',
-            '2 showcase videos',
-            'Advanced search filters',
-            'Priority support',
+            'Upload up to 4 profile pictures',
+            'Upload up to 2 showcase videos',
+            'Enhanced messaging capabilities',
             'Enhanced search visibility (50% boost)',
+            'Profile verification badge',
+            'Basic analytics dashboard',
+            'Priority support',
             'Social media integration',
-            'Basic analytics',
+            'Advanced search filters'
         ],
         'stripe_price_id': 'price_premium',
         'duration_months': 12,
+        'monthly_equivalent': Decimal('1.665833333333333333333333333')
     },
     'PLATINUM': {
         'name': 'Platinum', 
         'price': Decimal('39.99'),  # Yearly price in USD
         'features': [
-            '6 profile pictures',
-            '4 showcase videos',
-            'All search filters',
-            'Priority support',
+            'Upload up to 6 profile pictures',
+            'Upload up to 4 showcase videos',
+            'Unlimited messaging capabilities',
             'Highest search visibility (100% boost)',
-            'Custom profile URL',
-            'Featured profile placement',
+            'Profile verification badge',
             'Advanced analytics dashboard',
+            'Priority support',
             'Social media integration',
+            'All search filters',
+            'Featured profile placement',
+            'Custom profile URL',
+            'VIP treatment'
         ],
         'stripe_price_id': 'price_platinum',
         'duration_months': 12,
+        'monthly_equivalent': Decimal('3.3325')
     },
     'BANDS': {
         'name': 'Bands',
         'price': Decimal('29.99'),  # Yearly price in USD
         'features': [
             'Create and manage bands',
-            'Unlimited band members',
-            'Band profile with description',
-            'Band contact information',
-            'Band location and website',
+            'Unlimited member invitations',
             'Band media uploads (5 images, 5 videos)',
-            'Member role management (admin/member)',
-            'Member position assignments',
-            'Band invitations system',
-            'Band analytics and scoring',
-            'Band profile pictures',
-            'Social media integration for bands',
+            'Band analytics',
+            'Priority support',
+            'Band management tools'
         ],
         'stripe_price_id': 'price_bands',
         'duration_months': 12,
+        'monthly_equivalent': Decimal('2.499166666666666666666666667')
+    },
+    'BACKGROUND_JOBS': {
+        'name': 'Background Jobs Professional',
+        'price': Decimal('49.99'),  # Yearly price in USD
+        'features': [
+            'Unlimited job postings',
+            'Applicant tracking',
+            'Advanced analytics',
+            'Priority support',
+            'Background verification',
+            'Unlimited item management'
+        ],
+        'stripe_price_id': 'price_background',
+        'duration_months': 12,
+        'monthly_equivalent': Decimal('4.165833333333333333333333333')
     },
 }
 
@@ -105,6 +122,7 @@ PROMOTIONS = {
         'name': 'Annual Subscription Discount',
         'discount_percentage': 20,  # 20% discount for annual subscription
         'description': 'Save 20% by subscribing annually',
+        'duration_days': None,
     },
     'NEW_USER_DISCOUNT': {
         'name': 'New User Discount',
@@ -117,6 +135,12 @@ PROMOTIONS = {
 # Currency Configuration
 CURRENCY = 'USD'
 CURRENCY_SYMBOL = '$'
+
+# Currency object to match your structure
+CURRENCY_CONFIG = {
+    'code': 'USD',
+    'symbol': '$'
+}
 
 # Payment Settings
 PAYMENT_SETTINGS = {
