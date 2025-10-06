@@ -101,8 +101,7 @@ STRIPE_MERCHANT_ID = 'your_merchant_id'
 APPLE_PAY_MERCHANT_ID = 'merchant.com.yourcompany.app'
 
 # Payment Method IDs (from Stripe Dashboard)
-STRIPE_SILVER_PRICE_ID = 'price_xxx'
-STRIPE_GOLD_PRICE_ID = 'price_xxx'
+STRIPE_PREMIUM_PRICE_ID = 'price_xxx'
 STRIPE_PLATINUM_PRICE_ID = 'price_xxx'
 STRIPE_BANDS_PRICE_ID = 'price_xxx'
 STRIPE_BACKGROUND_JOBS_PRICE_ID = 'price_xxx'

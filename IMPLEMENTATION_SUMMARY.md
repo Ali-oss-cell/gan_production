@@ -22,7 +22,7 @@ Successfully implemented comprehensive free vs paid plans refactor for the talen
 Added comprehensive restriction methods to `TalentUserProfile` model:
 
 - `get_message_limit()` - Message limits per month (Free: 5, Premium: 50, Platinum: Unlimited)
-- `can_access_analytics()` - Analytics dashboard access
+- `can_access_analytics()` - Enhanced profile features
 - `can_verify_profile()` - Profile verification capability
 - `can_use_advanced_search()` - Advanced search filters
 - `can_get_priority_support()` - Priority support access
@@ -40,8 +40,8 @@ Added comprehensive restriction methods to `TalentUserProfile` model:
 - 50 messages per month
 - Enhanced search visibility (50% boost)
 - Profile verification badge
-- Basic analytics dashboard
-- Priority support
+- Enhanced search visibility
+- Profile verification
 - Social media integration
 - Advanced search filters
 
@@ -51,8 +51,8 @@ Added comprehensive restriction methods to `TalentUserProfile` model:
 - Unlimited messages
 - Highest search visibility (100% boost)
 - Profile verification badge
-- Advanced analytics dashboard
-- Priority support
+- Featured profile placement
+- Custom profile URL
 - Social media integration
 - All search filters
 - Featured profile placement

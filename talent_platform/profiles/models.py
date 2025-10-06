@@ -331,7 +331,7 @@ class TalentUserProfile(models.Model):
                 },
                 'features': {
                     'current': "Basic profile only",
-                    'premium': "Verification badge, Analytics, Priority support",
+                    'premium': "Verification badge, Enhanced search visibility",
                     'platinum': "All Premium features + Featured placement, Custom URL"
                 },
                 'visibility': {
@@ -344,7 +344,7 @@ class TalentUserProfile(models.Model):
             return {
                 'platinum_upgrade': {
                     'additional_media': "2 more images, 2 more videos",
-                    'messaging': "Unlimited messages",
+                    'additional_features': "Featured placement, Custom URL",
                     'features': "Featured placement, Custom URL",
                     'visibility': "Highest visibility + Featured placement"
                 }

@@ -387,9 +387,10 @@ STRIPE_WEBHOOK_SECRET = os.getenv('STRIPE_WEBHOOK_SECRET')
 
 # Add to settings.py
 STRIPE_PRICE_IDS = {
-    'premium': os.getenv('STRIPE_PRICE_PREMIUM'),
-    'platinum': os.getenv('STRIPE_PRICE_PLATINUM'),
-    'back_ground_jobs': os.getenv('STRIPE_PRICE_BACKGROUND_JOBS'),
+    'premium': os.getenv('STRIPE_PREMIUM_PRICE_ID'),
+    'platinum': os.getenv('STRIPE_PLATINUM_PRICE_ID'),
+    'bands': os.getenv('STRIPE_BANDS_PRICE_ID'),
+    'background_jobs': os.getenv('STRIPE_BACKGROUND_JOBS_PRICE_ID'),
 }
 
 # Stripe Price IDs

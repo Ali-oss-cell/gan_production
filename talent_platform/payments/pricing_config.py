@@ -10,9 +10,7 @@ SUBSCRIPTION_PLANS = {
             '1 profile picture',
             '0 showcase videos',
             'Basic search visibility',
-            'Basic profile features',
-            'Social media links',
-            'Profile verification available',
+            'Basic profile features'
         ],
         'stripe_price_id': 'price_free',
         'duration_months': 12,
@@ -23,13 +21,8 @@ SUBSCRIPTION_PLANS = {
         'features': [
             'Upload up to 4 profile pictures',
             'Upload up to 2 showcase videos',
-            'Enhanced messaging capabilities',
             'Enhanced search visibility (50% boost)',
-            'Profile verification badge',
-            'Basic analytics dashboard',
-            'Priority support',
-            'Social media integration',
-            'Advanced search filters'
+            'Profile verification badge'
         ],
         'stripe_price_id': 'price_premium',
         'duration_months': 12,
@@ -41,16 +34,10 @@ SUBSCRIPTION_PLANS = {
         'features': [
             'Upload up to 6 profile pictures',
             'Upload up to 4 showcase videos',
-            'Unlimited messaging capabilities',
             'Highest search visibility (100% boost)',
             'Profile verification badge',
-            'Advanced analytics dashboard',
-            'Priority support',
-            'Social media integration',
-            'All search filters',
             'Featured profile placement',
-            'Custom profile URL',
-            'VIP treatment'
+            'Custom profile URL'
         ],
         'stripe_price_id': 'price_platinum',
         'duration_months': 12,
@@ -63,8 +50,6 @@ SUBSCRIPTION_PLANS = {
             'Create and manage bands',
             'Unlimited member invitations',
             'Band media uploads (5 images, 5 videos)',
-            'Band analytics',
-            'Priority support',
             'Band management tools'
         ],
         'stripe_price_id': 'price_bands',
@@ -75,12 +60,16 @@ SUBSCRIPTION_PLANS = {
         'name': 'Background Jobs Professional',
         'price': Decimal('249.99'),  # Yearly price in USD
         'features': [
-            'Unlimited job postings',
-            'Applicant tracking',
-            'Advanced analytics',
-            'Priority support',
-            'Background verification',
-            'Unlimited item management'
+            'Create and manage props',
+            'Create and manage costumes', 
+            'Create and manage locations',
+            'Create and manage memorabilia',
+            'Create and manage vehicles',
+            'Create and manage artistic materials',
+            'Create and manage music items',
+            'Create and manage rare items',
+            'Rent and sell items',
+            'Share items with other users'
         ],
         'stripe_price_id': 'price_background',
         'duration_months': 12,

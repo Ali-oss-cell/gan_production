@@ -21,7 +21,7 @@ This guide explains the different account types available in the talent platform
   - Enhanced profile visibility
   - Boosted search ranking
   - Profile verification
-  - Priority support
+  - Enhanced profile features
   - Basic analytics
   - Social media integration
   - Enhanced profile features
@@ -33,7 +33,7 @@ This guide explains the different account types available in the talent platform
   - Premium profile visibility
   - Highest search ranking
   - Profile verification
-  - Priority support
+  - Enhanced profile features
   - Advanced analytics
   - Social media integration
   - Featured profile placement
@@ -47,7 +47,7 @@ This guide explains the different account types available in the talent platform
   - Unlimited member invitations
   - Band media uploads (5 images, 5 videos)
   - Band analytics
-  - Priority support
+  - Enhanced profile features
   - Band management tools
 
 ### 5. Background Jobs Professional
@@ -56,7 +56,7 @@ This guide explains the different account types available in the talent platform
   - Unlimited job postings
   - Applicant tracking
   - Advanced analytics
-  - Priority support
+  - Enhanced profile features
   - Background verification
   - Unlimited item management
 
@@ -145,10 +145,10 @@ STRIPE_SECRET_KEY=sk_live_your-stripe-secret-key
 STRIPE_WEBHOOK_SECRET=whsec_your-webhook-secret
 
 # Price IDs
-STRIPE_PRICE_PREMIUM=price_your-premium-price-id
-STRIPE_PRICE_PLATINUM=price_your-platinum-price-id
-STRIPE_PRICE_BACKGROUND_JOBS=price_your-background-jobs-price-id
-STRIPE_PRICE_BANDS=price_your-bands-price-id
+STRIPE_PREMIUM_PRICE_ID=price_your-premium-price-id
+STRIPE_PLATINUM_PRICE_ID=price_your-platinum-price-id
+STRIPE_BACKGROUND_JOBS_PRICE_ID=price_your-background-jobs-price-id
+STRIPE_BANDS_PRICE_ID=price_your-bands-price-id
 ```
 
 ## Migration Notes
