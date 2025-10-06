@@ -556,8 +556,8 @@ class CreateCheckoutSessionView(APIView):
             if isinstance(plan_id, int):
                 # Convert numeric ID to plan key
                 plan_mapping = {
-                    1: 'SILVER',
-                    2: 'GOLD', 
+                    1: 'FREE',
+                    2: 'PREMIUM', 
                     3: 'PLATINUM',
                     4: 'BANDS',
                     5: 'BACKGROUND_JOBS'
