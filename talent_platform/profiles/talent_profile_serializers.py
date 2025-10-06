@@ -43,8 +43,16 @@ class TalentMediaSerializer(serializers.ModelSerializer):
 
     def get_sharing_status(self, obj):
         """Get sharing status using centralized utility"""
-        from dashboard.utils import get_sharing_status
-        return get_sharing_status(obj)
+        try:
+            from dashboard.utils import get_sharing_status
+            return get_sharing_status(obj)
+        except Exception as e:
+            print(f"Error in get_sharing_status: {e}")
+            return {
+                'is_shared': False,
+                'shared_with': [],
+                'sharing_enabled': False
+            }
 
 
 
@@ -148,7 +156,7 @@ class TalentUserProfileSerializer(serializers.ModelSerializer):
                 }
         except Exception as e:
             print(f"Error in get_upgrade_prompt: {e}")
-        return None
+            return None
     
     def get_account_limitations(self, obj):
         """Get current account limitations"""
