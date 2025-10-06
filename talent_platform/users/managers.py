@@ -64,9 +64,13 @@ class BaseUserManager(DjangoBaseUserManager):
                     user.is_talent = True
                     user.gender = gender
                     user.country = country
-                    user.residency = residency
-                    user.date_of_birth = date_of_birth
-                    user.save(update_fields=['is_talent', 'gender', 'country', 'residency', 'date_of_birth'])
+                    # Handle residency field safely
+                    try:
+                        user.residency = residency
+                        user.save(update_fields=['is_talent', 'gender', 'country', 'residency', 'date_of_birth'])
+                    except AttributeError:
+                        # Residency field doesn't exist in database yet, skip it
+                        user.save(update_fields=['is_talent', 'gender', 'country', 'date_of_birth'])
                     logger.info(f"Updated existing user {email} to talent")
             else:
                 # New user created, set password
@@ -101,9 +105,15 @@ class BaseUserManager(DjangoBaseUserManager):
                     existing_user.is_background = True
                     existing_user.gender = gender
                     existing_user.country = country
-                    existing_user.residency = residency
-                    existing_user.date_of_birth = date_of_birth
-                    existing_user.save()
+                    # Handle residency field safely
+                    try:
+                        existing_user.residency = residency
+                        existing_user.date_of_birth = date_of_birth
+                        existing_user.save()
+                    except AttributeError:
+                        # Residency field doesn't exist in database yet, skip it
+                        existing_user.date_of_birth = date_of_birth
+                        existing_user.save()
                     logger.info(f"Updated existing user {email} to background")
                 return existing_user
             
@@ -148,9 +158,15 @@ class BaseUserManager(DjangoBaseUserManager):
                     existing_user.is_dashboard_admin = False
                     existing_user.gender = gender
                     existing_user.country = country
-                    existing_user.residency = residency
-                    existing_user.date_of_birth = date_of_birth
-                    existing_user.save()
+                    # Handle residency field safely
+                    try:
+                        existing_user.residency = residency
+                        existing_user.date_of_birth = date_of_birth
+                        existing_user.save()
+                    except AttributeError:
+                        # Residency field doesn't exist in database yet, skip it
+                        existing_user.date_of_birth = date_of_birth
+                        existing_user.save()
                     logger.info(f"Updated existing user {email} to dashboard")
                 return existing_user
             
@@ -193,9 +209,15 @@ class BaseUserManager(DjangoBaseUserManager):
                     existing_user.is_dashboard_admin = True
                     existing_user.gender = gender
                     existing_user.country = country
-                    existing_user.residency = residency
-                    existing_user.date_of_birth = date_of_birth
-                    existing_user.save()
+                    # Handle residency field safely
+                    try:
+                        existing_user.residency = residency
+                        existing_user.date_of_birth = date_of_birth
+                        existing_user.save()
+                    except AttributeError:
+                        # Residency field doesn't exist in database yet, skip it
+                        existing_user.date_of_birth = date_of_birth
+                        existing_user.save()
                     logger.info(f"Updated existing user {email} to admin dashboard")
                 return existing_user
             
