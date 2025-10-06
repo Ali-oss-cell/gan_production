@@ -9,6 +9,7 @@ from django.conf import settings
 import json
 import stripe
 import requests
+import os
 from rest_framework.views import APIView
 from .pricing_config import (
     SUBSCRIPTION_PLANS,
@@ -599,8 +600,6 @@ class CreateCheckoutSessionView(APIView):
                     )
             
             # Create Stripe checkout session with timeout and error handling
-            import requests
-            import os
             
             # Set timeout for Stripe requests (30 seconds)
             stripe.default_http_client = stripe.http_client.RequestsClient(timeout=30)
