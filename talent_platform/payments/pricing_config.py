@@ -24,7 +24,7 @@ SUBSCRIPTION_PLANS = {
             'Enhanced search visibility (50% boost)',
             'Profile verification badge'
         ],
-        'stripe_price_id': 'price_premium',
+        'stripe_price_id': getattr(settings, 'STRIPE_PRICE_IDS', {}).get('premium', 'price_premium'),
         'duration_months': 12,
         'monthly_equivalent': Decimal('8.33')
     },
@@ -39,7 +39,7 @@ SUBSCRIPTION_PLANS = {
             'Featured profile placement',
             'Custom profile URL'
         ],
-        'stripe_price_id': 'price_platinum',
+        'stripe_price_id': getattr(settings, 'STRIPE_PRICE_IDS', {}).get('platinum', 'price_platinum'),
         'duration_months': 12,
         'monthly_equivalent': Decimal('16.67')
     },
@@ -52,7 +52,7 @@ SUBSCRIPTION_PLANS = {
             'Band media uploads (5 images, 5 videos)',
             'Band management tools'
         ],
-        'stripe_price_id': 'price_bands',
+        'stripe_price_id': getattr(settings, 'STRIPE_PRICE_IDS', {}).get('bands', 'price_bands'),
         'duration_months': 12,
         'monthly_equivalent': Decimal('12.50')
     },
@@ -71,7 +71,7 @@ SUBSCRIPTION_PLANS = {
             'Rent and sell items',
             'Share items with other users'
         ],
-        'stripe_price_id': 'price_background',
+        'stripe_price_id': getattr(settings, 'STRIPE_PRICE_IDS', {}).get('background_jobs', 'price_background'),
         'duration_months': 12,
         'monthly_equivalent': Decimal('20.83')
     },
