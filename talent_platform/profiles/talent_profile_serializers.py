@@ -88,7 +88,7 @@ class TalentUserProfileSerializer(serializers.ModelSerializer):
     # ADD THESE NEW FIELDS:
     upgrade_prompt = serializers.SerializerMethodField()
     account_limitations = serializers.SerializerMethodField()
-    residency = serializers.CharField(source='user.residency', read_only=True)
+    residency = serializers.SerializerMethodField()
 
     class Meta:
         model = TalentUserProfile
@@ -106,7 +106,6 @@ class TalentUserProfileSerializer(serializers.ModelSerializer):
             'account_type': {'read_only': True},
             'email': {'read_only': True},
             'aboutyou': {'required': False}  # Make aboutyou optional
-            
         }
         
     def get_full_name(self, obj):
@@ -124,6 +123,13 @@ class TalentUserProfileSerializer(serializers.ModelSerializer):
     def get_profile_score(self, obj):
         """Get the profile score from the model's method"""
         return obj.get_profile_score()
+    
+    def get_residency(self, obj):
+        """Get residency field safely, handling cases where the field might not exist in DB yet"""
+        try:
+            return getattr(obj.user, 'residency', '')
+        except AttributeError:
+            return ''
 
     def get_upgrade_prompt(self, obj):
         """Get upgrade prompt for free users"""
@@ -233,7 +239,15 @@ class TalentUserProfileUpdateSerializer(serializers.ModelSerializer):
         if 'user' in validated_data:
             user_data = validated_data.pop('user')
             for attr, value in user_data.items():
-                setattr(user, attr, value)
+                # Handle residency field safely
+                if attr == 'residency':
+                    try:
+                        setattr(user, attr, value)
+                    except AttributeError:
+                        # Field doesn't exist in database yet, skip it
+                        pass
+                else:
+                    setattr(user, attr, value)
             user.save()
 
         # Update profile fields
