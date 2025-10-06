@@ -581,13 +581,26 @@ class CreateCheckoutSessionView(APIView):
             # Validate stripe_price_id
             stripe_price_id = plan.get('stripe_price_id')
             if not stripe_price_id or stripe_price_id == 'None':
-                return Response(
-                    {'error': f'Invalid Stripe price ID for plan {plan_id}. Please contact support.'},
-                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                )
+                # Fallback: Try to get from environment variables directly
+                print("DEBUG: Stripe price ID is None, trying environment variables...")
+                price_id_mapping = {
+                    'PREMIUM': os.getenv('STRIPE_PREMIUM_PRICE_ID'),
+                    'PLATINUM': os.getenv('STRIPE_PLATINUM_PRICE_ID'),
+                    'BANDS': os.getenv('STRIPE_BANDS_PRICE_ID'),
+                    'BACKGROUND_JOBS': os.getenv('STRIPE_BACKGROUND_JOBS_PRICE_ID'),
+                }
+                stripe_price_id = price_id_mapping.get(plan_id)
+                print(f"DEBUG: Fallback Stripe price ID: {stripe_price_id}")
+                
+                if not stripe_price_id:
+                    return Response(
+                        {'error': f'Invalid Stripe price ID for plan {plan_id}. Please contact support.'},
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                    )
             
             # Create Stripe checkout session with timeout and error handling
             import requests
+            import os
             
             # Set timeout for Stripe requests (30 seconds)
             stripe.default_http_client = stripe.http_client.RequestsClient(timeout=30)
