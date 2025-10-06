@@ -34,7 +34,7 @@ Added comprehensive restriction methods to `TalentUserProfile` model:
 
 ### 3. Updated Pricing Configuration in `talent_platform/payments/pricing_config.py`
 
-**Premium Plan ($19.99/year):**
+**Premium Plan ($99.99/year):**
 - Upload up to 4 profile pictures
 - Upload up to 2 showcase videos
 - 50 messages per month
@@ -45,7 +45,7 @@ Added comprehensive restriction methods to `TalentUserProfile` model:
 - Social media integration
 - Advanced search filters
 
-**Platinum Plan ($39.99/year):**
+**Platinum Plan ($199.99/year):**
 - Upload up to 6 profile pictures
 - Upload up to 4 showcase videos
 - Unlimited messages

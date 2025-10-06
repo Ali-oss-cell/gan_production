@@ -15,7 +15,7 @@ This guide explains the different account types available in the talent platform
   - Standard support
 
 ### 2. Premium Account
-- **Cost**: $19.99/month ($19.99/year)
+- **Cost**: $8.33/month ($99.99/year)
 - **Media Limits**: 4 images, 2 videos
 - **Features**:
   - Enhanced profile visibility
@@ -27,7 +27,7 @@ This guide explains the different account types available in the talent platform
   - Enhanced profile features
 
 ### 3. Platinum Account
-- **Cost**: $39.99/month ($39.99/year)
+- **Cost**: $16.67/month ($199.99/year)
 - **Media Limits**: 6 images, 4 videos
 - **Features**:
   - Premium profile visibility
@@ -41,7 +41,7 @@ This guide explains the different account types available in the talent platform
   - Advanced search filters
 
 ### 4. Bands Account
-- **Cost**: $29.99/month ($29.99/year)
+- **Cost**: $12.50/month ($149.99/year)
 - **Features**:
   - Create and manage bands
   - Unlimited member invitations
@@ -51,7 +51,7 @@ This guide explains the different account types available in the talent platform
   - Band management tools
 
 ### 5. Background Jobs Professional
-- **Cost**: $49.99/month ($49.99/year)
+- **Cost**: $20.83/month ($249.99/year)
 - **Features**:
   - Unlimited job postings
   - Applicant tracking

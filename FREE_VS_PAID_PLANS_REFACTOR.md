@@ -167,7 +167,7 @@ def get_account_badge(self):
 SUBSCRIPTION_PLANS = {
     'PREMIUM': {
         'name': 'Premium',
-        'price': Decimal('19.99'),  # Yearly price in USD
+        'price': Decimal('99.99'),  # Yearly price in USD
         'features': [
             'Upload up to 4 profile pictures',
             'Upload up to 2 showcase videos', 
@@ -184,7 +184,7 @@ SUBSCRIPTION_PLANS = {
     },
     'PLATINUM': {
         'name': 'Platinum', 
-        'price': Decimal('39.99'),  # Yearly price in USD
+        'price': Decimal('199.99'),  # Yearly price in USD
         'features': [
             'Upload up to 6 profile pictures',
             'Upload up to 4 showcase videos',
@@ -338,7 +338,7 @@ def calculate_relevance_score(self, profile, query_terms):
 
 ## Upgrade Benefits
 
-### Premium Plan ($19.99/year)
+### Premium Plan ($99.99/year)
 - 4 profile pictures
 - 2 showcase videos
 - 50 messages per month
@@ -348,7 +348,7 @@ def calculate_relevance_score(self, profile, query_terms):
 - Priority support
 - Advanced search filters
 
-### Platinum Plan ($39.99/year)
+### Platinum Plan ($199.99/year)
 - 6 profile pictures
 - 4 showcase videos
 - Unlimited messages

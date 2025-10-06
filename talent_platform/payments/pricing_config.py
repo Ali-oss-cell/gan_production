@@ -19,7 +19,7 @@ SUBSCRIPTION_PLANS = {
     },
     'PREMIUM': {
         'name': 'Premium',
-        'price': Decimal('19.99'),  # Yearly price in USD
+        'price': Decimal('99.99'),  # Yearly price in USD
         'features': [
             'Upload up to 4 profile pictures',
             'Upload up to 2 showcase videos',
@@ -33,11 +33,11 @@ SUBSCRIPTION_PLANS = {
         ],
         'stripe_price_id': 'price_premium',
         'duration_months': 12,
-        'monthly_equivalent': Decimal('1.665833333333333333333333333')
+        'monthly_equivalent': Decimal('8.33')
     },
     'PLATINUM': {
         'name': 'Platinum', 
-        'price': Decimal('39.99'),  # Yearly price in USD
+        'price': Decimal('199.99'),  # Yearly price in USD
         'features': [
             'Upload up to 6 profile pictures',
             'Upload up to 4 showcase videos',
@@ -54,11 +54,11 @@ SUBSCRIPTION_PLANS = {
         ],
         'stripe_price_id': 'price_platinum',
         'duration_months': 12,
-        'monthly_equivalent': Decimal('3.3325')
+        'monthly_equivalent': Decimal('16.67')
     },
     'BANDS': {
         'name': 'Bands',
-        'price': Decimal('29.99'),  # Yearly price in USD
+        'price': Decimal('149.99'),  # Yearly price in USD
         'features': [
             'Create and manage bands',
             'Unlimited member invitations',
@@ -69,11 +69,11 @@ SUBSCRIPTION_PLANS = {
         ],
         'stripe_price_id': 'price_bands',
         'duration_months': 12,
-        'monthly_equivalent': Decimal('2.499166666666666666666666667')
+        'monthly_equivalent': Decimal('12.50')
     },
     'BACKGROUND_JOBS': {
         'name': 'Background Jobs Professional',
-        'price': Decimal('49.99'),  # Yearly price in USD
+        'price': Decimal('249.99'),  # Yearly price in USD
         'features': [
             'Unlimited job postings',
             'Applicant tracking',
@@ -84,7 +84,7 @@ SUBSCRIPTION_PLANS = {
         ],
         'stripe_price_id': 'price_background',
         'duration_months': 12,
-        'monthly_equivalent': Decimal('4.165833333333333333333333333')
+        'monthly_equivalent': Decimal('20.83')
     },
 }
 
