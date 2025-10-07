@@ -37,7 +37,7 @@ SUBSCRIPTION_PLANS = {
             'Highest search visibility (100% boost)',
             'Profile verification badge',
             'Featured profile placement',
-            'Custom profile URL'
+            
         ],
         'stripe_price_id': getattr(settings, 'STRIPE_PRICE_IDS', {}).get('platinum', 'price_platinum'),
         'duration_months': 12,
@@ -101,7 +101,7 @@ ADDITIONAL_SERVICES = {
         'name': 'Bands Package',
         'price': Decimal('350.00'),
         'description': 'Special package for bands and musical groups',
-        'stripe_price_id': 'price_1RfJmOP623EsFG0o16QVjMut',  # Bands plan price ID
+        'stripe_price_id': getattr(settings, 'STRIPE_PRICE_IDS', {}).get('bands', 'price_bands'),
     },
 }
 
