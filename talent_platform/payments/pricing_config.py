@@ -3,18 +3,6 @@ from django.conf import settings
 
 # Subscription Plans Configuration
 SUBSCRIPTION_PLANS = {
-    'FREE': {
-        'name': 'Free',
-        'price': Decimal('0.00'),  # Free plan
-        'features': [
-            '1 profile picture',
-            '0 showcase videos',
-            'Basic search visibility',
-            'Basic profile features'
-        ],
-        'stripe_price_id': 'price_free',
-        'duration_months': 12,
-    },
     'PREMIUM': {
         'name': 'Premium',
         'price': Decimal('99.99'),  # Yearly price in USD

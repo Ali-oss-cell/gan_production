@@ -557,11 +557,10 @@ class CreateCheckoutSessionView(APIView):
             if isinstance(plan_id, int):
                 # Convert numeric ID to plan key
                 plan_mapping = {
-                    1: 'FREE',
-                    2: 'PREMIUM', 
-                    3: 'PLATINUM',
-                    4: 'BANDS',
-                    5: 'BACKGROUND_JOBS'
+                    1: 'PREMIUM', 
+                    2: 'PLATINUM',
+                    3: 'BANDS',
+                    4: 'BACKGROUND_JOBS'
                 }
                 plan_key = plan_mapping.get(plan_id)
                 if plan_key and plan_key in SUBSCRIPTION_PLANS:
@@ -571,7 +570,7 @@ class CreateCheckoutSessionView(APIView):
 
             if not plan:
                 return Response(
-                    {'error': f'Invalid plan ID: {plan_id}. Valid IDs are: 1 (Free), 2 (Premium), 3 (Platinum), 4 (Bands), 5 (Background Jobs)'},
+                    {'error': f'Invalid plan ID: {plan_id}. Valid IDs are: 1 (Premium), 2 (Platinum), 3 (Bands), 4 (Background Jobs)'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
             
