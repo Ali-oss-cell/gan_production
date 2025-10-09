@@ -200,6 +200,7 @@ class TalentUserProfileSerializer(serializers.ModelSerializer):
 class TalentUserProfileUpdateSerializer(serializers.ModelSerializer):
     first_name = serializers.CharField(source='user.first_name', required=False)
     last_name = serializers.CharField(source='user.last_name', required=False)
+    email = serializers.EmailField(source='user.email', required=False)
     phone = serializers.CharField(required=False, allow_blank=True)
     date_of_birth = serializers.DateField(required=False, allow_null=True)
     residency = serializers.CharField(source='user.residency', required=False)
@@ -229,7 +230,7 @@ class TalentUserProfileUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = TalentUserProfile
         fields = [
-            'first_name', 'last_name',
+            'first_name', 'last_name', 'email',
             'profile_picture', 'aboutyou', 'city', 'country', 'residency',
             'gender', 'date_of_birth', 'phone'
         ]
