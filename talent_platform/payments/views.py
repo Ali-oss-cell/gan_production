@@ -115,9 +115,9 @@ class SubscriptionPlanViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'])
     def pricing(self, request):
         """
-        Get all plans with their pricing information
+        Get all plans with their pricing information (excluding free plan)
         """
-        plans = self.get_queryset()
+        plans = self.get_queryset().exclude(name='free')
         serializer = self.get_serializer(plans, many=True)
         return Response(serializer.data)
 
