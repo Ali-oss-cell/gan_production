@@ -2,7 +2,7 @@
 from django.urls import path
 from .views import (
     UserRegistrationView, TalentLoginView, BackgroundLoginView, 
-    VerifyEmailCodeView, ResendVerificationCodeView, DashboardLoginView
+    VerifyEmailCodeView, ResendVerificationCodeView, DashboardLoginView, LogoutView
 )
 
 urlpatterns = [
@@ -19,4 +19,7 @@ urlpatterns = [
     # Email Verification (code-based only)
     path('verify-code/', VerifyEmailCodeView.as_view(), name='verify-code'),
     path('resend-code/', ResendVerificationCodeView.as_view(), name='resend-code'),
+    
+    # Logout
+    path('logout/', LogoutView.as_view(), name='logout'),
 ]

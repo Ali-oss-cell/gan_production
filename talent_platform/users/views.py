@@ -423,4 +423,21 @@ class ResendVerificationCodeView(APIView):
                 'success': False,
                 'message': 'Failed to send verification code'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class LogoutView(APIView):
+    """
+    Simple logout endpoint for JWT tokens
+    Since JWT tokens are stateless, logout is primarily handled on the frontend
+    This endpoint provides a consistent API response
+    """
+    def post(self, request):
+        """
+        Logout endpoint - primarily for frontend consistency
+        JWT tokens are stateless, so logout is handled by removing tokens from frontend
+        """
+        return Response({
+            'success': True,
+            'message': 'Logged out successfully'
+        }, status=status.HTTP_200_OK)
     
