@@ -169,12 +169,9 @@ class TalentUserProfile(models.Model):
             social_links = self.social_media_links
             link_count = sum([
                 bool(social_links.facebook),
-                bool(social_links.twitter),
                 bool(social_links.instagram),
-                bool(social_links.linkedin),
                 bool(social_links.youtube),
-                bool(social_links.tiktok),
-                bool(social_links.snapchat)
+                bool(social_links.tiktok)
             ])
             
             if link_count >= 4:
