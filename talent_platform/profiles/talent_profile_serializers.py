@@ -61,7 +61,7 @@ class SocialMediaLinksSerializer(serializers.ModelSerializer):
     links=serializers.SerializerMethodField()
     class Meta:
         model=SocialMediaLinks
-        fields =['user','facebook','twitter','instagram','linkedin','youtube','tiktok','snapchat','links']
+        fields =['user','facebook','instagram','youtube','tiktok','links']
     
     def get_links(self,obj):
         """
@@ -71,12 +71,9 @@ class SocialMediaLinksSerializer(serializers.ModelSerializer):
         if obj:
             links = {
                 'facebook': obj.facebook,
-                'twitter': obj.twitter,
                 'instagram': obj.instagram,
-                'linkedin': obj.linkedin,
                 'youtube': obj.youtube,
                 'tiktok': obj.tiktok,
-                'snapchat': obj.snapchat
             }
         return links
 

@@ -654,27 +654,21 @@ class TalentMedia(models.Model):
 class SocialMediaLinks(models.Model):
     user = models.OneToOneField(TalentUserProfile, on_delete=models.CASCADE, related_name='social_media_links')
     facebook = models.URLField(blank=True, null=True, verbose_name="Facebook URL")
-    twitter = models.URLField(blank=True, null=True, verbose_name="Twitter URL")
     instagram = models.URLField(blank=True, null=True, verbose_name="Instagram URL")
-    linkedin = models.URLField(blank=True, null=True, verbose_name="LinkedIn URL")
     youtube = models.URLField(blank=True, null=True, verbose_name="YouTube URL")
     tiktok = models.URLField(blank=True, null=True, verbose_name="TikTok URL")
-    snapchat = models.URLField(blank=True, null=True, verbose_name="Snapchat URL")
 
     def get_user_links(self):
         """Return all social media links as a dictionary"""
         return {
             'facebook': self.facebook,
-            'twitter': self.twitter,
             'instagram': self.instagram,
-            'linkedin': self.linkedin,
             'youtube': self.youtube,
             'tiktok': self.tiktok,
-            'snapchat': self.snapchat
         }
 
     def has_social_media_links(self):
-        return any([self.facebook, self.twitter, self.instagram, self.linkedin, self.youtube, self.tiktok, self.snapchat])
+        return any([self.facebook, self.instagram, self.youtube, self.tiktok])
         
     def __str__(self):
         return f"Social Media Links: {self.user.username}"

@@ -240,7 +240,7 @@ class SocialMediaLinksUpdateView(APIView):
         social_links = self.get_object()
         
         # Update only the fields provided in the request
-        allowed_fields = ['facebook', 'twitter', 'instagram', 'linkedin', 'youtube', 'tiktok', 'snapchat']
+        allowed_fields = ['facebook', 'instagram', 'youtube', 'tiktok']
         updated_fields = []
         
         for field in allowed_fields:
