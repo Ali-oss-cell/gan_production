@@ -411,6 +411,22 @@ class StripePaymentService:
             subscription.end_date = timezone.now()
             subscription.save()
             
+            # ⭐ DOWNGRADE USER'S ACCOUNT TYPE TO FREE
+            user = subscription.user
+            print(f"   Downgrading account type to free for user {user.id}")
+            
+            # Downgrade TalentUserProfile if talent user
+            if hasattr(user, 'talent_user'):
+                user.talent_user.account_type = 'free'
+                user.talent_user.save(update_fields=['account_type'])
+                print(f"✅ Downgraded TalentUserProfile account_type to: free")
+            
+            # Downgrade BackgroundJobsProfile if background user
+            elif hasattr(user, 'background_user'):
+                user.background_user.account_type = 'free'
+                user.background_user.save(update_fields=['account_type'])
+                print(f"✅ Downgraded BackgroundJobsProfile account_type to: free")
+            
         except Subscription.DoesNotExist:
             pass  # Subscription already deleted
         except Exception as e:
@@ -436,6 +452,23 @@ class StripePaymentService:
             subscription.status = 'active'
             subscription.is_active = True
             subscription.save()
+            
+            # ⭐ UPDATE USER'S ACCOUNT TYPE BASED ON PLAN
+            user = subscription.user
+            account_type = subscription.plan.get_account_type()
+            print(f"   Updating account type to: {account_type}")
+            
+            # Update TalentUserProfile if talent user
+            if hasattr(user, 'talent_user') and subscription.plan.is_for_talent():
+                user.talent_user.account_type = account_type
+                user.talent_user.save(update_fields=['account_type'])
+                print(f"✅ Updated TalentUserProfile account_type to: {account_type}")
+            
+            # Update BackgroundJobsProfile if background user
+            elif hasattr(user, 'background_user') and subscription.plan.is_for_background():
+                user.background_user.account_type = account_type
+                user.background_user.save(update_fields=['account_type'])
+                print(f"✅ Updated BackgroundJobsProfile account_type to: {account_type}")
             
             print(f"✅ Payment succeeded for invoice: {invoice_data.id}, subscription {subscription.id} activated")
             print(f"   New status: {subscription.status}, is_active: {subscription.is_active}")
