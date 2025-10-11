@@ -56,101 +56,9 @@ class TalentDashboardSerializer(serializers.ModelSerializer):
         }
     
     def get_profile_score(self, obj):
-        # Start with breakdown of score components
-        score_breakdown = {
-            'total': 0,
-            'account_tier': 0,
-            'verification': 0,
-            'profile_completion': 0,
-            'media_content': 0,
-            'specializations': 0,
-            'details': {}
-        }
-        
-        # Score for account tier
-        if obj.account_type == 'platinum':
-            score_breakdown['account_tier'] = 25
-            score_breakdown['details']['account_tier'] = 'Platinum account: +25 points'
-        elif obj.account_type == 'premium':
-            score_breakdown['account_tier'] = 15
-            score_breakdown['details']['account_tier'] = 'Premium account: +15 points'
-        else:
-            score_breakdown['account_tier'] = 5
-            score_breakdown['details']['account_tier'] = 'Free account: +5 points'
-        
-        # Score for verification
-        if obj.is_verified:
-            score_breakdown['verification'] = 20
-            score_breakdown['details']['verification'] = 'Verified profile: +20 points'
-        else:
-            score_breakdown['details']['verification'] = 'Not verified: +0 points (get verified for +20 points)'
-        
-        # Score for profile completion
-        if obj.profile_complete:
-            score_breakdown['profile_completion'] = 15
-            score_breakdown['details']['profile_completion'] = 'Profile complete: +15 points'
-        else:
-            score_breakdown['details']['profile_completion'] = 'Profile incomplete: +0 points (complete your profile for +15 points)'
-        
-        # Score for media content
-        media_count = obj.media.count()
-        if media_count > 20:
-            score_breakdown['media_content'] = 25
-            score_breakdown['details']['media_content'] = 'Extensive media (20+ items): +25 points'
-        elif media_count > 10:
-            score_breakdown['media_content'] = 20
-            score_breakdown['details']['media_content'] = 'Rich media (10-20 items): +20 points'
-        elif media_count > 5:
-            score_breakdown['media_content'] = 15
-            score_breakdown['details']['media_content'] = 'Good media (5-10 items): +15 points'
-        elif media_count > 0:
-            score_breakdown['media_content'] = 10
-            score_breakdown['details']['media_content'] = 'Basic media (1-5 items): +10 points'
-        else:
-            score_breakdown['details']['media_content'] = 'No media: +0 points (add media for up to +25 points)'
-        
-        # Score for specializations
-        specialization_count = 0
-        if hasattr(obj, 'visual_worker'):
-            specialization_count += 1
-        if hasattr(obj, 'expressive_worker'):
-            specialization_count += 1
-        if hasattr(obj, 'hybrid_worker'):
-            specialization_count += 1
-        
-        score_breakdown['specializations'] = specialization_count * 10
-        if specialization_count > 0:
-            score_breakdown['details']['specializations'] = f'{specialization_count} specialization(s): +{specialization_count * 10} points'
-        else:
-            score_breakdown['details']['specializations'] = 'No specializations: +0 points (add specializations for +10 points each)'
-        
-        # Calculate total score
-        score_breakdown['total'] = (
-            score_breakdown['account_tier'] + 
-            score_breakdown['verification'] + 
-            score_breakdown['profile_completion'] + 
-            score_breakdown['media_content'] + 
-            score_breakdown['specializations']
-        )
-        
-        # Cap the score at 100 for normalization
-        score_breakdown['total'] = min(score_breakdown['total'], 100)
-        
-        # Include tips for improvement if score is below 80
-        if score_breakdown['total'] < 80:
-            score_breakdown['improvement_tips'] = []
-            if obj.account_type == 'free':
-                score_breakdown['improvement_tips'].append('Upgrade to Premium (+20) or Platinum (+40) for more points')
-            if not obj.is_verified:
-                score_breakdown['improvement_tips'].append('Verify your profile for +20 points')
-            if not obj.profile_complete:
-                score_breakdown['improvement_tips'].append('Complete your profile for +15 points')
-            if media_count < 5:
-                score_breakdown['improvement_tips'].append('Add more media for up to +25 points')
-            if specialization_count < 3:
-                score_breakdown['improvement_tips'].append('Add more specializations for +10 points each')
-        
-        return score_breakdown
+        # Use the model's centralized score calculation method
+        # This ensures consistency across all API endpoints
+        return obj.get_profile_score()
 
 class VisualWorkerDashboardSerializer(serializers.ModelSerializer):
     profile = TalentDashboardSerializer(read_only=True)
@@ -191,42 +99,11 @@ class ExpressiveWorkerDashboardSerializer(serializers.ModelSerializer):
         ]
     
     def get_profile_score(self, obj):
+        # Use the profile's centralized score calculation method
+        # This ensures consistency across all API endpoints
         profile = obj.profile
-        score = 0
-        if profile.account_type == 'platinum':
-            score += 25
-        elif profile.account_type == 'premium':
-            score += 15
-        else:
-            score += 5
-        if profile.is_verified:
-            score += 20
-        if profile.profile_complete:
-            score += 15
-        media_count = profile.media.count() if hasattr(profile, 'media') else 0
-        if media_count > 20:
-            score += 25
-        elif media_count > 10:
-            score += 20
-        elif media_count > 5:
-            score += 15
-        elif media_count > 0:
-            score += 10
-        if obj.years_experience > 10:
-            score += 15
-        elif obj.years_experience > 5:
-            score += 10
-        elif obj.years_experience > 2:
-            score += 5
-        new_fields = [
-            'hair_type', 'skin_tone', 'eye_size', 'eye_pattern', 'face_shape', 'forehead_shape',
-            'lip_shape', 'eyebrow_pattern', 'beard_color', 'beard_length', 'mustache_color',
-            'mustache_length', 'distinctive_facial_marks', 'distinctive_body_marks', 'voice_type'
-        ]
-        for field in new_fields:
-            if getattr(obj, field, None):
-                score += 2
-        return min(score, 100)
+        score_breakdown = profile.get_profile_score()
+        return score_breakdown['total']
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
