@@ -62,78 +62,98 @@ class TalentUserProfile(models.Model):
             'media_content': 0,
             'specialization': 0,
             'social_media': 0,
-            'details': {}
+            'details': {},
+            'details_ar': {}
         }
         
         # Account tier - More balanced scoring
         if self.account_type == 'platinum':
             score_breakdown['account_tier'] = 25
             score_breakdown['details']['account_tier'] = 'Platinum account: +25 points'
+            score_breakdown['details_ar']['account_tier'] = 'حساب بلاتينيوم: +25 نقطة'
         elif self.account_type == 'premium':
             score_breakdown['account_tier'] = 15
             score_breakdown['details']['account_tier'] = 'Premium account: +15 points'
+            score_breakdown['details_ar']['account_tier'] = 'حساب بريميوم: +15 نقطة'
         else:
             score_breakdown['account_tier'] = 5
             score_breakdown['details']['account_tier'] = 'Free account: +5 points'
+            score_breakdown['details_ar']['account_tier'] = 'حساب مجاني: +5 نقاط'
         
         # Verification - Increased importance
         if self.is_verified:
             score_breakdown['verification'] = 25
             score_breakdown['details']['verification'] = 'Verified profile: +25 points'
+            score_breakdown['details_ar']['verification'] = 'ملف شخصي موثق: +25 نقطة'
         else:
             score_breakdown['details']['verification'] = 'Not verified: +0 points (get verified for +25 points)'
+            score_breakdown['details_ar']['verification'] = 'غير موثق: +0 نقطة (احصل على التوثيق لـ +25 نقطة)'
         
         # Profile completion - More detailed scoring
         completion_score = 0
         completion_details = []
         
         # Basic profile fields
+        completion_details_ar = []
         if self.aboutyou and len(self.aboutyou.strip()) > 50:
             completion_score += 5
             completion_details.append('About section: +5 points')
+            completion_details_ar.append('قسم نبذة عني: +5 نقاط')
         if self.profile_picture:
             completion_score += 5
             completion_details.append('Profile picture: +5 points')
+            completion_details_ar.append('صورة الملف الشخصي: +5 نقاط')
         if self.country and self.country != 'country':
             completion_score += 3
             completion_details.append('Country specified: +3 points')
+            completion_details_ar.append('البلد محدد: +3 نقاط')
         if self.date_of_birth:
             completion_score += 2
             completion_details.append('Date of birth: +2 points')
+            completion_details_ar.append('تاريخ الميلاد: +2 نقطة')
         
         # Specialization completion
         has_specialization = self.has_specialization()
         if has_specialization:
             completion_score += 10
             completion_details.append('Specialization added: +10 points')
+            completion_details_ar.append('تم إضافة التخصص: +10 نقاط')
         
         score_breakdown['profile_completion'] = completion_score
         if completion_details:
             score_breakdown['details']['profile_completion'] = '; '.join(completion_details)
+            score_breakdown['details_ar']['profile_completion'] = '; '.join(completion_details_ar)
         else:
             score_breakdown['details']['profile_completion'] = 'Profile incomplete: +0 points (complete your profile for up to +25 points)'
+            score_breakdown['details_ar']['profile_completion'] = 'الملف الشخصي غير مكتمل: +0 نقطة (أكمل ملفك الشخصي لـ +25 نقطة)'
         
         # Media content - More granular scoring
         media_count = self.media.filter(is_test_video=False).count()
         if media_count >= 6:
             score_breakdown['media_content'] = 20
             score_breakdown['details']['media_content'] = 'Excellent portfolio (6+ items): +20 points'
+            score_breakdown['details_ar']['media_content'] = 'محفظة ممتازة (6+ عناصر): +20 نقطة'
         elif media_count >= 4:
             score_breakdown['media_content'] = 15
             score_breakdown['details']['media_content'] = 'Strong portfolio (4-5 items): +15 points'
+            score_breakdown['details_ar']['media_content'] = 'محفظة قوية (4-5 عناصر): +15 نقطة'
         elif media_count >= 2:
             score_breakdown['media_content'] = 10
             score_breakdown['details']['media_content'] = 'Good portfolio (2-3 items): +10 points'
+            score_breakdown['details_ar']['media_content'] = 'محفظة جيدة (2-3 عناصر): +10 نقاط'
         elif media_count >= 1:
             score_breakdown['media_content'] = 5
             score_breakdown['details']['media_content'] = 'Basic portfolio (1 item): +5 points'
+            score_breakdown['details_ar']['media_content'] = 'محفظة أساسية (عنصر واحد): +5 نقاط'
         else:
             score_breakdown['media_content'] = 0
             score_breakdown['details']['media_content'] = 'No portfolio items: +0 points (add portfolio items for up to +20 points)'
+            score_breakdown['details_ar']['media_content'] = 'لا توجد عناصر محفظة: +0 نقطة (أضف عناصر المحفظة لـ +20 نقطة)'
         
         # Specialization - More detailed scoring
         specialization_score = 0
         specialization_details = []
+        specialization_details_ar = []
         
         if has_specialization:
             # Count specializations
@@ -141,12 +161,15 @@ class TalentUserProfile(models.Model):
             if hasattr(self, 'visual_worker'):
                 spec_count += 1
                 specialization_details.append('Visual Worker')
+                specialization_details_ar.append('عامل بصري')
             if hasattr(self, 'expressive_worker'):
                 spec_count += 1
                 specialization_details.append('Expressive Worker')
+                specialization_details_ar.append('عامل تعبيري')
             if hasattr(self, 'hybrid_worker'):
                 spec_count += 1
                 specialization_details.append('Hybrid Worker')
+                specialization_details_ar.append('عامل مختلط')
             
             # Base points for having specialization
             specialization_score = 10
@@ -154,16 +177,20 @@ class TalentUserProfile(models.Model):
             if spec_count > 1:
                 specialization_score += 5
                 specialization_details.append(f'Multi-specialization bonus: +5 points')
+                specialization_details_ar.append(f'مكافأة التخصصات المتعددة: +5 نقاط')
             
             score_breakdown['specialization'] = specialization_score
             score_breakdown['details']['specialization'] = f'Specializations: {", ".join(specialization_details)} (+{specialization_score} points)'
+            score_breakdown['details_ar']['specialization'] = f'التخصصات: {", ".join(specialization_details_ar)} (+{specialization_score} نقطة)'
         else:
             score_breakdown['specialization'] = 0
             score_breakdown['details']['specialization'] = 'No specialization: +0 points (add a specialization for +10 points)'
+            score_breakdown['details_ar']['specialization'] = 'لا يوجد تخصص: +0 نقطة (أضف تخصص لـ +10 نقاط)'
         
         # Social media presence - New scoring category
         social_media_score = 0
         social_details = []
+        social_details_ar = []
         
         if hasattr(self, 'social_media_links'):
             social_links = self.social_media_links
@@ -177,18 +204,23 @@ class TalentUserProfile(models.Model):
             if link_count >= 4:
                 social_media_score = 10
                 social_details.append('Strong social presence (4+ links): +10 points')
+                social_details_ar.append('وجود قوي على وسائل التواصل (4+ روابط): +10 نقاط')
             elif link_count >= 2:
                 social_media_score = 5
                 social_details.append('Good social presence (2-3 links): +5 points')
+                social_details_ar.append('وجود جيد على وسائل التواصل (2-3 روابط): +5 نقاط')
             elif link_count >= 1:
                 social_media_score = 2
                 social_details.append('Basic social presence (1 link): +2 points')
+                social_details_ar.append('وجود أساسي على وسائل التواصل (رابط واحد): +2 نقطة')
         
         score_breakdown['social_media'] = social_media_score
         if social_details:
             score_breakdown['details']['social_media'] = '; '.join(social_details)
+            score_breakdown['details_ar']['social_media'] = '; '.join(social_details_ar)
         else:
             score_breakdown['details']['social_media'] = 'No social media links: +0 points (add social links for up to +10 points)'
+            score_breakdown['details_ar']['social_media'] = 'لا توجد روابط وسائل التواصل: +0 نقطة (أضف روابط وسائل التواصل لـ +10 نقاط)'
         
         # Calculate total
         score_breakdown['total'] = (
@@ -204,18 +236,25 @@ class TalentUserProfile(models.Model):
         # Improved improvement tips
         if score_breakdown['total'] < 70:
             score_breakdown['improvement_tips'] = []
+            score_breakdown['improvement_tips_ar'] = []
             if self.account_type == 'free':
                 score_breakdown['improvement_tips'].append('Upgrade to Premium (+10) or Platinum (+20) for more points')
+                score_breakdown['improvement_tips_ar'].append('ترقية إلى بريميوم (+10) أو بلاتينيوم (+20) للمزيد من النقاط')
             if not self.is_verified:
                 score_breakdown['improvement_tips'].append('Verify your profile for +25 points')
+                score_breakdown['improvement_tips_ar'].append('وثق ملفك الشخصي لـ +25 نقطة')
             if completion_score < 15:
                 score_breakdown['improvement_tips'].append('Complete your profile details for up to +25 points')
+                score_breakdown['improvement_tips_ar'].append('أكمل تفاصيل ملفك الشخصي لـ +25 نقطة')
             if media_count < 4:
                 score_breakdown['improvement_tips'].append('Add more portfolio items for up to +20 points')
+                score_breakdown['improvement_tips_ar'].append('أضف المزيد من عناصر المحفظة لـ +20 نقطة')
             if not has_specialization:
                 score_breakdown['improvement_tips'].append('Add a specialization for +10 points')
+                score_breakdown['improvement_tips_ar'].append('أضف تخصص لـ +10 نقاط')
             if social_media_score < 5:
                 score_breakdown['improvement_tips'].append('Add social media links for up to +10 points')
+                score_breakdown['improvement_tips_ar'].append('أضف روابط وسائل التواصل لـ +10 نقاط')
         
         return score_breakdown
     
@@ -417,9 +456,11 @@ class BackGroundJobsProfile(models.Model):
             'profile_completion': 0,
             'item_diversity': 0,
             'item_quantity': 0,
-            'details': {}
+            'details': {},
+            'details_ar': {}
         }
         score_breakdown['details']['account_tier'] = 'All accounts paid: +25 points'
+        score_breakdown['details_ar']['account_tier'] = 'جميع الحسابات مدفوعة: +25 نقطة'
         # Profile completion: 15 points for filling basic fields (more comprehensive check)
         profile_complete = bool(
             self.country and 
@@ -431,8 +472,10 @@ class BackGroundJobsProfile(models.Model):
         if profile_complete:
             score_breakdown['profile_completion'] = 15
             score_breakdown['details']['profile_completion'] = 'Profile complete: +15 points'
+            score_breakdown['details_ar']['profile_completion'] = 'الملف الشخصي مكتمل: +15 نقطة'
         else:
             score_breakdown['details']['profile_completion'] = 'Profile incomplete: +0 points (complete your profile for +15 points)'
+            score_breakdown['details_ar']['profile_completion'] = 'الملف الشخصي غير مكتمل: +0 نقطة (أكمل ملفك الشخصي لـ +15 نقطة)'
         # Item diversity: 5 points per item type
         item_types = [
             Prop.objects.filter(BackGroundJobsProfile=self).exists(),
@@ -448,8 +491,10 @@ class BackGroundJobsProfile(models.Model):
         score_breakdown['item_diversity'] = item_type_count * 5
         if item_type_count > 0:
             score_breakdown['details']['item_diversity'] = f'{item_type_count} item types: +{item_type_count * 5} points'
+            score_breakdown['details_ar']['item_diversity'] = f'{item_type_count} أنواع عناصر: +{item_type_count * 5} نقطة'
         else:
             score_breakdown['details']['item_diversity'] = 'No item types: +0 points (add different item types for +5 points each)'
+            score_breakdown['details_ar']['item_diversity'] = 'لا توجد أنواع عناصر: +0 نقطة (أضف أنواع عناصر مختلفة لـ +5 نقاط لكل نوع)'
         # Item quantity: Up to 25 points based on total items
         total_items = sum([
             Prop.objects.filter(BackGroundJobsProfile=self).count(),
@@ -464,17 +509,22 @@ class BackGroundJobsProfile(models.Model):
         if total_items > 20:
             score_breakdown['item_quantity'] = 25
             score_breakdown['details']['item_quantity'] = 'Large collection (20+ items): +25 points'
+            score_breakdown['details_ar']['item_quantity'] = 'مجموعة كبيرة (20+ عنصر): +25 نقطة'
         elif total_items > 10:
             score_breakdown['item_quantity'] = 20
             score_breakdown['details']['item_quantity'] = 'Medium collection (10-20 items): +20 points'
+            score_breakdown['details_ar']['item_quantity'] = 'مجموعة متوسطة (10-20 عنصر): +20 نقطة'
         elif total_items > 5:
             score_breakdown['item_quantity'] = 15
             score_breakdown['details']['item_quantity'] = 'Small collection (5-10 items): +15 points'
+            score_breakdown['details_ar']['item_quantity'] = 'مجموعة صغيرة (5-10 عناصر): +15 نقطة'
         elif total_items > 0:
             score_breakdown['item_quantity'] = 10
             score_breakdown['details']['item_quantity'] = 'Starter collection (1-5 items): +10 points'
+            score_breakdown['details_ar']['item_quantity'] = 'مجموعة مبتدئة (1-5 عناصر): +10 نقاط'
         else:
             score_breakdown['details']['item_quantity'] = 'No items: +0 points (add items for up to +25 points)'
+            score_breakdown['details_ar']['item_quantity'] = 'لا توجد عناصر: +0 نقطة (أضف عناصر لـ +25 نقطة)'
         # Calculate total
         score_breakdown['total'] = (
             score_breakdown['account_tier'] +
@@ -825,7 +875,8 @@ class Band(models.Model):
             'media_content': 0,
             'member_count': 0,
             'band_details': 0,
-            'details': {}
+            'details': {},
+            'details_ar': {}
         }
         # Profile completion: Up to 30 points based on % of fields completed
         profile_fields = [
@@ -838,56 +889,73 @@ class Band(models.Model):
         if profile_percent == 100:
             score_breakdown['profile_completion'] = 30
             score_breakdown['details']['profile_completion'] = 'Complete band profile: +30 points'
+            score_breakdown['details_ar']['profile_completion'] = 'ملف الفرقة مكتمل: +30 نقطة'
         elif profile_percent >= 75:
             score_breakdown['profile_completion'] = 20
             score_breakdown['details']['profile_completion'] = 'Mostly complete band profile: +20 points'
+            score_breakdown['details_ar']['profile_completion'] = 'ملف الفرقة مكتمل معظمه: +20 نقطة'
         elif profile_percent >= 50:
             score_breakdown['profile_completion'] = 10
             score_breakdown['details']['profile_completion'] = 'Partially complete band profile: +10 points'
+            score_breakdown['details_ar']['profile_completion'] = 'ملف الفرقة مكتمل جزئياً: +10 نقاط'
         else:
             score_breakdown['details']['profile_completion'] = 'Minimal band profile: +0 points (complete your band profile for up to +30 points)'
+            score_breakdown['details_ar']['profile_completion'] = 'ملف الفرقة ضئيل: +0 نقطة (أكمل ملف فرقتك لـ +30 نقطة)'
         # Media content: Up to 30 points based on quantity
         media_count = self.media.count()
         if media_count >= 6:
             score_breakdown['media_content'] = 30
             score_breakdown['details']['media_content'] = 'Maximum media (6 items): +30 points'
+            score_breakdown['details_ar']['media_content'] = 'أقصى وسائط (6 عناصر): +30 نقطة'
         elif media_count >= 4:
             score_breakdown['media_content'] = 20
             score_breakdown['details']['media_content'] = 'Good media (4-5 items): +20 points'
+            score_breakdown['details_ar']['media_content'] = 'وسائط جيدة (4-5 عناصر): +20 نقطة'
         elif media_count >= 2:
             score_breakdown['media_content'] = 10
             score_breakdown['details']['media_content'] = 'Basic media (2-3 items): +10 points'
+            score_breakdown['details_ar']['media_content'] = 'وسائط أساسية (2-3 عناصر): +10 نقاط'
         elif media_count == 1:
             score_breakdown['media_content'] = 5
             score_breakdown['details']['media_content'] = 'Minimal media (1 item): +5 points'
+            score_breakdown['details_ar']['media_content'] = 'وسائط ضئيلة (عنصر واحد): +5 نقاط'
         else:
             score_breakdown['details']['media_content'] = 'No media: +0 points (add media for up to +30 points)'
+            score_breakdown['details_ar']['media_content'] = 'لا توجد وسائط: +0 نقطة (أضف وسائط لـ +30 نقطة)'
         # Member count: Up to 30 points based on number of members
         member_count = self.member_count
         if member_count >= 10:
             score_breakdown['member_count'] = 30
             score_breakdown['details']['member_count'] = 'Large band (10+ members): +30 points'
+            score_breakdown['details_ar']['member_count'] = 'فرقة كبيرة (10+ أعضاء): +30 نقطة'
         elif member_count >= 5:
             score_breakdown['member_count'] = 20
             score_breakdown['details']['member_count'] = 'Medium band (5-9 members): +20 points'
+            score_breakdown['details_ar']['member_count'] = 'فرقة متوسطة (5-9 أعضاء): +20 نقطة'
         elif member_count >= 3:
             score_breakdown['member_count'] = 10
             score_breakdown['details']['member_count'] = 'Small band (3-4 members): +10 points'
+            score_breakdown['details_ar']['member_count'] = 'فرقة صغيرة (3-4 أعضاء): +10 نقاط'
         elif member_count > 0:
             score_breakdown['member_count'] = 5
             score_breakdown['details']['member_count'] = 'Minimal band (1-2 members): +5 points'
+            score_breakdown['details_ar']['member_count'] = 'فرقة ضئيلة (1-2 عضو): +5 نقاط'
         else:
             score_breakdown['details']['member_count'] = 'No members: +0 points (add members for up to +30 points)'
+            score_breakdown['details_ar']['member_count'] = 'لا يوجد أعضاء: +0 نقطة (أضف أعضاء لـ +30 نقطة)'
         # Band details: Up to 10 points for member positions
         members_with_positions = BandMembership.objects.filter(band=self, position__isnull=False).exclude(position='').count()
         if members_with_positions == member_count and member_count > 0:
             score_breakdown['band_details'] = 10
             score_breakdown['details']['band_details'] = 'All members have positions: +10 points'
+            score_breakdown['details_ar']['band_details'] = 'جميع الأعضاء لديهم مناصب: +10 نقاط'
         elif members_with_positions > 0:
             score_breakdown['band_details'] = 5
             score_breakdown['details']['band_details'] = 'Some members have positions: +5 points'
+            score_breakdown['details_ar']['band_details'] = 'بعض الأعضاء لديهم مناصب: +5 نقاط'
         else:
             score_breakdown['details']['band_details'] = 'No member positions: +0 points (add positions for up to +10 points)'
+            score_breakdown['details_ar']['band_details'] = 'لا توجد مناصب للأعضاء: +0 نقطة (أضف مناصب لـ +10 نقاط)'
         # Calculate total
         score_breakdown['total'] = (
             score_breakdown['profile_completion'] +
@@ -899,14 +967,19 @@ class Band(models.Model):
         # Improvement tips
         if score_breakdown['total'] < 80:
             score_breakdown['improvement_tips'] = []
+            score_breakdown['improvement_tips_ar'] = []
             if profile_percent < 100:
                 score_breakdown['improvement_tips'].append('Complete your band profile for up to +30 points')
+                score_breakdown['improvement_tips_ar'].append('أكمل ملف فرقتك لـ +30 نقطة')
             if media_count < 6:
                 score_breakdown['improvement_tips'].append('Add more media for up to +30 points')
+                score_breakdown['improvement_tips_ar'].append('أضف المزيد من الوسائط لـ +30 نقطة')
             if member_count < 5:
                 score_breakdown['improvement_tips'].append('Add more members for up to +30 points')
+                score_breakdown['improvement_tips_ar'].append('أضف المزيد من الأعضاء لـ +30 نقطة')
             if members_with_positions < member_count:
                 score_breakdown['improvement_tips'].append('Add positions for all members for up to +10 points')
+                score_breakdown['improvement_tips_ar'].append('أضف مناصب لجميع الأعضاء لـ +10 نقاط')
         return score_breakdown
     
     @property

@@ -7,14 +7,21 @@ class SubscriptionPlanSerializer(serializers.ModelSerializer):
     features = serializers.SerializerMethodField()
     monthly_equivalent = serializers.SerializerMethodField()
     stripe_price_id = serializers.SerializerMethodField()
+    # Arabic translations
+    name_ar = serializers.SerializerMethodField()
+    description_ar = serializers.SerializerMethodField()
+    features_ar = serializers.SerializerMethodField()
 
     class Meta:
         model = SubscriptionPlan
         fields = [
             'id',
             'name',
+            'name_ar',
+            'description_ar',
             'price',
             'features',
+            'features_ar',
             'duration_months',
             'stripe_price_id',
             'monthly_equivalent',
@@ -42,6 +49,62 @@ class SubscriptionPlanSerializer(serializers.ModelSerializer):
             plan_key = 'BACKGROUND_JOBS'
         plan_config = SUBSCRIPTION_PLANS.get(plan_key)
         return plan_config['stripe_price_id'] if plan_config else None
+
+    def get_name_ar(self, obj):
+        """Return Arabic name for the plan"""
+        name_translations = {
+            'premium': 'بريميوم',
+            'platinum': 'بلاتينيوم',
+            'background_jobs': 'وظائف الخلفية المحترفة',
+            'bands': 'الفرق الموسيقية',
+        }
+        return name_translations.get(obj.name, obj.name)
+
+    def get_description_ar(self, obj):
+        """Return Arabic description for the plan"""
+        description_translations = {
+            'premium': 'خطة احترافية للمواهب الطموحة',
+            'platinum': 'خطة متقدمة مع مميزات حصرية',
+            'background_jobs': 'خطة مخصصة لمحترفي وظائف الخلفية',
+            'bands': 'خطة مخصصة للفرق الموسيقية والمسرحية',
+        }
+        return description_translations.get(obj.name, obj.description or '')
+
+    def get_features_ar(self, obj):
+        """Return Arabic features list"""
+        features_translations = {
+            'premium': [
+                'ملف احترافي مع عرض أعمالك',
+                'ظهور قوي في نتائج البحث',
+                'اتصال مباشر مع شركات الإنتاج',
+                'إمكانية رفع ملفات الوسائط',
+                'دعم مميز وطلبات حجز فورية'
+            ],
+            'platinum': [
+                'جميع مميزات البريميوم',
+                'أولوية قصوى في نتائج البحث',
+                'شارة تحقق مميزة',
+                'تحليلات متقدمة للملف الشخصي',
+                'دعم VIP على مدار الساعة',
+                'إمكانية إنشاء محفظة أعمال موسعة'
+            ],
+            'background_jobs': [
+                'ملف احترافي للوظائف الخلفية',
+                'ظهور في بحث الوظائف الخلفية',
+                'رفع السيرة الذاتية والشهادات',
+                'تنبيهات فورية للوظائف الجديدة',
+                'اتصال مباشر مع أصحاب العمل'
+            ],
+            'bands': [
+                'صفحة مخصصة للفرقة',
+                'إدارة الأعضاء وتنظيم الأدوار',
+                'جدول الفعاليات والحجوزات',
+                'عرض وسائط الفرقة (صور وفيديو)',
+                'أفضلية في طلبات الحجز من المنظمين',
+                'دعم مخصص لاحتياجات المجموعة'
+            ]
+        }
+        return features_translations.get(obj.name, [])
 
 class SubscriptionSerializer(serializers.ModelSerializer):
     plan_name = serializers.CharField(source='plan.name', read_only=True)
