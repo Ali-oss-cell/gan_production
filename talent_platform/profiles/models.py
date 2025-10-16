@@ -80,14 +80,14 @@ class TalentUserProfile(models.Model):
             score_breakdown['details']['account_tier'] = 'Free account: +5 points'
             score_breakdown['details_ar']['account_tier'] = 'حساب مجاني: +5 نقاط'
         
-        # Verification - Increased importance
-        if self.is_verified:
+        # Verification - Email verification only
+        if self.user.email_verified:
             score_breakdown['verification'] = 25
-            score_breakdown['details']['verification'] = 'Verified profile: +25 points'
-            score_breakdown['details_ar']['verification'] = 'ملف شخصي موثق: +25 نقطة'
+            score_breakdown['details']['verification'] = 'Email verified: +25 points'
+            score_breakdown['details_ar']['verification'] = 'البريد الإلكتروني موثق: +25 نقطة'
         else:
-            score_breakdown['details']['verification'] = 'Not verified: +0 points (get verified for +25 points)'
-            score_breakdown['details_ar']['verification'] = 'غير موثق: +0 نقطة (احصل على التوثيق لـ +25 نقطة)'
+            score_breakdown['details']['verification'] = 'Email not verified: +0 points (verify your email for +25 points)'
+            score_breakdown['details_ar']['verification'] = 'البريد الإلكتروني غير موثق: +0 نقطة (وثق بريدك الإلكتروني لـ +25 نقطة)'
         
         # Profile completion - More detailed scoring
         completion_score = 0
@@ -102,7 +102,7 @@ class TalentUserProfile(models.Model):
         if self.profile_picture:
             completion_score += 5
             completion_details.append('Profile picture: +5 points')
-            completion_details_ar.append('صورة الملف الشخصي: +5 نقاط')
+            completion_details_ar.append('صورةr الملف الشخصي: +5 نقاط')
         if self.country and self.country != 'country':
             completion_score += 3
             completion_details.append('Country specified: +3 points')
@@ -132,19 +132,19 @@ class TalentUserProfile(models.Model):
         if media_count >= 6:
             score_breakdown['media_content'] = 20
             score_breakdown['details']['media_content'] = 'Excellent portfolio (6+ items): +20 points'
-            score_breakdown['details_ar']['media_content'] = 'محفظة ممتازة (6+ عناصر): +20 نقطة'
+            score_breakdown['details_ar']['media_content'] = 'معرض اعمال ممتاز (6+ عناصر): +20 نقطة'
         elif media_count >= 4:
             score_breakdown['media_content'] = 15
             score_breakdown['details']['media_content'] = 'Strong portfolio (4-5 items): +15 points'
-            score_breakdown['details_ar']['media_content'] = 'محفظة قوية (4-5 عناصر): +15 نقطة'
+            score_breakdown['details_ar']['media_content'] = 'معرض اعمال قوي (4-5 عناصر): +15 نقطة'
         elif media_count >= 2:
             score_breakdown['media_content'] = 10
             score_breakdown['details']['media_content'] = 'Good portfolio (2-3 items): +10 points'
-            score_breakdown['details_ar']['media_content'] = 'محفظة جيدة (2-3 عناصر): +10 نقاط'
+            score_breakdown['details_ar']['media_content'] = 'معرض اعمال جيد (2-3 عناصر): +10 نقاط'
         elif media_count >= 1:
             score_breakdown['media_content'] = 5
             score_breakdown['details']['media_content'] = 'Basic portfolio (1 item): +5 points'
-            score_breakdown['details_ar']['media_content'] = 'محفظة أساسية (عنصر واحد): +5 نقاط'
+            score_breakdown['details_ar']['media_content'] = 'معرض اعمال أساسي (عنصر واحد): +5 نقاط'
         else:
             score_breakdown['media_content'] = 0
             score_breakdown['details']['media_content'] = 'No portfolio items: +0 points (add portfolio items for up to +20 points)'
@@ -240,9 +240,9 @@ class TalentUserProfile(models.Model):
             if self.account_type == 'free':
                 score_breakdown['improvement_tips'].append('Upgrade to Premium (+10) or Platinum (+20) for more points')
                 score_breakdown['improvement_tips_ar'].append('ترقية إلى بريميوم (+10) أو بلاتينيوم (+20) للمزيد من النقاط')
-            if not self.is_verified:
-                score_breakdown['improvement_tips'].append('Verify your profile for +25 points')
-                score_breakdown['improvement_tips_ar'].append('وثق ملفك الشخصي لـ +25 نقطة')
+            if not self.user.email_verified:
+                score_breakdown['improvement_tips'].append('Verify your email for +25 points')
+                score_breakdown['improvement_tips_ar'].append('وثق بريدك الإلكتروني لـ +25 نقطة')
             if completion_score < 15:
                 score_breakdown['improvement_tips'].append('Complete your profile details for up to +25 points')
                 score_breakdown['improvement_tips_ar'].append('أكمل تفاصيل ملفك الشخصي لـ +25 نقطة')

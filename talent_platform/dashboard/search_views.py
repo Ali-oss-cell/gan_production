@@ -192,12 +192,12 @@ class TalentUserProfileSearchView(SearchViewMixin, generics.ListAPIView):
             if 'account_type' in query_params:
                 score += 10 if profile.account_type == query_params['account_type'] else 0
             
-            # Score verified profiles higher
+            # Score email verified profiles higher
             if 'is_verified' in query_params:
                 req_verified = query_params['is_verified'].lower() in ('true', '1', 'yes')
-                score += 15 if profile.is_verified == req_verified else 0
-            elif profile.is_verified:
-                # Bonus for verified profiles even if not explicitly requested
+                score += 15 if profile.user.email_verified == req_verified else 0
+            elif profile.user.email_verified:
+                # Bonus for email verified profiles even if not explicitly requested
                 score += 5
             
             # Score profile completion
@@ -217,8 +217,8 @@ class TalentUserProfileSearchView(SearchViewMixin, generics.ListAPIView):
             account_boost = profile.get_search_boost()
             score = score * (1 + account_boost)
             
-            # Additional boost for verified profiles (paid only)
-            if profile.is_verified and profile.account_type != 'free':
+            # Additional boost for email verified profiles (paid only)
+            if profile.user.email_verified and profile.account_type != 'free':
                 score += 20
             
             # Platinum users get featured placement boost
@@ -579,8 +579,8 @@ class VisualWorkerSearchView(SearchViewMixin, generics.ListAPIView):
             elif media_count > 0:
                 score += 5
             
-            # Verification bonus
-            if worker.profile.is_verified:
+            # Email verification bonus
+            if worker.profile.user.email_verified:
                 score += 10
                 
             # Add premium account bonuses - prioritize paid accounts
@@ -951,8 +951,8 @@ class ExpressiveWorkerSearchView(SearchViewMixin, generics.ListAPIView):
             elif media_count > 0:
                 score += 5
             
-            # Verification bonus
-            if worker.profile.is_verified:
+            # Email verification bonus
+            if worker.profile.user.email_verified:
                 score += 10
                 
             # Add premium account bonuses - prioritize paid accounts
@@ -1330,8 +1330,8 @@ class HybridWorkerSearchView(SearchViewMixin, generics.ListAPIView):
             elif media_count > 0:
                 score += 5
             
-            # Verification bonus
-            if worker.profile.is_verified:
+            # Email verification bonus
+            if worker.profile.user.email_verified:
                 score += 10
                 
             # Add premium account bonuses - prioritize paid accounts
