@@ -58,7 +58,8 @@ class SubscriptionPlanViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         """
-        Filter plans based on user profile type and subscription rules
+        Filter plans based on user profile type. Users can see all available plans
+        regardless of their current subscription status.
         """
         queryset = SubscriptionPlan.objects.all()
         
@@ -68,21 +69,10 @@ class SubscriptionPlanViewSet(viewsets.ModelViewSet):
         
         # Check user type and filter plans accordingly
         if hasattr(self.request.user, 'is_talent') and self.request.user.is_talent:
-            # For talent users, show main plans (premium, platinum) and bands
+            # For talent users, show all talent-related plans
             queryset = queryset.filter(
                 name__in=['premium', 'platinum', 'bands']
             )
-            
-            # Check if user already has a main plan subscription
-            has_main_plan = Subscription.objects.filter(
-                user=self.request.user,
-                plan__name__in=['premium', 'platinum'],
-                is_active=True
-            ).exists()
-            
-            # If user has a main plan, only show bands plan
-            if has_main_plan:
-                queryset = queryset.filter(name='bands')
             
         elif hasattr(self.request.user, 'is_background') and self.request.user.is_background:
             # For background users, only show background jobs plan
