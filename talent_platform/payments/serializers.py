@@ -56,7 +56,7 @@ class SubscriptionPlanSerializer(serializers.ModelSerializer):
             'premium': 'بريميوم',
             'platinum': 'بلاتينيوم',
             'background_jobs': 'وظائف الخلفية المحترفة',
-            'bands': 'الفرق الموسيقية',
+            'bands': 'الفرق',
         }
         return name_translations.get(obj.name, obj.name)
 
@@ -156,7 +156,7 @@ class SubscriptionSerializer(serializers.ModelSerializer):
             'premium': 'بريميوم',
             'platinum': 'بلاتينيوم',
             'background_jobs': 'وظائف الخلفية المحترفة',
-            'bands': 'الفرق الموسيقية',
+            'bands': 'الفرق',
         }
         return name_translations.get(obj.plan.name, obj.plan.name)
     
